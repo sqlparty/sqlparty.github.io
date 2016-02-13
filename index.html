@@ -25,20 +25,15 @@ layout: default
     <h2><a href="{{ post.url }}">{{post.title}}</a></h2>
     <span class="date">{{ post.date | date:"%B %d, %Y" }}</span>
     {{ post.excerpt }}
-    <div class="view_comments_link">
-      <a href="{{ post.url }}#disqus_thread">View Comments</a> <br />
-    </div>
   </div>
   {% endfor %}
 
   <div id="related">
-    <div class="related_left">
       <h2>相关</h2>
       <ul class="posts small">
         {% for post in site.posts offset:5 limit:3 %}
         <li><span>{{ post.date | date_to_string }}</span> &raquo; <a href="{{ post.url }}">{{ post.title }}</a></li>
         {% endfor %}
       </ul>
-    </div>
   </div>
 </div>
