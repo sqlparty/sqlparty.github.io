@@ -1,0 +1,136 @@
+---
+layout: post
+status: publish
+published: true
+title: 使用OMSA解决Linux下"Package power limit notification"问题
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "某日发现某台Linux主机(Dell R720, Redhat 6.2)反应异常缓慢，实际基本没有运行什么应用程序，什么原因呢？\r\n\r\n查看下系统日志：\r\n<span
+  style=\"color: #0000ff;\">shell> vi /var/log/messages</span>\r\n<span
+  style=\"color: #0000ff;\">...</span>\r\n<span style=\"color: #0000ff;\">Sep
+  24 06:17:20 ch13 kernel: CPU6: Package power limit notification (total events =
+  368993)</span>\r\n<span style=\"color: #0000ff;\">Sep 24 06:17:20 ch13 kernel:
+  CPU3: Package power limit notification (total events = 370933)</span>\r\n<span
+  style=\"color: #0000ff;\">Sep 24 06:17:20 ch13 kernel: CPU9: Package power limit
+  notification (total events = 370893)</span>\r\n<span style=\"color: #0000ff;\">Sep
+  24 06:17:20 ch13 kernel: CPU10: Package power limit notification (total events =
+  370938)</span>\r\n<span style=\"color: #0000ff;\">Sep 24 06:17:20 ch13 kernel:
+  CPU6: Package power limit normal</span>\r\n<span style=\"color: #0000ff;\">Sep
+  24 06:17:20 ch13 kernel: CPU0: Package power limit normal</span>\r\n<span style=\"color:
+  #0000ff;\">Sep 24 06:17:20 ch13 kernel: CPU1: Package power limit normal</span>\r\n<span
+  style=\"color: #0000ff;\">Sep 24 06:17:20 ch13 kernel: CPU7: Package power limit
+  normal</span>\r\n<span style=\"color: #0000ff;\">Sep 24 06:17:20 ch13 kernel:
+  CPU8: Package power limit normal</span>\r\n<span style=\"color: #0000ff;\">Sep
+  24 06:17:20 ch13 kernel: CPU2: Package power limit normal</span>\r\n<span style=\"color:
+  #0000ff;\">Sep 24 06:17:20 ch13 kernel: CPU3: Package power limit normal</span>\r\n<span
+  style=\"color: #0000ff;\">...</span>\r\n<span style=\"color: #0000ff;\">Sep
+  24 06:17:20 ch13 kernel: CPU3: Core power limit normal</span>\r\n<span style=\"color:
+  #0000ff;\">Sep 24 06:17:20 ch13 kernel: CPU9: Core power limit normal</span>\r\n<span
+  style=\"color: #0000ff;\">Sep 24 06:17:20 ch13 kernel: CPU4: Core power limit normal</span>\r\n<span
+  style=\"color: #0000ff;\">Sep 24 06:17:20 ch13 kernel: CPU10: Core power limit normal</span>\r\n<span
+  style=\"color: #0000ff;\">Sep 24 06:17:20 ch13 kernel: CPU5: Package power limit
+  notification (total events = 371505)</span>\r\n<span style=\"color: #0000ff;\">Sep
+  24 06:17:20 ch13 kernel: CPU11: Package power limit notification (total events =
+  371497)</span>\r\n<span style=\"color: #0000ff;\">Sep 24 06:17:51 ch13 kernel:
+  [Hardware Error]: Machine check events logged</span>\r\n<span style=\"color:
+  #0000ff;\">Sep 24 06:17:51 ch13 mcelog: Processor 7 below trip temperature. Throttling
+  disabled</span>\r\n<span style=\"color: #0000ff;\">Sep 24 06:17:51 ch13 mcelog:
+  Processor 1 below trip temperature. Throttling disabled</span>\r\n<span style=\"color:
+  #0000ff;\">Sep 24 06:17:51 ch13 mcelog: Processor 2 below trip temperature. Throttling
+  disabled</span>\r\n<span style=\"color: #0000ff;\">Sep 24 06:17:51 ch13 mcelog:
+  Processor 8 below trip temperature. Throttling disabled</span>\r\n<span style=\"color:
+  #0000ff;\">Sep 24 06:17:51 ch13 mcelog: Processor 0 below trip temperature. Throttling
+  disabled</span>\r\n<span style=\"color: #0000ff;\">Sep 24 06:17:51 ch13 mcelog:
+  Processor 6 below trip temperature. Throttling disabled</span>\r\n<span style=\"color:
+  #0000ff;\">Sep 24 06:17:51 ch13 mcelog: Processor 3 below trip temperature. Throttling
+  disabled</span>\r\n<span style=\"color: #0000ff;\">Sep 24 06:17:51 ch13 mcelog:
+  Processor 9 below trip temperature. Throttling disabled</span>\r\n<span style=\"color:
+  #0000ff;\">Sep 24 06:17:51 ch13 mcelog: Processor 10 below trip temperature. Throttling
+  disabled</span>\r\n<span style=\"color: #0000ff;\">Sep 24 06:17:51 ch13 mcelog:
+  Processor 4 below trip temperature. Throttling disabled</span>\r\n<span style=\"color:
+  #0000ff;\">...</span>\r\n\r\n"
+wordpress_id: 712
+wordpress_url: http://www.sqlparty.com/?p=712
+date: '2013-09-24 20:13:27 +0800'
+date_gmt: '2013-09-24 12:13:27 +0800'
+categories:
+- 系统
+tags:
+- 问题集
+- OMSA
+---
+<p>某日发现某台Linux主机(Dell R720, Redhat 6.2)反应异常缓慢，实际基本没有运行什么应用程序，什么原因呢？</p>
+<p>查看下系统日志：<br />
+<span style="color: #0000ff;">shell> vi /var/log/messages</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU6: Package power limit notification (total events = 368993)</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU3: Package power limit notification (total events = 370933)</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU9: Package power limit notification (total events = 370893)</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU10: Package power limit notification (total events = 370938)</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU6: Package power limit normal</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU0: Package power limit normal</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU1: Package power limit normal</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU7: Package power limit normal</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU8: Package power limit normal</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU2: Package power limit normal</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU3: Package power limit normal</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU3: Core power limit normal</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU9: Core power limit normal</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU4: Core power limit normal</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU10: Core power limit normal</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU5: Package power limit notification (total events = 371505)</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:20 ch13 kernel: CPU11: Package power limit notification (total events = 371497)</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:51 ch13 kernel: [Hardware Error]: Machine check events logged</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:51 ch13 mcelog: Processor 7 below trip temperature. Throttling disabled</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:51 ch13 mcelog: Processor 1 below trip temperature. Throttling disabled</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:51 ch13 mcelog: Processor 2 below trip temperature. Throttling disabled</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:51 ch13 mcelog: Processor 8 below trip temperature. Throttling disabled</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:51 ch13 mcelog: Processor 0 below trip temperature. Throttling disabled</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:51 ch13 mcelog: Processor 6 below trip temperature. Throttling disabled</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:51 ch13 mcelog: Processor 3 below trip temperature. Throttling disabled</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:51 ch13 mcelog: Processor 9 below trip temperature. Throttling disabled</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:51 ch13 mcelog: Processor 10 below trip temperature. Throttling disabled</span><br />
+<span style="color: #0000ff;">Sep 24 06:17:51 ch13 mcelog: Processor 4 below trip temperature. Throttling disabled</span><br />
+<span style="color: #0000ff;">...</span></p>
+<p><!--more--></p>
+<p>查看下系统的大致状况：</p>
+<p><span style="color: #0000ff;">shell> vmstat 1 10</span><br />
+<span style="color: #0000ff;">procs -----------memory---------- ---swap-- -----io---- --system-- -----cpu-----</span><br />
+<span style="color: #0000ff;">&nbsp;r&nbsp; b&nbsp;&nbsp; swpd&nbsp;&nbsp; free&nbsp;&nbsp; buff&nbsp; cache&nbsp;&nbsp; si&nbsp;&nbsp; so&nbsp;&nbsp;&nbsp; bi&nbsp;&nbsp;&nbsp; bo&nbsp;&nbsp; in&nbsp;&nbsp; cs us sy id wa st</span><br />
+<span style="color: #0000ff;">&nbsp;0&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 12171416 251176 2000188&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp; 1&nbsp; 1&nbsp; 0 99&nbsp; 0&nbsp; 0</span><br />
+<span style="color: #0000ff;">&nbsp;0&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 12171400 251176 2000188&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0 15936&nbsp; 236&nbsp; 1&nbsp; 0 99&nbsp; 0&nbsp; 0</span><br />
+<span style="color: #0000ff;">&nbsp;0&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 12171408 251176 2000188&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 4 16208&nbsp; 259&nbsp; 0&nbsp; 0 100&nbsp; 0&nbsp; 0</span><br />
+<span style="color: #0000ff;">&nbsp;0&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 12171408 251176 2000188&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp; 12 15119&nbsp; 193&nbsp; 0&nbsp; 0 100&nbsp; 0&nbsp; 0</span><br />
+<span style="color: #0000ff;">&nbsp;0&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 12171408 251176 2000188&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0 16047&nbsp; 237&nbsp; 0&nbsp; 0 100&nbsp; 0&nbsp; 0</span><br />
+<span style="color: #0000ff;">&nbsp;0&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 12171408 251176 2000188&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0 14348&nbsp; 187&nbsp; 0&nbsp; 0 100&nbsp; 0&nbsp; 0</span><br />
+<span style="color: #0000ff;">&nbsp;0&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 12171408 251176 2000188&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0 14977&nbsp; 239&nbsp; 0&nbsp; 0 99&nbsp; 0&nbsp; 0</span><br />
+<span style="color: #0000ff;">&nbsp;1&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 12171400 251176 2000188&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0 16226&nbsp; 216&nbsp; 0&nbsp; 0 100&nbsp; 0&nbsp; 0</span><br />
+<span style="color: #0000ff;">&nbsp;0&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 12171268 251176 2000188&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0 8233&nbsp; 277&nbsp; 1&nbsp; 3 96&nbsp; 0&nbsp; 0</span><br />
+<span style="color: #0000ff;">&nbsp;0&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 12171392 251176 2000188&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0 16465&nbsp; 193&nbsp; 0&nbsp; 0 100&nbsp; 0&nbsp; 0</span></p>
+<p>发现上下文切换异常的大，查看中断信息，发现有部分信息异常的大，表明系统中断量极大：</p>
+<p><span style="color: #0000ff;"> shell> watch -n1 "cat /proc/interrupts"</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CPU0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CPU1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CPU2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CPU3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CPU4&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CPU5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CPU6&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CPU7&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CPU8&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CPU9&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CPU10&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CPU11</span><br />
+<span style="color: #0000ff;">&nbsp;TRM:&nbsp;&nbsp;&nbsp;&nbsp; 613877&nbsp;&nbsp;&nbsp;&nbsp; 596324&nbsp;&nbsp;&nbsp;&nbsp; 616331&nbsp;&nbsp;&nbsp;&nbsp; 613775&nbsp;&nbsp;&nbsp;&nbsp; 614013&nbsp;&nbsp;&nbsp;&nbsp; 614117&nbsp;&nbsp;&nbsp;&nbsp; 618081&nbsp;&nbsp;&nbsp;&nbsp; 617479&nbsp;&nbsp;&nbsp;&nbsp; 618912&nbsp;&nbsp;&nbsp;&nbsp; 616294&nbsp;&nbsp;&nbsp;&nbsp; 616631&nbsp;&nbsp;&nbsp;&nbsp; 616726&nbsp;&nbsp; Thermal event interrupts &nbsp;</span></p>
+<p>基于以上信息，可以大致推测在硬件层面有限制或者有故障，导致操作系统处理不过来，大量的上下文切换来应对。</p>
+<p>Google了一番也没有找到具体的方案，有网友有类似的问题，给出原因说是BIOS中设置了处理器的性能优化以及电源的限制，需要重新设置BIOS中相关内容，重启即可。决定尝试一下，但是遇到了一个新问题：主机托管在远程的IDC机房，没有相应的远程技术支持服务，咋整呢？</p>
+<p>Dell提供的完整的系统管理系统Dell OpenManage Server Administrator(OMSA)，提供了远程Web界面设置BIOS的功能。我们可以通过它来设置BIOS的相关项，然后远程重启即可。</p>
+<p>OMSA的安装"<a title="Linux下安装Dell OpenManage Server Administrator(OMSA)" href="http://www.sqlparty.com/linux%e4%b8%8b%e5%ae%89%e8%a3%85dell-openmanage-server-administratoromsa/" target="_blank">Linux下安装Dell OpenManage Server Administrator(OMSA)</a>"。</p>
+<p>推荐的BIOS设置方案见： <a href="http://i.dell.com/sites/content/shared-content/data-sheets/en/Documents/configuring-low-latency-environments-on-dell-poweredge-12g-servers.pdf" target="_blank">Configuring Low-Latency Environments on Dell PowerEdge 12th Generation Servers</a></p>
+<p>文章中的推荐方案如下：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/09/bios_setting.png"><img class="alignnone size-full wp-image-713" alt="bios_setting" src="http://www.sqlparty.com/wp-content/uploads/2013/09/bios_setting.png" width="691" height="622" /></a><br />
+这里我们更新System Profile Settings(系统配置文件设置)部分，参考最后一列的推荐设置。这里主要调整：</p>
+<ul>
+<li>C1E 已禁用</li>
+<li>C状态 已禁用</li>
+<li>监控器/MWait 已禁用</li><br />
+</ul><br />
+配置完成的结果如下，事实证明确实不再显示同类警告或错误信息，OK!</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/09/bios_mysetting.png"><img class="alignnone size-large wp-image-714" alt="bios_mysetting" src="http://www.sqlparty.com/wp-content/uploads/2013/09/bios_mysetting-483x1024.png" width="483" height="1024" /></a></p>
+<p>参考：<br />
+http://www.sulabs.net/?p=405</p>

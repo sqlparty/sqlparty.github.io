@@ -1,0 +1,193 @@
+---
+layout: post
+status: publish
+published: true
+title: Nagios监控Linux主机
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "有多种方法实现Nagios对Linux主机的监控\r\n<strong>法一、通过ssh，执行远程主机上的可执行插件。</strong>可用的有check_by_ssh插件。其缺点是可能导致发起监控的设备的高负载压力，因为建立和销毁SSH链接需要成本。\r\n\r\n这里介绍<strong>方法二，使用NRPE插件，来远程Linux/Unix主机上执行可执行插件</strong>。与方法一相比，开销较小。\r\nNRPE插件在需要查看远程Linux本地资源时非常有用，因为远程主机的本地资源通常在外部是看不到的，NRPE这样的代理程序需要安装到远程主机以便收集相关信息。\r\n结构如下图所示：\r\n\r\n<a
+  href=\"http://www.sqlparty.com/wp-content/uploads/2013/07/nrpe.png\"><img
+  class=\"alignnone size-medium wp-image-190\" alt=\"nrpe\" src=\"http://www.sqlparty.com/wp-content/uploads/2013/07/nrpe-300x80.png\"
+  width=\"300\" height=\"80\" /></a>\r\n\r\n"
+wordpress_id: 189
+wordpress_url: http://www.sqlparty.com/?p=189
+date: '2013-07-29 20:52:26 +0800'
+date_gmt: '2013-07-29 12:52:26 +0800'
+categories:
+- 系统
+tags:
+- 系统
+- Linux
+- Nagios
+---
+<p>有多种方法实现Nagios对Linux主机的监控<br />
+<strong>法一、通过ssh，执行远程主机上的可执行插件。</strong>可用的有check_by_ssh插件。其缺点是可能导致发起监控的设备的高负载压力，因为建立和销毁SSH链接需要成本。</p>
+<p>这里介绍<strong>方法二，使用NRPE插件，来远程Linux/Unix主机上执行可执行插件</strong>。与方法一相比，开销较小。<br />
+NRPE插件在需要查看远程Linux本地资源时非常有用，因为远程主机的本地资源通常在外部是看不到的，NRPE这样的代理程序需要安装到远程主机以便收集相关信息。<br />
+结构如下图所示：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/nrpe.png"><img class="alignnone size-medium wp-image-190" alt="nrpe" src="http://www.sqlparty.com/wp-content/uploads/2013/07/nrpe-300x80.png" width="300" height="80" /></a></p>
+<p><!--more--></p>
+<h2>一、基本原理</h2><br />
+NRPE插件包括两部分：<br />
+1.check_nrpe，位于监控端<br />
+2.NRPE服务，位于被监控端。</p>
+<p>所以，监控某项远程主机的服务，需要有如下步骤：</p>
+<ol>
+<li>Nagios运行check_nrpe，告知要检查什么项；</li>
+<li>check_nrpe通过SSL保护的联接与远程的NRPE服务进行交互；</li>
+<li>NRPE服务运行相应的插件来检查指定的项；</li>
+<li>NRPE服务将检查结果返回check_nrpe，最终告知Nagios。</li><br />
+</ol><br />
+注：NRPE服务正常运行要求Nagios 插件安装在Linux/Unix主机上。</p>
+<h2>二、操作</h2><br />
+<strong>下载</strong>：<br />
+http://nchc.dl.sourceforge.net/project/nagios/nrpe-2.x/nrpe-2.14/nrpe-2.14.tar.gz<br />
+http://nchc.dl.sourceforge.net/project/nagiosplug/nagiosplug/1.4.16/nagios-plugins-1.4.16.tar.gz</p>
+<p><strong>以M(Monitor Host)监控R(Remote)为例。M的ip为192.168.2.26，R的ip为192.168.2.18</strong>。</p>
+<p>在R上进行如下操作：<br />
+<strong>1.添加用户</strong><br />
+<span style="color: #0000ff;">shell>groupadd nagios</span><br />
+<span style="color: #0000ff;">shell>useradd -g nagios -d /usr/local/nagios -s /sbin/nologin nagios</span></p>
+<p><strong>2.安装plugin </strong><br />
+<span style="color: #0000ff;">shell>tar -xzvf nagios-plugins-1.4.16.tar.gz</span><br />
+<span style="color: #0000ff;">shell>cd nagios-plugins-1.4.16</span><br />
+<span style="color: #0000ff;">shell>./configure</span><br />
+<span style="color: #0000ff;">shell>make</span><br />
+<span style="color: #0000ff;">shell>make install</span><br />
+<span style="color: #0000ff;">shell>chown nagios.nagios /usr/local/nagios</span><br />
+<span style="color: #0000ff;">shell>chown -R nagios.nagios /usr/local/nagios/libexec</span></p>
+<p><strong>3.安装NRPE的后台服务</strong></p>
+<p><span style="color: #0000ff;">shell>tar -xzvf nrpe-2.14.tar.gz</span><br />
+<span style="color: #0000ff;"> shell>cd nrpe-2.14</span><br />
+<span style="color: #0000ff;"> shell>./configure --prefix=/usr/local/nagios --enable-ssl</span> #如果期望<strong>接收监控主机传给本地命令的参数</strong>，参考本篇文章最后的&ldquo;<strong>其他</strong>&rdquo;<br />
+<span style="color: #0000ff;">shell>make all</span><br />
+<span style="color: #0000ff;"> shell>make install-plugin</span> #用于测试<br />
+<span style="color: #0000ff;">shell>make install-daemon</span> #安装后台程序<br />
+<span style="color: #0000ff;">shell>make install-daemon-config</span> #后台程序的示例配置文件<br />
+<span style="color: #0000ff;">shell>make install-xinetd</span> #将此后台程序作为xinetd下的服务<br />
+<span style="color: #0000ff;">shell>vi /etc/xinetd.d/nrpe</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+<span style="color: #0000ff;"> only_form = 127.0.0.1 192.168.2.26</span> ##添加M主机的ip地址<br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;"> shell>vi /etc/services</span> #在最后加上如下内容<br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;"> nrpe&nbsp; 5666/tcp&nbsp;&nbsp; #NRPE</span><br />
+<span style="color: #0000ff;"> shell>service xinetd restart&nbsp;</span> #重启xinetd服务<br />
+<strong>4.测试NRPE后台程序</strong><br />
+<span style="color: #0000ff;">shell>netstat -at | grep nrpe</span><br />
+<span style="color: #0000ff;"> tcp&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 *:nrpe&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; *:*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; LISTEN&nbsp;</span> #出现这个，说明已经成功配置和启动<br />
+<span style="color: #0000ff;">shell>/usr/local/nagios/libexec/check_nrpe -H localhost&nbsp;</span> #进行本机的测试<br />
+<span style="color: #0000ff;">NRPE v2.14</span>&nbsp; #说明能够正常提供服务<br />
+另外，需要确保防火墙上开通端口5666的访问。<br />
+<strong> 5.NRPE命令定义</strong><br />
+通过修改/usr/local/nagios/etc/nrpe.cfg，我们可以定义NRPE能够支持的命令。<br />
+命令定义如：<br />
+<span style="color: #0000ff;">command[check_users]=/usr/local/nagios/libexec/check_users -w 5 -c 10</span><br />
+这样我们可以通过-c check_users来执行对应的程序。测试如下：<br />
+<span style="color: #0000ff;">shell>/usr/local/nagios/libexec/check_nrpe -H localhost -c check_users</span><br />
+<span style="color: #0000ff;"> USERS OK - 2 users currently logged in |users=2;5;10;0</span></p>
+<p>ps:<br />
+以上步骤可能需要在多台需要监控的Linux上反复操作，为简便起见，鉴于多台Linux版本、架构一致，直接拷贝二进制文件会更加迅速实现批量处理。<br />
+<span style="color: #0000ff;">shell>cp /etc/xinetd.d/nrpe /usr/local/nagios/etc</span> #这步将后台脚本并入二进制包<br />
+<span style="color: #0000ff;">shell>cd /usr/local/</span><br />
+<span style="color: #0000ff;">shell>tar -zcvf nagios_nrpe.tar.gz nagio</span>s&nbsp; #这步就将需要安装的NRPE程序和Plugin程序以及配置文件nrpe.cfg进行了打包，保存在nagios_nrpe.tar.gz</p>
+<p>在其他Linux主机部署时，只要将nagios_nrpe.tar.gz拷贝至该主机，执行下面命令即可。<br />
+<span style="color: #0000ff;">shell>groupadd nagios</span><br />
+<span style="color: #0000ff;"> shell>useradd -g nagios -d /usr/local/nagios -s /sbin/nologin nagios</span><br />
+<span style="color: #0000ff;"> shell>cd /usr/local</span><br />
+<span style="color: #0000ff;"> shell>tar -zxvf nagios_nrpe.tar.gz</span><br />
+<span style="color: #0000ff;"> shell>cd nagios</span><br />
+<span style="color: #0000ff;"> shell>mv etc/nrpe /etc/xinetd.d/</span><br />
+<span style="color: #0000ff;"> shell>vi /etc/services</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+<span style="color: #0000ff;"> nrpe&nbsp; 5666/tcp&nbsp;&nbsp; #NRPE</span><br />
+<span style="color: #0000ff;"> shell>service xinetd restart</span><br />
+确保防火墙上开通端口5666的访问</p>
+<p>这种直接拷贝的方式，可能出现共享库不一致的问题，例如在较高版本Linux上出现类似问题：</p>
+<p><em>/usr/local/nagios/libexec/check_nrpe: error while loading shared libraries: libssl.so.6: cannot open shared object file: No such file or directory</em><br />
+<em>/usr/local/nagios/libexec/check_nrpe: error while loading shared libraries: libcrypto.so.6: cannot open shared object file: No such file or directory</em></p>
+<p>一种简单的处理方式是创建软连接，映射到相应的当前使用中的共享库。如：</p>
+<p><span style="color: #0000ff;">shell> cd /usr/lib64/</span><br />
+<span style="color: #0000ff;">shell> ln -s libssl.so.1.0.0 libssl.so.6</span><br />
+<span style="color: #0000ff;">shell> ln -s libcrypto.so.1.0.0 libcrypto.so.6</span></p>
+<p>*******************************************************************************************************</p>
+<p>在M上进行如下操作：<br />
+<strong>1.安装NRPE的check_nrpe</strong><br />
+<span style="color: #0000ff;">shell>tar -xzvf nrpe-2.14.tar.gz</span><br />
+<span style="color: #0000ff;"> shell>cd nrpe-2.14</span><br />
+<span style="color: #0000ff;"> shell>./configure --prefix=/usr/local/nagios</span><br />
+<span style="color: #0000ff;"> shell>make all</span><br />
+<span style="color: #0000ff;"> shell>make install-plugin</span><br />
+<strong>2.测试与R的交互</strong><br />
+<span style="color: #0000ff;">shell>/usr/local/nagios/libexec/check_nrpe -H 192.168.2.18&nbsp; -c check_users</span><br />
+<span style="color: #0000ff;"> USERS OK - 2 users currently logged in |users=2;5;10;0</span></p>
+<p><strong>3.创建nagios命令，来调用check_nrpe</strong><br />
+<strong>shell>vi /usr/local/nagios/etc/commands.cfg</strong> #添加如下命令<br />
+<strong>define command{</strong><br />
+<strong> command_name&nbsp;&nbsp;&nbsp; check_nrpe</strong><br />
+<strong> command_line&nbsp;&nbsp;&nbsp; $USER1$/check_nrpe -H $HOSTADDRESS$ -c $ARG1$</strong><br />
+<strong> }</strong><br />
+<strong>4.这样，就可以像使用正常命令一样使用check_nrpe命令了。</strong></p>
+<p>一个例子如下：<br />
+1)定义主机R<br />
+define host{<br />
+use&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; linux-server<br />
+host_name&nbsp; R<br />
+alias&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; R<br />
+address&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 192.168.2.18<br />
+}<br />
+2)定义服务Current Users<br />
+define service{<br />
+use generic-service<br />
+host_name R<br />
+service_description Current Users<br />
+check_command check_nrpe!check_users<br />
+}</p>
+<p>Done。</p>
+<h2>其他</h2><br />
+以上方式配置下，如果在nrpe中定义命令如：<br />
+command[check_users]=/usr/local/nagios/libexec/check_users -w $ARG1$ -c $ARG2$<br />
+即接受监控主机传给来的参数。在监控主机上执行<br />
+/usr/local/nagios/libexec/check_nrpe -H 192.168.2.18 -c check_users -a 5 10<br />
+时，会报错：<br />
+<span style="color: #ff0000;">CHECK_NRPE: Received 0 bytes from daemon.&nbsp; Check the remote server logs for error messages.</span><br />
+这个特性是根据编译的参数决定的。</p>
+<p>如果要使远程主机的命令可以接收监控主机传给远程主机的命令的参数，则要在R的安装过程中有两处修改：<br />
+<strong>1）编译参数修改</strong><br />
+shell>./configure --prefix=/usr/local/nagios<span style="color: #0000ff;"> --enable-command-ar</span><span style="color: #0000ff;">gs</span>&nbsp; #enable-command-args是为了使可以接受远程命令参数。<br />
+<strong>2）配置文件修改</strong><br />
+<span style="color: #0000ff;">shell>vi /usr/local/nagios/etc/nrpe.cfg</span><br />
+<span style="color: #0000ff;"> dont_blame_nrpe=1</span><br />
+<strong>3）参数传递的时，使用-a指定。</strong><br />
+<span style="color: #0000ff;"> shell>/usr/local/nagios/libexec/check_nrpe -H 192.168.1.2 -c comm_name -a arg1 arg2</span></p>
+<p><strong>带参数形式，便于在监控端做调整。但是有一定的安全风险！但是，没办法，你要启用的，don't blame nrpe!</strong></p>
+<p><strong>一个典型的启用参数传递后安全风险的例子：</strong><br />
+远程主机的nrpe上有如下配置：<br />
+<span style="color: #0000ff;">command[check_disk]=/usr/local/nagios/libexec/chec_disk -p $ARG1$</span><br />
+监控主机上被恶意份子传递了这个参数<span style="color: #0000ff;">"/usr &amp;&amp; rm -rf /"</span>，传递到远程主机后，执行的命令变成了<br />
+/<span style="color: #0000ff;">usr/local/nagios/libexec/chec_disk -p /usr &amp;&amp; rm -rf /</span> 如果权限允许的话，可能会删除远程主机上所有的文件！<br />
+所以小心使用参数传递功能。</p>
+<p>如果出现问题如：<br />
+<span style="color: #ff0000;">NRPE: Unable to read output</span><br />
+则需要检查权限或者配置问题。</p>
+<h2>问题</h2><br />
+1.在某台Linux服务器上如上进行搭建时，总是报错&ldquo;CHECK_NRPE: Error - Could not complete SSL handshake.&rdquo;，在日志中找到如下内容：</p>
+<pre>Aug 10 09:11:40 CH146 xinetd[10479]: START: nrpe pid=19510 from=::ffff:192.168.11.142<br clear="none" />Aug 10 09:11:40 CH146 kernel: nrpe[19510]: segfault at 39bfcc16a0 ip 00000039bfca9354 sp 00007fff498645c0 error 7 in libcrypto.so.1.0.0[39bfc00000+173000]<br clear="none" />Aug 10 09:11:40 CH146 abrt[19512]: saved core dump of pid 19510 (/usr/local/nagios/bin/nrpe) to /var/spool/abrt/ccpp-2013-08-10-09:11:40-19510.new/coredump (925696 bytes)<br clear="none" />Aug 10 09:11:40 CH146 abrtd: Directory 'ccpp-2013-08-10-09:11:40-19510' creation detected<br clear="none" />Aug 10 09:11:40 CH146 xinetd[10479]: EXIT: nrpe signal=11 pid=19510 duration=0(sec)</pre><br />
+google一番，找到<a href="http://94j69.blog.51cto.com/542780/1127224" target="_blank">这篇文章</a>，似乎是这个Linux主机端的ssl有一些问题。</p>
+<p><span style="color: #0000ff;">shell> rpm -qa | grep openssl</span><br />
+<span style="color: #0000ff;">openssl-devel-1.0.0-20.el6.x86_64</span><br />
+<span style="color: #0000ff;">openssl-1.0.0-20.el6.x86_64</span><br />
+<span style="color: #0000ff;">openssl098e-0.9.8e-17.el6.x86_64</span><br />
+根据文章的介绍，移除openssl098e-0.9.8e-17.el6.x86_64即可，可能是多个ssl相关库错乱导致的问题。<br />
+实践之。<br />
+<span style="color: #0000ff;">shell>rpm -e openssl098e-0.9.8e-17.el6.x86_64</span><br />
+<span style="color: #0000ff;">shell>/usr/local/nagios/libexec/check_nrpe -H 192.168.2.146</span><br />
+<span style="color: #0000ff;">NRPE v2.14</span><br />
+这样就恢复正常了。</p>
+<p>参考：<br />
+<a href="http://www.thegeekstuff.com/2010/12/enable-nrpe-command-arguments/" target="_blank">http://www.thegeekstuff.com/2010/12/enable-nrpe-command-arguments/</a></p>

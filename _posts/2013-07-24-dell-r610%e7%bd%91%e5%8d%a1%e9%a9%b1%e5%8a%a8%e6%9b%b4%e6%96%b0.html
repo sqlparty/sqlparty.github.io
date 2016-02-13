@@ -1,0 +1,99 @@
+---
+layout: post
+status: publish
+published: true
+title: DELL R610网卡驱动更新
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "工作中遇到DELL R610服务器网络不稳定的问题，经常无法ssh远程登录，也无法访问其上的MySQL数据库，时断时续。\r\n安装的操作系统为Red
+  Hat Enterprise 5.5。\r\n\r\n咨询了DELL技术支持，告知解决方案如下：\r\n\r\n"
+wordpress_id: 30
+wordpress_url: http://www.sqlparty.com/?p=30
+date: '2013-07-24 23:39:53 +0800'
+date_gmt: '2013-07-24 15:39:53 +0800'
+categories:
+- 系统
+tags:
+- 系统
+- Linux
+- DELL
+---
+<p>工作中遇到DELL R610服务器网络不稳定的问题，经常无法ssh远程登录，也无法访问其上的MySQL数据库，时断时续。<br />
+安装的操作系统为Red Hat Enterprise 5.5。</p>
+<p>咨询了DELL技术支持，告知解决方案如下：</p>
+<p><!--more--></p>
+<p><strong>1.检查现有驱动和硬件</strong></p>
+<p>[shell]<br />
+shell>ethtool -i eth0<br />
+driver: bnx2<br />
+version: 2.0.2<br />
+firmware-version: 5.2.3 NCSI 2.0.11<br />
+bus-info: 0000:01:00.0<br />
+shell>lspci | grep Ethernet<br />
+01:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5709 Gigabit Ethernet (rev 20)<br />
+01:00.1 Ethernet controller: Broadcom Corporation NetXtreme II BCM5709 Gigabit Ethernet (rev 20)<br />
+02:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5709 Gigabit Ethernet (rev 20)<br />
+02:00.1 Ethernet controller: Broadcom Corporation NetXtreme II BCM5709 Gigabit Ethernet (rev 20)<br />
+[/shell]</p>
+<p>被告知2.0.2版本过低，需要升级。</p>
+<p><strong>2.下载新驱动</strong><br />
+下载网址：<br />
+http://www.broadcom.com/support/ethernet_nic/netxtremeii.php<br />
+选择如下驱动下载：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/r610.png"><img class="alignnone size-medium wp-image-33" alt="r610" src="http://www.sqlparty.com/wp-content/uploads/2013/07/r610-300x55.png" width="300" height="55" /></a></p>
+<p><strong>3.安装</strong><br />
+将下载的linux-7.4.27.zip包上传到/root/soft下。</p>
+<p>[shell]<br />
+shell>unzip linux-7.4.27.zip<br />
+Archive:&nbsp; linux-7.4.27.zip<br />
+creating: Server/Linux/Driver/<br />
+inflating: Server/Linux/Driver/INSTALL.TXT<br />
+inflating: Server/Linux/Driver/netxtreme2-7.4.27-1.src.rpm<br />
+inflating: Server/Linux/Driver/netxtreme2-7.4.27.tar.gz<br />
+inflating: Server/Linux/Driver/netxtreme2_sup-7.4.27-1.ISO.tar.gz<br />
+inflating: Server/Linux/Driver/README.bnx2.TXT<br />
+inflating: Server/Linux/Driver/README.bnx2fc.TXT<br />
+inflating: Server/Linux/Driver/README.bnx2i.TXT<br />
+inflating: Server/Linux/Driver/README.bnx2x.TXT<br />
+inflating: Server/Linux/Driver/RELEASE.bnx2.TXT<br />
+inflating: Server/Linux/Driver/RELEASE.bnx2fc.TXT<br />
+inflating: Server/Linux/Driver/RELEASE.bnx2i.TXT<br />
+inflating: Server/Linux/Driver/RELEASE.bnx2x.TXT<br />
+inflating: Server/Linux/Driver/RELEASE.fclibs.TXT<br />
+[/shell]</p>
+<p>查看下Server/Linux/Driver/INSTALL.TXT，了解正确的安装步骤。<br />
+netxtreme2-7.4.27-1.src.rpm和netxtreme2-7.4.27.tar.gz都是安装文件。这里选择前者进行安装。</p>
+<p>[shell]<br />
+shell>rpm -ivh Server/Linux/Driver/netxtreme2-7.4.27-1.src.rpm<br />
+1:netxtreme2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [100%]<br />
+shell>cd /usr/src/redhat/<br />
+shell>rpmbuild -bb SPECS/netxtreme2.spec&nbsp; #根据当前使用中的内核生成二进制驱动程序<br />
+...<br />
+shell>rpm -ivh RPMS/x86_64/netxtreme2-7.4.27-1.x86_64.rpm<br />
+Preparing...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [100%]<br />
+1:netxtreme2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [100%]<br />
+[/shell]</p>
+<blockquote><p>If this system is configured for boot from SAN or otherwise requires network drivers in the bootloader initialiazed RAM disk (initrd), please note that those drivers will not be replaced with the newly installed versions until the ram disk is updated. In order to complete installation please refer to your Broadcom documentation and your distribution's documentation for instructions on properly updating your ram disk.</blockquote><br />
+这样驱动就安装完成，在2.6.16及以上版本中，安装的位置为:<br />
+/lib/modules/<kernel_version>/updates/bnx2.ko<br />
+/lib/modules/<kernel_version>/updates/cnic.ko<br />
+/lib/modules/<kernel_version>/updates/bnx2x.ko<br />
+/lib/modules/<kernel_version>/updates/bnx2i.ko<br />
+我这里的<kernel_version>对应为2.6.18-194.el5。<br />
+先卸载原有模块，如果是远程操作，卸掉后就断开连接了，需进机房直接操作。</p>
+<p>[shell]<br />
+shell>rmmod bnx2<br />
+shell>modprobe bnx2&nbsp;&nbsp;&nbsp; #加载模块<br />
+shell>ethtool -i eth0<br />
+driver: bnx2<br />
+version: 2.2.3f<br />
+firmware-version: 7.2.14 bc 5.2.3 NCSI 2.0.11<br />
+bus-info: 0000:01:00.0<br />
+[/shell]</p>
+<p>这样，版本更新完毕。即使重启，也会使用新版本的驱动。</p>
+<p>Done!</p>

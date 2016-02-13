@@ -1,0 +1,138 @@
+---
+layout: post
+status: publish
+published: true
+title: 如何插入遗失的数据将表补充完整？
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "我有一个相对比较复杂的表mytable，如下所示：\r\n\r\n[sql]\r\nSnos   Column1 Column2 Column3
+  Column4 Column5 Column6\r\n1      AD       AD1     C1      2011    P1     6435200\r\n2
+  \     AD       AD1     C1      2010    P1     234\r\n3      AD       AD1     C1
+  \     2009    P1     6435\r\n4      BD       AD2     C2      2010    P2     198448333\r\n5
+  \     CD       AD3     C3      2011    P3     194414870\r\n[/sql]\r\n\r\n我想执行一个查询，这个查询会补充Column4和Column5的数据。这里可以看出来，Column4其实是年份，而Column5是季度。对于缺失的信息，如2009，P2，重复Column1-3的内容，Column6补充0。\r\n即对于上述表，我想查询得出如下的结果集：\r\n\r\n[sql]\r\nSnos
+  \  Column1 Column2 Column3 Column4 Column5 Column6\r\n1      AD       AD1     C1
+  \     2011    P1     6435200\r\n2      AD       AD1     C1      2010    P1     234\r\n3
+  \     AD       AD1     C1      2009    P1     6435\r\n4      AD       AD1     C1
+  \     2011    P2     0\r\n5      AD       AD1     C1      2010    P2     0\r\n6
+  \     AD       AD1     C1      2009    P2     0\r\n7      AD       AD1     C1      2011
+  \   P3     0\r\n8      AD       AD1     C1      2010    P3     0\r\n9      AD       AD1
+  \    C1      2009    P3     0\r\n10     BD       AD2     C2      2010    P2     198448333\r\n11
+  \    BD       AD2     C2      2009    P2     0\r\n12     BD       AD2     C2      2011
+  \   P2     0\r\n13     BD       AD2     C2      2010    P1     0\r\n14     BD       AD2
+  \    C2      2009    P1     0\r\n15     BD       AD2     C2      2011    P1     0\r\n16
+  \    BD       AD2     C2      2010    P3     0\r\n17     BD       AD2     C2      2009
+  \   P3     0\r\n18     BD       AD2     C2      2011    P3     0\r\n19     CD       AD3
+  \    C3      2011    P3     194414870\r\n20     CD       AD3     C3      2009    P3
+  \    0\r\n21     CD       AD3     C3      2010    P3     0\r\n22     CD       AD3
+  \    C3      2011    P1     0\r\n23     CD       AD3     C3      2009    P1     0\r\n24
+  \    CD       AD3     C3      2010    P1     0\r\n25     CD       AD3     C3      2011
+  \   P2     0\r\n26     CD       AD3     C3      2009    P2     0\r\n27     CD       AD3
+  \    C3      2010    P2     0\r\n[/sql]\r\n\r\n我尝试使用临时表辅助查询操作：\r\n\r\n[sql]\r\n
+  \   CREATE TEMPORARY TABLE tmptable_1 SELECT * FROM table WHERE *Some Condition*;\r\n
+  \   Some If Else\r\n    Then\r\n    UPDATE tmptable_1 SET Column6 = 0;\r\n    INSERT
+  INTO table SELECT * FROM tmptable_1;\r\n    DROP TEMPORARY TABLE IF EXISTS tmptable_1;\r\n[/sql]\r\n\r\n但是不能获取所需的结果，这样的SQL应该怎么写呢？\r\n\r\n本题来源<a
+  title=\"Inserting Duplicate rows by updating its value in MYSQl\" href=\"http://stackoverflow.com/questions/18184841/inserting-duplicate-rows-by-updating-its-value-in-mysql/http://\"
+  target=\"_blank\">StackOverFlow</a>\r\n\r\n"
+wordpress_id: 411
+wordpress_url: http://www.sqlparty.com/?p=411
+date: '2013-08-12 22:07:22 +0800'
+date_gmt: '2013-08-12 14:07:22 +0800'
+categories:
+- 题炼
+tags:
+- case-when
+- left-join
+- 笛卡尔积
+- inner-join
+---
+<p>我有一个相对比较复杂的表mytable，如下所示：</p>
+<p>[sql]<br />
+Snos   Column1 Column2 Column3 Column4 Column5 Column6<br />
+1      AD       AD1     C1      2011    P1     6435200<br />
+2      AD       AD1     C1      2010    P1     234<br />
+3      AD       AD1     C1      2009    P1     6435<br />
+4      BD       AD2     C2      2010    P2     198448333<br />
+5      CD       AD3     C3      2011    P3     194414870<br />
+[/sql]</p>
+<p>我想执行一个查询，这个查询会补充Column4和Column5的数据。这里可以看出来，Column4其实是年份，而Column5是季度。对于缺失的信息，如2009，P2，重复Column1-3的内容，Column6补充0。<br />
+即对于上述表，我想查询得出如下的结果集：</p>
+<p>[sql]<br />
+Snos   Column1 Column2 Column3 Column4 Column5 Column6<br />
+1      AD       AD1     C1      2011    P1     6435200<br />
+2      AD       AD1     C1      2010    P1     234<br />
+3      AD       AD1     C1      2009    P1     6435<br />
+4      AD       AD1     C1      2011    P2     0<br />
+5      AD       AD1     C1      2010    P2     0<br />
+6      AD       AD1     C1      2009    P2     0<br />
+7      AD       AD1     C1      2011    P3     0<br />
+8      AD       AD1     C1      2010    P3     0<br />
+9      AD       AD1     C1      2009    P3     0<br />
+10     BD       AD2     C2      2010    P2     198448333<br />
+11     BD       AD2     C2      2009    P2     0<br />
+12     BD       AD2     C2      2011    P2     0<br />
+13     BD       AD2     C2      2010    P1     0<br />
+14     BD       AD2     C2      2009    P1     0<br />
+15     BD       AD2     C2      2011    P1     0<br />
+16     BD       AD2     C2      2010    P3     0<br />
+17     BD       AD2     C2      2009    P3     0<br />
+18     BD       AD2     C2      2011    P3     0<br />
+19     CD       AD3     C3      2011    P3     194414870<br />
+20     CD       AD3     C3      2009    P3     0<br />
+21     CD       AD3     C3      2010    P3     0<br />
+22     CD       AD3     C3      2011    P1     0<br />
+23     CD       AD3     C3      2009    P1     0<br />
+24     CD       AD3     C3      2010    P1     0<br />
+25     CD       AD3     C3      2011    P2     0<br />
+26     CD       AD3     C3      2009    P2     0<br />
+27     CD       AD3     C3      2010    P2     0<br />
+[/sql]</p>
+<p>我尝试使用临时表辅助查询操作：</p>
+<p>[sql]<br />
+    CREATE TEMPORARY TABLE tmptable_1 SELECT * FROM table WHERE *Some Condition*;<br />
+    Some If Else<br />
+    Then<br />
+    UPDATE tmptable_1 SET Column6 = 0;<br />
+    INSERT INTO table SELECT * FROM tmptable_1;<br />
+    DROP TEMPORARY TABLE IF EXISTS tmptable_1;<br />
+[/sql]</p>
+<p>但是不能获取所需的结果，这样的SQL应该怎么写呢？</p>
+<p>本题来源<a title="Inserting Duplicate rows by updating its value in MYSQl" href="http://stackoverflow.com/questions/18184841/inserting-duplicate-rows-by-updating-its-value-in-mysql/http://" target="_blank">StackOverFlow</a></p>
+<p><!--more--></p>
+<div class="dailyanswer">此题要求补齐完整的结果集，那么首先需要想办法生成完整的结果集，然后根据以往经验，使用左关联即可，这样能够保证结果集的完整，又可以根据左表与右表的关联，来设置缺失的值。接下来的问题是：如何生成完整的结果集？使用过关联的读者都知道笛卡尔积，它会将表关联的所有可能性生成，即A表M条数据，B表N条数据，A表与B表笛卡尔积就会生成M*N条数据，从而包括所有记录组合情况。这正符合这里的场景！<br />
+<span style="color: #0000ff;">注：笛卡尔积正常情况下很少被使用，通常关联表都是会有筛选条件，而笛卡尔积就是没有筛选条件的表关联操作！在大表上需要避免这类操作，因为中间结果或者最终结果量可能巨大！</span>此题要求的完整结果集，应该是(Column1,Column2,Column3的所有可能性)*(Column4的所有可能性)*(Column5的所有可能性)。而补充的数据Column6填充0，利用Left Outer Join+Case When即可解决。<br />
+一种具体写法如下：[sql]<br />
+SELECT C.c1,<br />
+       C.c2,<br />
+       C.c3,<br />
+       A.c4,<br />
+       D.c5,<br />
+       CASE WHEN B.c6 is null THEN 0<br />
+            ELSE B.c6<br />
+       END AS c6<br />
+FROM (SELECT '2011' as c4<br />
+      UNION ALL<br />
+      SELECT '2010' as c4<br />
+      UNION ALL<br />
+      SELECT '2009' as c4<br />
+      ) A<br />
+INNER JOIN<br />
+      (SELECT DISTINCT c5 FROM mytable) D<br />
+INNER JOIN<br />
+	  (<br />
+	  	SELECT DISTINCT c1,c2,c3<br />
+	  	FROM mytable<br />
+	  ) C<br />
+LEFT OUTER JOIN mytable B<br />
+  ON  A.c4 = B.c4<br />
+ AND  D.c5 = B.c5<br />
+ AND  C.c1 = B.c1<br />
+ AND  C.c2 = B.c2<br />
+ AND  C.c3 = B.c3<br />
+;<br />
+[/sql]</p>
+<p></div></p>

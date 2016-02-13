@@ -1,0 +1,118 @@
+---
+layout: post
+status: publish
+published: true
+title: Cacti中安装Percona监控插件
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Percona提供了一套监控模板，可以监控MySQL,Apache,MongoDB,Linux等。本文记录在Cacti中安装Percona模板进行监控的步骤，以MySQL监控模板为例。\r\n<h2>1.下载</h2>\r\n<a
+  href=\"http://www.percona.com/downloads/percona-monitoring-plugins/\"
+  target=\"_blank\">http://www.percona.com/downloads/percona-monitoring-plugins/</a>\r\n这里下载percona-monitoring-plugins-1.0.2.tar.gz。\r\n<h2>2.提取所需文件</h2>\r\n从percona-monitoring-plugins-1.0.2.tar.gz提取本插件安装所需内容。就MySQL监控而言，涉及到：\r\n<strong>1）percona-monitoring-plugins-1.0.2\\cacti\\scripts\\ss_get_mysql_stats.php</strong>\r\n用于获取监控数据\r\n<strong>2）percona-monitoring-plugins-1.0.2\\cacti\\templates\\cacti_host_template_percona_mysql_server_ht_0.8.6i-sver1.0.2.xml</strong>\r\n监控模板。\r\n\r\n"
+wordpress_id: 296
+wordpress_url: http://www.sqlparty.com/?p=296
+date: '2013-08-04 16:51:18 +0800'
+date_gmt: '2013-08-04 08:51:18 +0800'
+categories:
+- 系统
+tags:
+- MySQL
+- 监控
+- Cacti
+---
+<p>Percona提供了一套监控模板，可以监控MySQL,Apache,MongoDB,Linux等。本文记录在Cacti中安装Percona模板进行监控的步骤，以MySQL监控模板为例。</p>
+<h2>1.下载</h2><br />
+<a href="http://www.percona.com/downloads/percona-monitoring-plugins/" target="_blank">http://www.percona.com/downloads/percona-monitoring-plugins/</a><br />
+这里下载percona-monitoring-plugins-1.0.2.tar.gz。</p>
+<h2>2.提取所需文件</h2><br />
+从percona-monitoring-plugins-1.0.2.tar.gz提取本插件安装所需内容。就MySQL监控而言，涉及到：<br />
+<strong>1）percona-monitoring-plugins-1.0.2\cacti\scripts\ss_get_mysql_stats.php</strong><br />
+用于获取监控数据<br />
+<strong>2）percona-monitoring-plugins-1.0.2\cacti\templates\cacti_host_template_percona_mysql_server_ht_0.8.6i-sver1.0.2.xml</strong><br />
+监控模板。</p>
+<p><!--more--></p>
+<h2>3.Cacti服务端操作</h2><br />
+将percona-monitoring-plugins-1.0.2\cacti\scripts\ss_get_mysql_stats.php拷贝到Cacti服务器的/var/www/html/cacti/scripts下</p>
+<h2>4.模板导入</h2><br />
+通过Cacti的Web界面，console->Import/Export->Import Templates，导入1.0.2\cacti\templates\cacti_host_template_percona_mysql_server_ht_0.8.6i-sver1.0.2.xml文件<br />
+出现如下图示即可认为成功：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/cacti_percona.png"><img class="alignnone size-medium wp-image-297" alt="cacti_percona" src="http://www.sqlparty.com/wp-content/uploads/2013/08/cacti_percona-300x281.png" width="300" height="281" /></a></p>
+<h2>5.MySQL配置</h2><br />
+有两种方式设置连接数据库的配置</p>
+<p>1）直接修改<span style="color: #0000ff;">ss_get_mysql_stats.php</span>文件，修改其中<br />
+<span style="color: #0000ff;">$mysql_user = &rsquo;cactiuser&rsquo;;</span><br />
+<span style="color: #0000ff;"> $mysql_pass = &rsquo;cactiuser&rsquo;;</span><br />
+<span style="color: #0000ff;"> $mysql_port = 3306;</span><br />
+这种方法修改了源文件，如果版本更新的话可能会被覆盖，不推荐。</p>
+<p>2）在ss_get_mysql_stats.php所在目录下创建<span style="color: #0000ff;">ss_get_mysql_stats.php.cnf</span>文件，内容如：<br />
+<!--?php <br ?--> <span style="color: #0000ff;"><?php</span></p>
+<p><span style="color: #0000ff;">$mysql_user = "root";</span><br />
+<span style="color: #0000ff;"> $mysql_pass = "s3cret";</span><br />
+<span style="color: #0000ff;"> $mysql_port = 3306;</span><br />
+该文件安装PHP的标准写法，<?php，没有?>部分。该文件会被ss_get_mysql_stats.php中判断和引用。</p>
+<p>注：以上做法，是设置的默认配置。在Web端进行单独配置会覆盖上述配置。</p>
+<p>但是，由于监控项较多，在Web端针对不同实例，不同端口，不同连接用户进行分别配置，工作量较大，尝试在ss_get_mysql_stats.php.cnf中根据hostname的不同自动填充host,user,pass,port:<br />
+--host <hostname> --user <username> --pass
+<password> --port
+<port>
+<p><strong>注意：由于这里hostname不使用IP地址，而是使用一个唯一的编码如CHS18-MYSQL-DEV，通过下面的编码转换为指定的host,user,pass,port信息。这时，Downed Device Detection部分选择&ldquo;None&rdquo;即可。</strong></p>
+<p>ss_get_mysql_stats.php.cnf脚本如下：<br />
+<!--?php $mysql_insts = array (   "CHS18-MYSQL-DEV"=--></p>
+<p><span style="color: #0000ff;"><?php</span><br />
+<span style="color: #0000ff;"> $mysql_insts = array</span><br />
+<span style="color: #0000ff;"> (</span><br />
+<span style="color: #0000ff;"> "CHS18-MYSQL-DEV"=>array</span><br />
+<span style="color: #0000ff;"> (</span><br />
+<span style="color: #0000ff;"> "host"=>"192.168.2.18",</span><br />
+<span style="color: #0000ff;"> "user"=>"user2",</span><br />
+<span style="color: #0000ff;"> "pass"=>"pass2",</span><br />
+<span style="color: #0000ff;"> "port"=>"3306"</span><br />
+<span style="color: #0000ff;"> ),</span><br />
+<span style="color: #0000ff;"> "ARS18-MYSQL-PRD"=>array</span><br />
+<span style="color: #0000ff;"> (</span><br />
+<span style="color: #0000ff;"> "host"=>"192.168.1.18",</span><br />
+<span style="color: #0000ff;"> "user"=>"user1",</span><br />
+<span style="color: #0000ff;"> "pass"=>"pass1",</span><br />
+<span style="color: #0000ff;"> "port"=>"3312"</span><br />
+<span style="color: #0000ff;"> )</span><br />
+<span style="color: #0000ff;"> );</span></p>
+<p><span style="color: #0000ff;">$args=$_SERVER["argv"];</span><br />
+<span style="color: #0000ff;"> $total=count($args);</span></p>
+<p><span style="color: #0000ff;">$new_args=array();</span><br />
+<span style="color: #0000ff;"> $inst='';</span><br />
+<span style="color: #0000ff;"> $change_flg=false;</span><br />
+<span style="color: #0000ff;"> for($i=0; $i<$total; $i++)</span><br />
+<span style="color: #0000ff;"> {</span><br />
+<span style="color: #0000ff;"> if($args[$i]=='--host')</span><br />
+<span style="color: #0000ff;"> {</span><br />
+<span style="color: #0000ff;"> if(!isset($mysql_insts[$args[$i+1]]))</span><br />
+<span style="color: #0000ff;"> die("Unknow mysql host name");</span><br />
+<span style="color: #0000ff;"> $change_flg=true;</span><br />
+<span style="color: #0000ff;"> $inst=$mysql_insts[$args[$i+1]];</span><br />
+<span style="color: #0000ff;"> $host=$inst["host"];</span><br />
+<span style="color: #0000ff;"> $new_args[]=$args[$i];</span><br />
+<span style="color: #0000ff;"> $new_args[]=$host;</span><br />
+<span style="color: #0000ff;"> $i++;</span><br />
+<span style="color: #0000ff;"> }</span><br />
+<span style="color: #0000ff;"> elseif($args[$i]=='--user'||$args[$i]=='--pass'||$args[$i]=='--port')</span><br />
+<span style="color: #0000ff;"> {</span><br />
+<span style="color: #0000ff;"> $new_args[]=$args[$i];</span><br />
+<span style="color: #0000ff;"> if(($i+1)==$total||strpos($args[$i+1],'--')===0)</span><br />
+<span style="color: #0000ff;"> {</span><br />
+<span style="color: #0000ff;"> $val=$inst[substr($args[$i], 2)];</span><br />
+<span style="color: #0000ff;"> $new_args[]=$val;</span><br />
+<span style="color: #0000ff;"> }</span><br />
+<span style="color: #0000ff;"> }</span><br />
+<span style="color: #0000ff;"> else</span><br />
+<span style="color: #0000ff;"> {</span><br />
+<span style="color: #0000ff;"> $new_args[]=$args[$i];</span><br />
+<span style="color: #0000ff;"> }</span><br />
+<span style="color: #0000ff;"> }</span></p>
+<p><span style="color: #0000ff;">if($change_flg)</span><br />
+<span style="color: #0000ff;"> {</span><br />
+<span style="color: #0000ff;"> $_SERVER["argv"]=$new_args;</span><br />
+<span style="color: #0000ff;"> }</span></p>

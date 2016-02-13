@@ -1,0 +1,110 @@
+---
+layout: post
+status: publish
+published: true
+title: 表结构变了，视图结构却没有更新
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "我最近在我的核心业务表上添加了一列，这个表作为一张统计视图的基表。加完这一列后，我在视图上运行新版本的统计应用，却发现新加的列没有出现在我的结果集中。\r\n\r\n我的表和视图如下：\r\n\r\n[sql]\r\ncreate
+  table Customer\r\n(\r\n  customer_id int not null primary key,\r\n  firstname varchar(40)
+  not null,\r\n  lastname varchar(40) not null,\r\n  birthdate datetime null\r\n);\r\n\r\ninsert
+  into Customer (customer_id,firstname, lastname, birthdate)\r\n\tvalues(1,'George',
+  'Washington', '1950-07-01')\r\n;\r\n\r\ninsert into Customer (customer_id,firstname,
+  lastname, birthdate)\r\n\tvalues(2,'James', 'Madison', '1948-11-09')\r\n;\r\n\r\ninsert
+  into Customer (customer_id,firstname, lastname, birthdate)\r\n\tvalues(3,'Alexander',
+  'Hamilton', '1970-03-02')\r\n;\r\n\r\ncreate view v_Customer\r\nas\r\nselect * from
+  Customer\r\n;\r\n\r\n/*变更前统计视图的数据*/\r\nselect *\r\nfrom v_customer\r\n;\r\n+-------------+-----------+------------+---------------------+\r\n|
+  customer_id | firstname | lastname   | birthdate           |\r\n+-------------+-----------+------------+---------------------+\r\n|
+  \          1 | George    | Washington | 1950-07-01 00:00:00 |\r\n|           2 |
+  James     | Madison    | 1948-11-09 00:00:00 |\r\n|           3 | Alexander | Hamilton
+  \  | 1970-03-02 00:00:00 |\r\n+-------------+-----------+------------+---------------------+\r\n\r\n/*更新基表结构*/\r\nalter
+  table Customer\r\n   add last_order_date datetime;\r\n\r\n/*变更后统计视图的数据*/\r\nselect
+  *\r\nfrom v_customer\r\n;\r\n+-------------+-----------+------------+---------------------+\r\n|
+  customer_id | firstname | lastname   | birthdate           |\r\n+-------------+-----------+------------+---------------------+\r\n|
+  \          1 | George    | Washington | 1950-07-01 00:00:00 |\r\n|           2 |
+  James     | Madison    | 1948-11-09 00:00:00 |\r\n|           3 | Alexander | Hamilton
+  \  | 1970-03-02 00:00:00 |\r\n+-------------+-----------+------------+---------------------+\r\n[/sql]\r\n\r\n我使用select
+  *创建视图，为什么基表结构变了，视图不跟着变呢？\r\n\r\n本题来源<a title=\"Table changes not automatically reflected
+  in a SQL Server View\" href=\"http://www.mssqltips.com/sqlservertip/1427/table-changes-not-automatically-reflected-in-a-sql-server-view/\"
+  target=\"_blank\">mssqltips</a>\r\n\r\n"
+wordpress_id: 361
+wordpress_url: http://www.sqlparty.com/?p=361
+date: '2013-08-08 21:19:31 +0800'
+date_gmt: '2013-08-08 13:19:31 +0800'
+categories:
+- 题炼
+tags:
+- view
+---
+<p>我最近在我的核心业务表上添加了一列，这个表作为一张统计视图的基表。加完这一列后，我在视图上运行新版本的统计应用，却发现新加的列没有出现在我的结果集中。</p>
+<p>我的表和视图如下：</p>
+<p>[sql]<br />
+create table Customer<br />
+(<br />
+  customer_id int not null primary key,<br />
+  firstname varchar(40) not null,<br />
+  lastname varchar(40) not null,<br />
+  birthdate datetime null<br />
+);</p>
+<p>insert into Customer (customer_id,firstname, lastname, birthdate)<br />
+	values(1,'George', 'Washington', '1950-07-01')<br />
+;</p>
+<p>insert into Customer (customer_id,firstname, lastname, birthdate)<br />
+	values(2,'James', 'Madison', '1948-11-09')<br />
+;</p>
+<p>insert into Customer (customer_id,firstname, lastname, birthdate)<br />
+	values(3,'Alexander', 'Hamilton', '1970-03-02')<br />
+;</p>
+<p>create view v_Customer<br />
+as<br />
+select * from Customer<br />
+;</p>
+<p>/*变更前统计视图的数据*/<br />
+select *<br />
+from v_customer<br />
+;<br />
++-------------+-----------+------------+---------------------+<br />
+| customer_id | firstname | lastname   | birthdate           |<br />
++-------------+-----------+------------+---------------------+<br />
+|           1 | George    | Washington | 1950-07-01 00:00:00 |<br />
+|           2 | James     | Madison    | 1948-11-09 00:00:00 |<br />
+|           3 | Alexander | Hamilton   | 1970-03-02 00:00:00 |<br />
++-------------+-----------+------------+---------------------+</p>
+<p>/*更新基表结构*/<br />
+alter table Customer<br />
+   add last_order_date datetime;</p>
+<p>/*变更后统计视图的数据*/<br />
+select *<br />
+from v_customer<br />
+;<br />
++-------------+-----------+------------+---------------------+<br />
+| customer_id | firstname | lastname   | birthdate           |<br />
++-------------+-----------+------------+---------------------+<br />
+|           1 | George    | Washington | 1950-07-01 00:00:00 |<br />
+|           2 | James     | Madison    | 1948-11-09 00:00:00 |<br />
+|           3 | Alexander | Hamilton   | 1970-03-02 00:00:00 |<br />
++-------------+-----------+------------+---------------------+<br />
+[/sql]</p>
+<p>我使用select *创建视图，为什么基表结构变了，视图不跟着变呢？</p>
+<p>本题来源<a title="Table changes not automatically reflected in a SQL Server View" href="http://www.mssqltips.com/sqlservertip/1427/table-changes-not-automatically-reflected-in-a-sql-server-view/" target="_blank">mssqltips</a></p>
+<p><!--more--></p>
+<div class="dailyanswer">虽然视图创建时是使用select *，但是其元数据创建后是固定的，包括列数量，名称，类型等。我们可以查看其结构：<br />
+[sql]<br />
+desc v_customer;<br />
++-------------+-------------+------+-----+---------+-------+<br />
+| Field       | Type        | Null | Key | Default | Extra |<br />
++-------------+-------------+------+-----+---------+-------+<br />
+| customer_id | int         | NO   |     | NULL    |       |<br />
+| firstname   | varchar(40) | NO   |     | NULL    |       |<br />
+| lastname    | varchar(40) | NO   |     | NULL    |       |<br />
+| birthdate   | datetime    | YES  |     | NULL    |       |<br />
++-------------+-------------+------+-----+---------+-------+<br />
+[/sql]</p>
+<p>所以基表添加列，但是视图依然只选择定义中的这几列而已，自然不会出现新列的数据。要更新视图，最直接的方式是删除drop后重建create。</p>
+<p>另外，使用select *的方式来创建view本身就不推荐，参看这篇<a title="为什么说程序中使用select *是有害的？" href="http://www.sqlparty.com/%e4%b8%ba%e4%bb%80%e4%b9%88%e8%af%b4%e7%a8%8b%e5%ba%8f%e4%b8%ad%e4%bd%bf%e7%94%a8select-%e6%98%af%e6%9c%89%e5%ae%b3%e7%9a%84%ef%bc%9f/" target="_blank">为什么说程序中使用select *是有害的？</a></p>
+<p></div></p>

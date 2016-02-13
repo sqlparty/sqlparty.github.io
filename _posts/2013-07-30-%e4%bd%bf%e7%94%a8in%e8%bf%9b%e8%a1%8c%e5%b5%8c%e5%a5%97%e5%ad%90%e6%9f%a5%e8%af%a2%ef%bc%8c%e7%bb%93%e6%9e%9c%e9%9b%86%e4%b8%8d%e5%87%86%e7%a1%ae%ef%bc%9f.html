@@ -1,0 +1,87 @@
+---
+layout: post
+status: publish
+published: true
+title: 使用in进行嵌套子查询，结果集不准确？
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "有以下两张表：\r\n\r\n表1、items\r\n\r\n[sql]\r\n+-------------------+--------------+------+-----+---------+-------+\r\n|
+  Field             | Type         | Null | Key | Default | Extra |\r\n+-------------------+--------------+------+-----+---------+-------+\r\n|
+  id                | int(11)      | NO   | PRI | NULL    |       |\r\n| short_description
+  | varchar(255) | YES  |     | NULL    |       |\r\n| description       | text         |
+  YES  |     | NULL    |       |\r\n| example           | text         | YES  |     |
+  NULL    |       |\r\n| explanation       | text         | YES  |     | NULL    |
+  \      |\r\n| additional        | text         | YES  |     | NULL    |       |\r\n+-------------------+--------------+------+-----+---------+-------+\r\n[/sql]\r\n\r\n表2、items_links\r\n\r\n[sql]\r\n+--------+---------+------+-----+---------+-------+\r\n|
+  Field  | Type    | Null | Key | Default | Extra |\r\n+--------+---------+------+-----+---------+-------+\r\n|
+  iid    | int(11) | NO   | PRI | NULL    |       |\r\n| linkid | int(11) | YES  |
+  \    | NULL    |       |\r\n+--------+---------+------+-----+---------+-------+\r\n[/sql]\r\n\r\n执行如下语句：\r\n\r\n[sql]\r\nselect
+  count(*)\r\nfrom items\r\nwhere id in (select id from items_links)\r\n[/sql]\r\n\r\n返回<span
+  style=\"color: #0000ff;\">10</span>。再执行如下语句：\r\n\r\n[sql]\r\nselect count(*)\r\nfrom
+  items_links\r\n[/sql]\r\n\r\n返回<span style=\"color: #0000ff;\">6</span>。\r\n\r\n这个就很奇怪了，第一次执行应该最多就6条才对？什么原因呢？\r\n\r\n"
+wordpress_id: 198
+wordpress_url: http://www.sqlparty.com/?p=198
+date: '2013-07-30 21:10:44 +0800'
+date_gmt: '2013-07-30 13:10:44 +0800'
+categories:
+- 题炼
+tags:
+- 数据库
+- 子查询
+---
+<p>有以下两张表：</p>
+<p>表1、items</p>
+<p>[sql]<br />
++-------------------+--------------+------+-----+---------+-------+<br />
+| Field             | Type         | Null | Key | Default | Extra |<br />
++-------------------+--------------+------+-----+---------+-------+<br />
+| id                | int(11)      | NO   | PRI | NULL    |       |<br />
+| short_description | varchar(255) | YES  |     | NULL    |       |<br />
+| description       | text         | YES  |     | NULL    |       |<br />
+| example           | text         | YES  |     | NULL    |       |<br />
+| explanation       | text         | YES  |     | NULL    |       |<br />
+| additional        | text         | YES  |     | NULL    |       |<br />
++-------------------+--------------+------+-----+---------+-------+<br />
+[/sql]</p>
+<p>表2、items_links</p>
+<p>[sql]<br />
++--------+---------+------+-----+---------+-------+<br />
+| Field  | Type    | Null | Key | Default | Extra |<br />
++--------+---------+------+-----+---------+-------+<br />
+| iid    | int(11) | NO   | PRI | NULL    |       |<br />
+| linkid | int(11) | YES  |     | NULL    |       |<br />
++--------+---------+------+-----+---------+-------+<br />
+[/sql]</p>
+<p>执行如下语句：</p>
+<p>[sql]<br />
+select count(*)<br />
+from items<br />
+where id in (select id from items_links)<br />
+[/sql]</p>
+<p>返回<span style="color: #0000ff;">10</span>。再执行如下语句：</p>
+<p>[sql]<br />
+select count(*)<br />
+from items_links<br />
+[/sql]</p>
+<p>返回<span style="color: #0000ff;">6</span>。</p>
+<p>这个就很奇怪了，第一次执行应该最多就6条才对？什么原因呢？</p>
+<p><!--more--></p>
+<div class="dailyanswer">这题既是考察SQL语法，也是考察仔细程度和书写习惯。查看两表的字段定义，我们发现items_links没有id字段，而是<span style="color: #0000ff;">iid</span>。而第一句SQL中的子查询(select<span style="color: #ff0000;"> id</span> from items_links)中的id来自哪里呢？将该子查询取出来单独执行。[sql]<br />
+select id from items_links;<br />
+ERROR 1054 (42S22): Unknown column 'id' in 'field list'<br />
+[/sql]</p>
+<p><span style="line-height: 1.714285714; font-size: 1rem;">现在可以很清楚看到，该查询是个关联子查询，即子查询包括了外查询的字段，id为外表items的id字段。where取外表每一条记录进行谓词判断，假如判断id=6，则谓词变成了 </span></p>
+<p>[sql]6 in (select 6 from items_links)[/sql]</p>
+<p>只要items_links表有记录，其必然返回true。本题的修改很简单，将子查询的中id改为iid即可。</p>
+<p>本题中可以看出，子查询中，如果指定的列不存在，它会到外部表中寻找，这一定程度上容易造成混淆！根本解决方案是：<span style="color: #ff0000;">任何对字段的应用都加上表或表别名的限制。</span></p>
+<p>所以更合理的本题修改方案应该是：</p>
+<p>[sql]<br />
+select count(*)<br />
+from items i<br />
+where i.id in (select il.iid from items_links il)<br />
+[/sql]</p>
+<p></div></p>

@@ -1,0 +1,89 @@
+---
+layout: post
+status: publish
+published: true
+title: 为什么not in无法获取期望的结果？
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "存在如下两张表:\r\n\r\n1.inst表\r\n\r\n[sql]\r\nselect *\r\nfrom inst;\r\n+----+------+--------------+----------+\r\n|
+  id | code | host         | name     |\r\n+----+------+--------------+----------+\r\n|
+  \ 1 | dev  | 192.168.2.39 | dev env  |\r\n|  2 | test | 192.168.2.49 | test env
+  |\r\n|  3 | prd  | 192.168.2.59 | prd env  |\r\n|  4 | NULL | 192.168.2.69 | demo
+  env |\r\n+----+------+--------------+----------+\r\n[/sql]\r\n\r\n2.db表\r\n\r\n[sql]\r\nselect
+  *\r\nfrom db;\r\n+----+-----------+---------+-------+\r\n| id | inst_code | name
+  \   | owner |\r\n+----+-----------+---------+-------+\r\n|  1 | dev       | firedb
+  \ | Tom   |\r\n|  2 | dev       | happydb | Helen |\r\n|  3 | dev       | birddb
+  \ | Jerry |\r\n|  4 | test      | happydb | Mark  |\r\n|  5 | ex        | birddb
+  \ | John  |\r\n+----+-----------+---------+-------+\r\n[/sql]\r\n\r\n我想找出db表中没有对应inst的记录，通过inst_code，SQL如下，但是无法得到没有记录返回，期望中的(5,'ex','birddb','John&lsquo;)难道不是满足not
+  in吗？这是为什么呢？\r\n\r\n[sql]\r\nselect t1.*\r\nfrom db t1\r\nwhere t1.inst_code not
+  in\r\n    (\r\n     select t2.code\r\n     from inst t2\r\n    );\r\n[/sql]\r\n\r\n"
+wordpress_id: 257
+wordpress_url: http://www.sqlparty.com/?p=257
+date: '2013-08-03 02:15:37 +0800'
+date_gmt: '2013-08-02 18:15:37 +0800'
+categories:
+- 题炼
+tags:
+- 数据库
+- 'NULL'
+- not-in
+---
+<p>存在如下两张表:</p>
+<p>1.inst表</p>
+<p>[sql]<br />
+select *<br />
+from inst;<br />
++----+------+--------------+----------+<br />
+| id | code | host         | name     |<br />
++----+------+--------------+----------+<br />
+|  1 | dev  | 192.168.2.39 | dev env  |<br />
+|  2 | test | 192.168.2.49 | test env |<br />
+|  3 | prd  | 192.168.2.59 | prd env  |<br />
+|  4 | NULL | 192.168.2.69 | demo env |<br />
++----+------+--------------+----------+<br />
+[/sql]</p>
+<p>2.db表</p>
+<p>[sql]<br />
+select *<br />
+from db;<br />
++----+-----------+---------+-------+<br />
+| id | inst_code | name    | owner |<br />
++----+-----------+---------+-------+<br />
+|  1 | dev       | firedb  | Tom   |<br />
+|  2 | dev       | happydb | Helen |<br />
+|  3 | dev       | birddb  | Jerry |<br />
+|  4 | test      | happydb | Mark  |<br />
+|  5 | ex        | birddb  | John  |<br />
++----+-----------+---------+-------+<br />
+[/sql]</p>
+<p>我想找出db表中没有对应inst的记录，通过inst_code，SQL如下，但是无法得到没有记录返回，期望中的(5,'ex','birddb','John&lsquo;)难道不是满足not in吗？这是为什么呢？</p>
+<p>[sql]<br />
+select t1.*<br />
+from db t1<br />
+where t1.inst_code not in<br />
+    (<br />
+     select t2.code<br />
+     from inst t2<br />
+    );<br />
+[/sql]</p>
+<p><!--more--></p>
+<div class="dailyanswer">以上not in的特征在所有RDBMS中都是一样的，其原因是not in 检测的范围中包括NULL。<br />
+NULL指&ldquo;不知为何物&rdquo;。牢记这一点，我们分析db中inst_code为'test'和'env'的情况。1.where 'test' not in ('dev','test','prd',NULL)，其本质是'test'!='dev' and 'test'!='test' and 'test' != 'prd' and 'test'!= NULL，其结果为： true and false and true and <span style="color: #0000ff;">NULL</span>。由关系代数可知，要使and成真，必须所有条件都为真，那这里显然为False，即'test'对应记录不会返回。2.where 'env' not in ('dev','test','prd',NULL)，其本质是&rsquo;env'!='dev' and 'env'!='test' and 'env'!='prd' and 'text'!=NULL，其结果为：true and true and true and <span style="color: #0000ff;">NULL</span>。其结果等价于true and NULL的结果，而NULL为"不知为何物"，其结果也就不确定，依然为NULL，而不是TRUE，所以'env'对应记录也不会返回。</p>
+<p>由上述分析，应该可以理解not in (...) 的括号中如果存在NULL，则无论如何都不会有记录返回！谨记！</p>
+<p>上题正确的写法可以如下：</p>
+<p>[sql]<br />
+select t1.*<br />
+from db t1<br />
+where t1.inst_code not in<br />
+    (<br />
+     select t2.code<br />
+     from inst t2<br />
+     where t2.code is not null<br />
+    );<br />
+[/sql]</p>
+<p></div></p>

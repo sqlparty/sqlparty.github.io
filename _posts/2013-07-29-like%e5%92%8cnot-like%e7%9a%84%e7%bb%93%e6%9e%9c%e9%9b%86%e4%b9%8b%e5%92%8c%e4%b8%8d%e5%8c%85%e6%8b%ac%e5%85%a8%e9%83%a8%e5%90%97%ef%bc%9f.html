@@ -1,0 +1,59 @@
+---
+layout: post
+status: publish
+published: true
+title: LIKE和NOT LIKE的结果集之和不包括全部吗？
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "我有这样一张表，表名platform，包含一列entityid。entityid为字符型，内容格式为n.n.n（n为大于等于1的数字），其中第一个数字表示网站id。\r\n\r\n查询1.得到总记录数
+  16063 ：\r\n\r\n[sql]\r\nselect count(*)\r\nfrom platform\r\n[/sql]\r\n\r\n查询2.获取网站id为18的记录数4454：\r\n\r\n[sql]\r\nselect
+  count(*)\r\nfrom platform\r\nwhere entityid like '18.%.%'\r\n[/sql]\r\n\r\n查询3.获取网站id不为18的记录数据11608：\r\n\r\n[sql]\r\nselect
+  count(*)\r\nfrom platform\r\nwhere entityid not like '18.%.%'\r\n[/sql]\r\n\r\n查询2、3的记录总数4454+11608=16062，与总记录数16063不一致？！网站id为18与网站id不为18的记录数之和不应该是等于总数吗？\r\n\r\n本题来源
+  <a title=\"MySQL LIKE and NOT LIKE is missing a record\" href=\"http://stackoverflow.com/questions/16721701/mysql-like-and-not-like-is-missing-a-record\"
+  target=\"_blank\">stackoverflow</a>\r\n\r\n"
+wordpress_id: 178
+wordpress_url: http://www.sqlparty.com/?p=178
+date: '2013-07-29 12:13:46 +0800'
+date_gmt: '2013-07-29 04:13:46 +0800'
+categories:
+- 题炼
+tags:
+- 数据库
+- 'NULL'
+- like
+---
+<p>我有这样一张表，表名platform，包含一列entityid。entityid为字符型，内容格式为n.n.n（n为大于等于1的数字），其中第一个数字表示网站id。</p>
+<p>查询1.得到总记录数 16063 ：</p>
+<p>[sql]<br />
+select count(*)<br />
+from platform<br />
+[/sql]</p>
+<p>查询2.获取网站id为18的记录数4454：</p>
+<p>[sql]<br />
+select count(*)<br />
+from platform<br />
+where entityid like '18.%.%'<br />
+[/sql]</p>
+<p>查询3.获取网站id不为18的记录数据11608：</p>
+<p>[sql]<br />
+select count(*)<br />
+from platform<br />
+where entityid not like '18.%.%'<br />
+[/sql]</p>
+<p>查询2、3的记录总数4454+11608=16062，与总记录数16063不一致？！网站id为18与网站id不为18的记录数之和不应该是等于总数吗？</p>
+<p>本题来源 <a title="MySQL LIKE and NOT LIKE is missing a record" href="http://stackoverflow.com/questions/16721701/mysql-like-and-not-like-is-missing-a-record" target="_blank">stackoverflow</a></p>
+<p><!--more--></p>
+<div class="dailyanswer">
+<p>SQL判断，并不是一个非黑即白的世界。一个谓词的结果有三种可能性：TRUE，FALSE，NULL。TRUE会正常返回，FALSE则不返回，NULL也不会返回。NULL可以理解为&ldquo;不知为何物&rdquo;，【不知为何物】 LIKE '18.%.%' 不会返回，【不知为何物】NOT LIKE '18.%.%' 也不会返回，因为两个判断的结果都是null，依然&ldquo;不知为何物&rdquo;，自然不会作为结果集来返回。判断NULL的正确方式是<strong>column_name IS NULL</strong>和<strong>column_name IS NOT NULL</strong>，其他涉及NULL的表达式、谓词计算（=,>,<等等）结果一般还是NULL。</p>
+<p>所以，针对这题，可以判断entityid字段是可 空的，而且存在一条记录为NULL，所以没有被筛选出来，可以如下方式验证：</p>
+<p>[sql]<br />
+SELECT COUNT(1)<br />
+FROM platform<br />
+WHERE entityid IS NULL<br />
+[/sql]</p>
+<p></div></p>

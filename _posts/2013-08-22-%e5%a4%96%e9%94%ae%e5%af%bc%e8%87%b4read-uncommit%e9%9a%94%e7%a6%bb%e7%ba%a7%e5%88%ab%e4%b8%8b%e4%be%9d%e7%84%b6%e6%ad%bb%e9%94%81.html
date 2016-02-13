@@ -1,0 +1,171 @@
+---
+layout: post
+status: publish
+published: true
+title: 外键导致read uncommit隔离级别下依然死锁
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "实际工作中遇到这样的场景，即使隔离级别设置为read uncommit，依然报因共享S锁的存在而死锁。\r\n\r\n场景如下：\r\n存在如下表和数据：\r\n\r\n[sql]\r\nCREATE
+  TABLE `account` (\r\n`id` int( 10) unsigned NOT NULL AUTO_INCREMENT,\r\n`name` varchar(
+  50) COLLATE utf8_bin NOT NULL,\r\n`cash` decimal( 12, 2) NOT NULL ,\r\nPRIMARY KEY
+  (`id` )\r\n) ENGINE=InnoDB&nbsp; DEFAULT CHARSET=utf8 COLLATE=utf8_bin\r\n;\r\n\r\nINSERT
+  INTO account(name,cash)\r\nVALUES('user1' ,200 );\r\n\r\nCREATE TABLE `cash_record`
+  (\r\n`id` int( 10) unsigned NOT NULL AUTO_INCREMENT,\r\n`account_id` int(10 ) unsigned
+  NOT NULL,\r\n`cash` decimal( 12, 2) NOT NULL ,\r\n`create_time` datetime NOT NULL,\r\nPRIMARY
+  KEY (`id` ),\r\nKEY `fk_cash_record__account_id` (`account_id` ),\r\nCONSTRAINT
+  `fk_cash_record__account_id` FOREIGN KEY (`account_id`) REFERENCES `account` (`id`
+  )\r\n) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin\r\n;\r\n[/sql]\r\n\r\n存在一个事务，其内部涉及的SQL操作依次如下：\r\n\r\n<span
+  style=\"color: #0000ff;\">SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;</span>\r\n\r\n<span
+  style=\"color: #0000ff;\">SELECT cash FROM account WHERE id= 1;</span>\r\n\r\n<span
+  style=\"color: #0000ff;\">INSERT INTO cash_record</span>\r\n<span style=\"color:
+  #0000ff;\"> (account_id, cash, create_time)</span>\r\n<span style=\"color: #0000ff;\">
+  VALUES( 1 , 20 , NOW());</span>\r\n\r\n<span style=\"color: #0000ff;\">UPDATE
+  account</span>\r\n<span style=\"color: #0000ff;\"> SET cash=cash-20</span>\r\n<span
+  style=\"color: #0000ff;\"> WHERE id=1</span>\r\n<span style=\"color: #0000ff;\">
+  ;</span>\r\n\r\n<span style=\"color: #0000ff;\">COMMIT;</span>\r\n\r\n这个事务封装在一个函数中，会被并发调用，在并发过程中就发生了死锁。\r\n\r\n仅从上述事务定义中的SQL语句，看不出会有死锁的可能性。\r\n\r\n"
+wordpress_id: 484
+wordpress_url: http://www.sqlparty.com/?p=484
+date: '2013-08-22 22:01:52 +0800'
+date_gmt: '2013-08-22 14:01:52 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+- 死锁
+- 隔离级别
+- 外键
+---
+<p>实际工作中遇到这样的场景，即使隔离级别设置为read uncommit，依然报因共享S锁的存在而死锁。</p>
+<p>场景如下：<br />
+存在如下表和数据：</p>
+<p>[sql]<br />
+CREATE TABLE `account` (<br />
+`id` int( 10) unsigned NOT NULL AUTO_INCREMENT,<br />
+`name` varchar( 50) COLLATE utf8_bin NOT NULL,<br />
+`cash` decimal( 12, 2) NOT NULL ,<br />
+PRIMARY KEY (`id` )<br />
+) ENGINE=InnoDB&nbsp; DEFAULT CHARSET=utf8 COLLATE=utf8_bin<br />
+;</p>
+<p>INSERT INTO account(name,cash)<br />
+VALUES('user1' ,200 );</p>
+<p>CREATE TABLE `cash_record` (<br />
+`id` int( 10) unsigned NOT NULL AUTO_INCREMENT,<br />
+`account_id` int(10 ) unsigned NOT NULL,<br />
+`cash` decimal( 12, 2) NOT NULL ,<br />
+`create_time` datetime NOT NULL,<br />
+PRIMARY KEY (`id` ),<br />
+KEY `fk_cash_record__account_id` (`account_id` ),<br />
+CONSTRAINT `fk_cash_record__account_id` FOREIGN KEY (`account_id`) REFERENCES `account` (`id` )<br />
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin<br />
+;<br />
+[/sql]</p>
+<p>存在一个事务，其内部涉及的SQL操作依次如下：</p>
+<p><span style="color: #0000ff;">SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;</span></p>
+<p><span style="color: #0000ff;">SELECT cash FROM account WHERE id= 1;</span></p>
+<p><span style="color: #0000ff;">INSERT INTO cash_record</span><br />
+<span style="color: #0000ff;"> (account_id, cash, create_time)</span><br />
+<span style="color: #0000ff;"> VALUES( 1 , 20 , NOW());</span></p>
+<p><span style="color: #0000ff;">UPDATE account</span><br />
+<span style="color: #0000ff;"> SET cash=cash-20</span><br />
+<span style="color: #0000ff;"> WHERE id=1</span><br />
+<span style="color: #0000ff;"> ;</span></p>
+<p><span style="color: #0000ff;">COMMIT;</span></p>
+<p>这个事务封装在一个函数中，会被并发调用，在并发过程中就发生了死锁。</p>
+<p>仅从上述事务定义中的SQL语句，看不出会有死锁的可能性。</p>
+<p><!--more--></p>
+<p>分析其操作如下：</p>
+<ol>
+<li><span style="color: #0000ff;"> SELECT cash FROM account WHERE id= 1</span> ; 由于是"未提交读"，不会在account表上加任何锁，包括读锁。</li>
+<li><span style="color: #0000ff;">INSERT INTO cash_record ...</span> 插入操作，插入行的行锁而已，由于自增，会短暂对cash_record的AUTO_INC加锁。</li>
+<li><span style="color: #0000ff;">UPDATE account</span> 由于id是主键，所以仅仅会锁住该行，获取该记录的排他锁。</li><br />
+</ol><br />
+可以看到，上面过程中即使并发也不会有死锁的风险，顶多会锁等待而已。但是死锁却确确实实地发生了，要模拟也很简单。<br />
+<span style="color: #008000;"><strong>SESSION 1:</strong></span><br />
+<span style="color: #008000;"> SET autocommit=0;</span><br />
+<span style="color: #008000;"> SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;</span><br />
+<span style="color: #008000;"> SELECT cash FROM account WHERE id= 1;</span><br />
+<span style="color: #008000;"> INSERT INTO cash_record</span><br />
+<span style="color: #008000;"> (account_id, cash, create_time)</span><br />
+<span style="color: #008000;"> VALUES( 1 , 20 , NOW());</span><br />
+<strong><span style="color: #800080;">SESSION 2:</span></strong><br />
+<span style="color: #800080;">SET autocommit=0;</span><br />
+<span style="color: #800080;"> SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;</span><br />
+<span style="color: #800080;"> SELECT cash FROM account WHERE id= 1;</span><br />
+<span style="color: #800080;"> INSERT INTO cash_record</span><br />
+<span style="color: #800080;"> (account_id, cash, create_time)</span><br />
+<span style="color: #800080;"> VALUES( 1 , 20 , NOW());</span><br />
+<span style="color: #800080;"> UPDATE account</span><br />
+<span style="color: #800080;"> SET cash=cash-20</span><br />
+<span style="color: #800080;"> WHERE id=1</span><br />
+<span style="color: #800080;"> ;&nbsp;</span> /*此处会卡住，等待*/<br />
+<span style="color: #008000;"><strong>SESSION 1:</strong></span><br />
+<span style="color: #008000;"> UPDATE account</span><br />
+<span style="color: #008000;"> SET cash=cash-20</span><br />
+<span style="color: #008000;"> WHERE id=1</span><br />
+<span style="color: #ff00ff;"> ;&nbsp; </span>/*检测到死锁*/</p>
+<p>查看<span style="color: #0000ff;">SHOW ENGINE INNODB STATUS</span>，</p>
+<p>关于此死锁的信息如下：</p>
+<pre>------------------------<br />
+ LATEST DETECTED DEADLOCK<br />
+ ------------------------<br />
+ 130815 13:24:28<br />
+ *** (1) TRANSACTION:<br />
+ TRANSACTION 0 424756, ACTIVE 8 sec, OS thread id 3620 starting index read<br />
+ mysql tables in use 1, locked 1<br />
+ LOCK WAIT 5 lock struct(s), heap size 320, 2 row lock(s), undo log entries 1<br />
+ MySQL thread id 3, query id 199 127.0.0.1 root Updating<br />
+ /* ApplicationName=DBeaver 2.2.4 */ update account<br />
+ set cash=cash-20<br />
+ where id=1<br />
+ *** (1) WAITING FOR THIS LOCK TO BE GRANTED:<br />
+ RECORD LOCKS space id 485 page no 3 n bits 72 index `PRIMARY` of table `test`.`account` trx id 0 424756 lock_mode <span style="color: #0000ff;">X</span> locks rec but not gap waiting<br />
+ Record lock, heap no 2 PHYSICAL RECORD: n_fields 5; compact format; info bits 0<br />
+ 0: len 4; hex 00000001; asc&nbsp;&nbsp;&nbsp;&nbsp; ;; 1: len 6; hex 000000067b31; asc&nbsp;&nbsp;&nbsp;&nbsp; {1;; 2: len 7; hex 000000003418b6; asc&nbsp;&nbsp;&nbsp;&nbsp; 4&nbsp; ;; 3: len 5; hex 7573657231; asc user1;; 4: len 6; hex 80000000a000; asc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ;;<br />
+*** (2) TRANSACTION:<br />
+ TRANSACTION 0 424755, ACTIVE 24 sec, OS thread id 5776 starting index read, thread declared inside InnoDB 500<br />
+ mysql tables in use 1, locked 1<br />
+ 5 lock struct(s), heap size 320, 2 row lock(s), undo log entries 1<br />
+ MySQL thread id 2, query id 200 127.0.0.1 root Updating<br />
+ /* ApplicationName=DBeaver 2.2.4 */ update account<br />
+ set cash=cash-20<br />
+ where id=1<br />
+ *** (2) HOLDS THE LOCK(S):<br />
+ RECORD LOCKS space id 485 page no 3 n bits 72 index `PRIMARY` of table `test`.`account` trx id 0 424755 lock mode <span style="color: #0000ff;">S</span> locks rec but not gap<br />
+ Record lock, heap no 2 PHYSICAL RECORD: n_fields 5; compact format; info bits 0<br />
+ 0: len 4; hex 00000001; asc&nbsp;&nbsp;&nbsp;&nbsp; ;; 1: len 6; hex 000000067b31; asc&nbsp;&nbsp;&nbsp;&nbsp; {1;; 2: len 7; hex 000000003418b6; asc&nbsp;&nbsp;&nbsp;&nbsp; 4&nbsp; ;; 3: len 5; hex 7573657231; asc user1;; 4: len 6; hex 80000000a000; asc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ;;<br />
+*** (2) WAITING FOR THIS LOCK TO BE GRANTED:<br />
+ RECORD LOCKS space id 485 page no 3 n bits 72 index `PRIMARY` of table `test`.`account` trx id 0 424755 lock_mode X locks rec but not gap waiting<br />
+ Record lock, heap no 2 PHYSICAL RECORD: n_fields 5; compact format; info bits 0<br />
+ 0: len 4; hex 00000001; asc&nbsp;&nbsp;&nbsp;&nbsp; ;; 1: len 6; hex 000000067b31; asc&nbsp;&nbsp;&nbsp;&nbsp; {1;; 2: len 7; hex 000000003418b6; asc&nbsp;&nbsp;&nbsp;&nbsp; 4&nbsp; ;; 3: len 5; hex 7573657231; asc user1;; 4: len 6; hex 80000000a000; asc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ;;<br />
+*** WE ROLL BACK TRANSACTION (2)</pre><br />
+可以看到TRANSACTION (1)在update account时，等待获取id=1的记录的X(排它)锁，而TRANSACTION (2)把持着id=1的记录的S(共享)锁，需要该记录的X锁。可以想见，由于两个事务执行的其实是一样的代码，那TRANSACTION (1)也保持者id=1的记录的S锁。这样，死锁发生了！都拿住了记录的S锁，等待获取X锁，希望对方释放把持的S锁。</p>
+<p>问题集中在：<em><strong>什么时候给记录给加上了共享S锁？</strong></em></p>
+<p>经过多种测试（<em>实际是：修改cash_record存储引擎为MyISAM，发现有外键，删除外键，再测无死锁，恢复存储引擎为InnoDB，再测无死锁，定位到外键</em>），外键导致的S锁！</p>
+<p>查询官方文档 <a title="innodb-foreign-key-constraints" href="http://dev.mysql.com/doc/refman/5.5/en/innodb-foreign-key-constraints.html" target="_blank">innodb-foreign-key-constraints </a>可知：</p>
+<p>执行inserts, deletes, 和 updates语句时，MySQL会执行检查，会逐行检查UNIQUE KEY和FOREIGN KEY。在检查外键时<span style="color: #0000ff;">，InnoDB会在需要检查的父表或者子表的记录加上共享(S)锁</span>。</p>
+<p>这解释了上面的问题：</p>
+<p><span style="color: #0000ff;">INSERT INTO cash_record</span><br />
+<span style="color: #0000ff;"> (account_id, cash, create_time)</span><br />
+<span style="color: #0000ff;"> VALUES( 1 , 20 , NOW());</span></p>
+<p>这步操作会检查account_id对应的父表是否存在id=1的记录，对其加共享锁。即插入操作通过外键关系，隐藏地在父表account的记录上加了共享锁。</p>
+<p>解决方案：</p>
+<p>要<strong>避免死锁</strong>，只需要调换</p>
+<p><span style="color: #0000ff;">INSERT INTO cash_record</span><br />
+<span style="color: #0000ff;"> (account_id, cash, create_time)</span><br />
+<span style="color: #0000ff;"> VALUES( 1 , 20 , NOW());</span><br />
+与<br />
+<span style="color: #0000ff;">UPDATE account</span><br />
+<span style="color: #0000ff;"> SET cash=cash-20</span><br />
+<span style="color: #0000ff;"> WHERE id=1</span><br />
+<span style="color: #0000ff;"> ;</span><br />
+两个语句的顺序。</p>
+<p>这样，先update account，直接获取X锁，就不会有死锁的发生。而调整前后，由于事务的原子性，效果是一样的。</p>
+<p>PS：<br />
+<strong><em>InnoDB的外键特性，与SQL标准有所不同，它会在SQL执行时，立即检查外键约束，而不是与SQL标准那样，在整个事务最后再检查外键约束。由于未能实现这种延迟检测，所以innodb中，还不支持如删除外键引用到自己的记录。</em></strong></p>
+<p>参考：<br />
+<a href="http://dev.mysql.com/doc/refman/5.5/en/innodb-foreign-key-constraints.html" target="_blank">http://dev.mysql.com/doc/refman/5.5/en/innodb-foreign-key-constraints.html</a></p>

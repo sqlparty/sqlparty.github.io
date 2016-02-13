@@ -1,0 +1,192 @@
+---
+layout: post
+status: publish
+published: true
+title: Nagios安装
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Nagios是一个监视系统运行状态和网络信息的监视系统。Nagios能监视所指定的本地或远程主机以及服务，同时提供异常通知功能等。 Nagios可运行在Linux/Unix平台之上，同时提供一个可选的基于浏览器的WEB界面以方便系统管理人员查看网络状态，各种系统问题，以及日志等等。\r\nNagios的主要功能特点：\r\n<ul>\r\n\t<li>监视网络服务
+  (SMTP, POP3, HTTP, NNTP, PING等)</li>\r\n\t<li>监视主机资源 (进程, 磁盘等)</li>\r\n\t<li>简单的插件设计可以轻松扩展Nagios的监视功能</li>\r\n\t<li>服务等监视的并发处理</li>\r\n\t<li>错误通知功能
+  (通过email, pager, 或其他用户自定义方法)</li>\r\n\t<li>可指定自定义的事件处理控制器</li>\r\n\t<li>可选的基于浏览器的WEB界面以方便系统管理人员查看网络状态，各种系统问题，以及日志等等</li>\r\n\t<li>可以通过手机查看系统监控信息</li>\r\n</ul>\r\n官网：
+  ​<a href=\"http://www.nagios.org/\" target=\"_blank\">http://www.nagios.org/</a>\r\n截图：
+  ​<a href=\"http://www.nagios.org/about/screenshots\" target=\"_blank\">http://www.nagios.org/about/screenshots</a>\r\nNagios在线帮助中文版：
+  ​<a href=\"http://nagios-cn.sourceforge.net/nagios-cn/index.html\"
+  target=\"_blank\">http://nagios-cn.sourceforge.net/nagios-cn/index.html</a>\r\n\r\n"
+wordpress_id: 181
+wordpress_url: http://www.sqlparty.com/?p=181
+date: '2013-07-29 20:32:33 +0800'
+date_gmt: '2013-07-29 12:32:33 +0800'
+categories:
+- 系统
+tags:
+- 系统
+- Nagios
+---
+<p>Nagios是一个监视系统运行状态和网络信息的监视系统。Nagios能监视所指定的本地或远程主机以及服务，同时提供异常通知功能等。 Nagios可运行在Linux/Unix平台之上，同时提供一个可选的基于浏览器的WEB界面以方便系统管理人员查看网络状态，各种系统问题，以及日志等等。<br />
+Nagios的主要功能特点：</p>
+<ul>
+<li>监视网络服务 (SMTP, POP3, HTTP, NNTP, PING等)</li>
+<li>监视主机资源 (进程, 磁盘等)</li>
+<li>简单的插件设计可以轻松扩展Nagios的监视功能</li>
+<li>服务等监视的并发处理</li>
+<li>错误通知功能 (通过email, pager, 或其他用户自定义方法)</li>
+<li>可指定自定义的事件处理控制器</li>
+<li>可选的基于浏览器的WEB界面以方便系统管理人员查看网络状态，各种系统问题，以及日志等等</li>
+<li>可以通过手机查看系统监控信息</li><br />
+</ul><br />
+官网： ​<a href="http://www.nagios.org/" target="_blank">http://www.nagios.org/</a><br />
+截图： ​<a href="http://www.nagios.org/about/screenshots" target="_blank">http://www.nagios.org/about/screenshots</a><br />
+Nagios在线帮助中文版： ​<a href="http://nagios-cn.sourceforge.net/nagios-cn/index.html" target="_blank">http://nagios-cn.sourceforge.net/nagios-cn/index.html</a></p>
+<p><!--more--></p>
+<p><strong>1.软件安装</strong><br />
+<strong> 1.1. 环境</strong><br />
+以下安装所需软件都可以从各自的官网进行下载：<br />
+Nagios&amp;Nagios Plugins: <a href="​http://www.nagios.org/download" target="_blank">​http://www.nagios.org/download</a><br />
+Apache: ​<a href="http://www.apache.org/dyn/closer.cgi" target="_blank">http://www.apache.org/dyn/closer.cgi</a><br />
+php: ​<a href="http://www.php.net/downloads.php" target="_blank">http://www.php.net/downloads.php</a></p>
+<p><strong>1.2. 安装Nagios</strong><br />
+<span style="color: #0000ff;">shell>useradd nagios</span>&nbsp; ##用户nagios安装和运行</p>
+<p><span style="color: #0000ff;">shell>tar -xzvf nagios-3.4.1.tar.gz</span><br />
+<span style="color: #0000ff;"> shell>cd nagios</span><br />
+<span style="color: #0000ff;"> shell>./configure --prefix=/usr/local/nagios</span><br />
+<span style="color: #0000ff;"> shell>make all</span><br />
+<span style="color: #0000ff;"> shell>make install&nbsp;&nbsp;&nbsp;&nbsp;</span> ##安装主要的程序、CGI及HTML文件<br />
+<span style="color: #0000ff;">shell>make install-commandmode&nbsp;&nbsp;</span> ##给外部命令访问nagios配置文件的权限<br />
+<span style="color: #0000ff;">shell>make install-config&nbsp;</span> ##把配置文件的例子复制到nagios的安装目录，这里是/usr/local/nagios/etc<br />
+<span style="color: #0000ff;">shell>make install-init&nbsp;&nbsp;&nbsp;</span> ##[可选]把nagios做成一个运行脚本，放到/etc/[rc.d/]init.d目录，方便启停和查看状态。</p>
+<p>验证是否正常完成，切换至/usr/local/nagios目录下，看到如下目录基本可以确定正常完成安装:</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/nagios1.png"><img alt="nagios1" src="http://www.sqlparty.com/wp-content/uploads/2013/07/nagios1-300x93.png" width="300" height="93" /></a></p>
+<p>各目录功能如下：</p>
+<table class="table">
+<tbody>
+<tr>
+<td>bin</td></p>
+<td>Nagios执行程序所在目录，这个目录只有一个文件nagios</td><br />
+</tr></p>
+<tr>
+<td>etc</td></p>
+<td>Nagios配置文件位置，初始安装完后，只有几个*.cfg-sample文件</td><br />
+</tr></p>
+<tr>
+<td>sbin</td></p>
+<td>Nagios Cgi文件所在目录，也就是执行外部命令所需文件所在的目录</td><br />
+</tr></p>
+<tr>
+<td>share</td></p>
+<td>Nagios网页文件所在的目录</td><br />
+</tr></p>
+<tr>
+<td>var</td></p>
+<td>Nagios日志文件、spid、lock等文件所在的目录</td><br />
+</tr></p>
+<tr>
+<td>var/archives</td></p>
+<td>Nagios日志自动归档目录</td><br />
+</tr></p>
+<tr>
+<td>var/rw</td></p>
+<td>用来存放外部命令文件的目录</td><br />
+</tr></p>
+<tr>
+<td>libexec</td></p>
+<td>Nagios插件目录，未安装插件时为空</td><br />
+</tr><br />
+</tbody><br />
+</table><br />
+ps:<br />
+安装Nagios中文化插件(建议直接使用英文版本)<br />
+中文插件下载地址：<a href="​http://sourceforge.net/projects/nagios-cn/files/">​http://sourceforge.net/projects/nagios-cn/files/</a><br />
+下载对应nagios版本的中文插件，然后开始安装：<br />
+<span style="color: #0000ff;">shell>tar -xvfz nagios-cn-3.2.0.tar.bz2</span><br />
+<span style="color: #0000ff;"> shell>cd nagios-cn-3.2.0</span><br />
+<span style="color: #0000ff;"> shell>./configure</span><br />
+<span style="color: #0000ff;"> shell>make all</span><br />
+<span style="color: #0000ff;"> shell>make install</span></p>
+<p><strong>1.3. 安装nagios的插件</strong><br />
+没有插件，nagios将什么作用也没有，插件也是nagios扩展功能的强大武器，除了下载常用的插件外，我们还可以根据实际要求编写自己的插件。<br />
+插件与nagios之间的版本关联不大。<br />
+<span style="color: #0000ff;">shell>tar -xzvf nagios-plugins-1.4.16.tar.gz</span><br />
+<span style="color: #0000ff;"> shell>cd nagios-plugins-1.4.16</span><br />
+<span style="color: #0000ff;"> shell>./configure --prefix=/usr/local/nagios</span> ##注意路径，会将插件生成到nagios/libexec目录下<br />
+<span style="color: #0000ff;">shell>make</span><br />
+<span style="color: #0000ff;"> shell>make install</span></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/nagios2.png"><img class="alignnone size-medium wp-image-184" alt="nagios2" src="http://www.sqlparty.com/wp-content/uploads/2013/07/nagios2-300x171.png" width="300" height="171" /></a></p>
+<p><strong>1.4. 安装web服务器apache</strong><br />
+Web服务不是nagios所必须的，但是如果nagios没有web，查看监控对象的对象将是非常费事和没有趣味的事情（只有通过查看nagios的日志来判断状态）。<br />
+<span style="color: #0000ff;">shell>tar -xzvf httpd-2.2.9.tar.gz</span><br />
+<span style="color: #0000ff;"> shell>cd httpd-2.2.9</span><br />
+<span style="color: #0000ff;"> shell>./configure --prefix=/usr/local/apache</span><br />
+<span style="color: #0000ff;"> shell>make</span><br />
+<span style="color: #0000ff;"> shell>make install</span><br />
+<span style="color: #0000ff;"> shell>./usr/local/apache/bin/apachectl &ndash;t</span>&nbsp; ##检查一下apache是否正确安装</p>
+<p>通过web界面进行配置项的操作，需要web服务器进程能够访问nagios目录下的一些文件，web服务器的默认运行用户为apache，而nagios目录的权限拥有者为nagios，默认两者没有任何关系，所以往往会报如下的错误：</p>
+<p><span style="color: #ff0000;">Error: Could not open command file '/usr/local/nagios/var/rw/nagios.cmd' for update!</span><br />
+<span style="color: #ff0000;"> The permissions on the external command file and/or directory may be incorrect. Read the FAQs on how to setup proper permissions.</span><br />
+<span style="color: #ff0000;"> An error occurred while attempting to commit your command for processing.</span><br />
+处理的办法是：将web服务器的运行用户apache加入到nagios组中，由于nagios中相关目录都是同组用户可以操作的，就可以解决这个问题：</p>
+<p><span style="color: #0000ff;">shell>usermod -G nagios apache</span></p>
+<p>如果还出现如：</p>
+<p><span style="color: #ff0000;">Error: Could not stat() command file '/var/lib/nagios2/rw/nagios.cmd'!</span><br />
+<span style="color: #ff0000;"> The external command file may be missing, Nagios may not be running, and/or Nagios may not be checking external commands.</span><br />
+如上报错信息，尝试将针对rw目录执行chmod o+w rw，添加权限。如果发现nagios.cmd不存在，尝试/etc/init.d/nagios restart。</p>
+<p><strong>1.5. 安装php</strong><br />
+因为nagios的web的后台源码是php，所以需要搭建php运行环境。<br />
+<span style="color: #0000ff;">shell>tar -xzvf php-5.3.15.tar.gz</span><br />
+<span style="color: #0000ff;"> shell>cd php-5.3.15</span><br />
+<span style="color: #0000ff;"> shell>./configure --with-gd --with-zlib --prefix=/usr/local/php --with-apxs2=/usr/local/apache/bin/apxs</span><br />
+<span style="color: #0000ff;"> shell>make</span><br />
+<span style="color: #0000ff;"> shell>make install</span><br />
+<span style="color: #0000ff;"> shell>ls -lrt /usr/local/apache/modules/libphp5.so</span>&nbsp; ##检查是否已产生此文件</p>
+<p><strong>2.配置</strong><br />
+<strong> 2.1. 配置前准备</strong><br />
+<span style="color: #0000ff;">shell>useradd nagios&nbsp;</span> ##添加系统用户nagios，来运行nagios系统。<br />
+<span style="color: #0000ff;">shell>chown &ndash;R nagios.nagios /usr/local/nagios</span>&nbsp; ##更改目录属主、属组</p>
+<p><strong>2.2. 配置详解</strong></p>
+<p>* 步骤1 修改apache的配置文件httpd.conf，所在路径：/usr/local/apache/conf/httpd.conf</p>
+<p>指定web访问路径以及对nagios的目录进行用户验证，只有合法的授权用户才可以访问nagios的页面文件。<br />
+在最后添加如下内容：</p>
+<pre>
+ ScriptAlias /nagios/cgi-bin/ "/usr/local/nagios/sbin/"<br />
+ <Directory "/usr/local/nagios/sbin/"><br />
+ AuthType Basic<br />
+ Options ExecCGI<br />
+ AllowOverride None<br />
+ Order allow,deny<br />
+ Allow from all<br />
+ AuthName "Nagios Access"<br />
+ AuthUserFile /usr/local/nagios/etc/htpasswd<br />
+ Require valid-user<br />
+ </Directory><br />
+Alias /nagios/ "/usr/local/nagios/share/"<br />
+ <Directory "/usr/local/nagios/share/"><br />
+ AuthType Basic<br />
+ Options None<br />
+ AllowOverride None<br />
+ Order allow,deny<br />
+ Allow from all<br />
+ AuthName "nagios Access"<br />
+ AuthUserFile /usr/local/nagios/etc/htpasswd<br />
+ Require valid-user<br />
+ </Directory></pre><br />
+另外，修改配置文件使监听8081端口:"Listen 8081"</p>
+<p>* 步骤2 生成用户验证文件</p>
+<p>即步骤1中的指定用户验证的信息<br />
+<span style="color: #0000ff;">shell>/usr/local/apache/bin/htpasswd &ndash;c /usr/local/nagios/etc/htpasswd nagiosadmin</span></p>
+<p>以上命令会在文件/usr/local/nagios/etc/htpasswd写入一行，第一个字段是刚生成的用户名，第二个是加密后的密码。<br />
+如果还要添加更多的用户，执行命令 htpasswd 就不需要选项 &ldquo;-c&rdquo;,否则就会覆盖所有已经生成的行。<br />
+生成合法用户nagiosadmin，会确认两次密码，这里设置密码为abc。</p>
+<p>* 步骤3 web服务中配置php</p>
+<p>修改apache的配置文件httpd.conf，路径依然是：/usr/local/apache/conf/httpd.conf<br />
+在最后添加：</p>
+<pre> AddType application/x-httpd-php .php<br />
+ AddType application/x-httpd-php-source .phps</pre><br />
+* 步骤4 启动apache</p>
+<p><span style="color: #0000ff;">shell>/usr/local/apache/bin/apachectl &ndash;t</span> ##检查apache配置文件是否有语法错误，无误后处理下一步<br />
+<span style="color: #0000ff;">shell>/usr/local/apache/bin/apachectl start</span> ##启动apache</p>
+<p>* 步骤5 web访问</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/nagios3.png"><img class="alignnone size-medium wp-image-185" alt="nagios3" src="http://www.sqlparty.com/wp-content/uploads/2013/07/nagios3-300x201.png" width="300" height="201" /></a></p>

@@ -1,0 +1,88 @@
+---
+layout: post
+status: publish
+published: true
+title: 如何找到包含某列最大值的那一行？
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "有这样的表mytable，包括user_id,my_value,my_date三列。我想获取每个user_id的最近日期max(my_date)对应的user_id,my_value,my_date。用怎样的SQL实现呢？这里假设每个user_id下日期唯一。\r\n\r\n本题来源<a
+  title=\"http://stackoverflow.com/questions/121387/fetch-the-row-which-has-the-max-value-for-a-column\"
+  href=\"http://stackoverflow.com/questions/121387/fetch-the-row-which-has-the-max-value-for-a-column\"
+  target=\"_blank\">stackoverflow</a>\r\n\r\n"
+wordpress_id: 332
+wordpress_url: http://www.sqlparty.com/?p=332
+date: '2013-08-05 12:04:18 +0800'
+date_gmt: '2013-08-05 04:04:18 +0800'
+categories:
+- 题炼
+tags:
+- row_number
+- left-join
+- 子查询
+- group-by
+---
+<p>有这样的表mytable，包括user_id,my_value,my_date三列。我想获取每个user_id的最近日期max(my_date)对应的user_id,my_value,my_date。用怎样的SQL实现呢？这里假设每个user_id下日期唯一。</p>
+<p>本题来源<a title="http://stackoverflow.com/questions/121387/fetch-the-row-which-has-the-max-value-for-a-column" href="http://stackoverflow.com/questions/121387/fetch-the-row-which-has-the-max-value-for-a-column" target="_blank">stackoverflow</a></p>
+<p><!--more--></p>
+<div class="dailyanswer">本题可以有多种方式实现。<br />
+1.使用分析函数max，找出每个user_id分组的max(my_date)。[sql]<br />
+select  user_id,<br />
+        my_value,<br />
+        my_date<br />
+from<br />
+(<br />
+    select  user_id,<br />
+            my_value,<br />
+            my_date,<br />
+            max(my_date) over (partition by user_id) max_my_date<br />
+    from mytable<br />
+)<br />
+where my_date = max_my_date<br />
+[/sql]</p>
+<p>2.使用分析函数row_number，根据user_id分组后按照my_date排序，取每组第一个。</p>
+<p>[sql]<br />
+select  user_id,<br />
+        my_value,<br />
+        my_date<br />
+from<br />
+(<br />
+    select  user_id,<br />
+            my_value,<br />
+            my_date,<br />
+            row_number() over (partition by user_id order by my_date desc) num<br />
+    from mytable<br />
+)<br />
+where num = 1<br />
+[/sql]</p>
+<p>3.使用group by和子查询</p>
+<p>[sql]<br />
+select A.user_id,<br />
+       A.my_value,<br />
+       A.my_date<br />
+from mytable A,<br />
+(<br />
+    select  user_id,<br />
+            max(my_date) as max_my_date<br />
+    from mytable<br />
+    group by user_id<br />
+) B<br />
+where A.user_id = B.user_id<br />
+  and A.my_date = B.max_my_date<br />
+[/sql]</p>
+<p>4.自关联加左关联</p>
+<p>[sql]<br />
+SELECT t1.*<br />
+FROM mytable t1<br />
+LEFT OUTER JOIN mytable t2<br />
+  ON t1.User_Id = t2.User_Id<br />
+ AND t1.my_date < t2.my_date<br />
+WHERE t2.User_Id IS NULL;<br />
+[/sql]</p>
+<p>这个方法很别致，深入理解其含义对理解关联操作很有帮助。它的where条件是找出没有满足做关联条件的记录。而左关联的条件是自关联找出自身user_id下日期大于自己的记录。不满足此条件则表明该记录没有日期大于自己的记录，那就是最大日期了。</p>
+<p>其实类似的方法还有很多，以上列出具有代表性的方式而已，供学习参考。</p>
+<p></div></p>

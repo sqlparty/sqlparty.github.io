@@ -1,0 +1,116 @@
+---
+layout: post
+status: publish
+published: true
+title: df与du下的磁盘空间不一致
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "我们在Nagios中设置了Linux各分区可用空间超过90%就邮件报警。一次报警发生后，开发人员进行处理，发现依然在报。我们看下状况：\r\n\r\n<span
+  style=\"color: #0000ff;\">[root@CH36 home]# df -h</span>\r\n<span style=\"color:
+  #0000ff;\">Filesystem&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  Size&nbsp; Used Avail Use% Mounted on</span>\r\n<span style=\"color: #0000ff;\">/dev/sda5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  1.3T&nbsp; 811G&nbsp; 394G&nbsp; 68% /</span>\r\n<span style=\"color: #0000ff;\">tmpfs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  24G&nbsp;&nbsp; 88K&nbsp;&nbsp; 24G&nbsp;&nbsp; 1% /dev/shm</span>\r\n<span
+  style=\"color: #0000ff;\">/dev/sda1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  2.0G&nbsp;&nbsp; 61M&nbsp; 1.8G&nbsp;&nbsp; 4% /boot</span>\r\n<span style=\"color:
+  #0000ff;\">/dev/sda3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  9.7G&nbsp; 8.8G&nbsp; 846M&nbsp; 92% /home</span>\r\n\r\n报警的是/home分区，可用空间只有846M了。我们再看下/home下哪个目录比较大：\r\n\r\n<span
+  style=\"color: #0000ff;\">[root@CH36 home]# du -sh *</span>\r\n<span style=\"color:
+  #0000ff;\">751M&nbsp;&nbsp;&nbsp; xxx</span>\r\n<span style=\"color: #0000ff;\">32K&nbsp;&nbsp;&nbsp;&nbsp;
+  ganglia</span>\r\n<span style=\"color: #0000ff;\">72K&nbsp;&nbsp;&nbsp;&nbsp;
+  hadoop</span>\r\n<span style=\"color: #0000ff;\">16K&nbsp;&nbsp;&nbsp;&nbsp;
+  lost+found</span>\r\n<span style=\"color: #0000ff;\">1.5G&nbsp;&nbsp;&nbsp;
+  abc</span>\r\n<span style=\"color: #0000ff;\">44K&nbsp;&nbsp;&nbsp;&nbsp; mysql</span>\r\n<span
+  style=\"color: #0000ff;\">60K&nbsp;&nbsp;&nbsp;&nbsp; d</span>\r\n<span style=\"color:
+  #0000ff;\">3.7M&nbsp;&nbsp;&nbsp; server</span>\r\n<span style=\"color: #0000ff;\">32K&nbsp;&nbsp;&nbsp;&nbsp;
+  e</span>\r\n\r\n奇怪的事情发生了，这些目录大小合计才2G多，应该有7G左右可用才对，为什么df与du的输出矛盾呢？\r\n\r\n"
+wordpress_id: 813
+wordpress_url: http://www.sqlparty.com/?p=813
+date: '2014-01-08 21:49:16 +0800'
+date_gmt: '2014-01-08 13:49:16 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- du
+- df
+---
+<p>我们在Nagios中设置了Linux各分区可用空间超过90%就邮件报警。一次报警发生后，开发人员进行处理，发现依然在报。我们看下状况：</p>
+<p><span style="color: #0000ff;">[root@CH36 home]# df -h</span><br />
+<span style="color: #0000ff;">Filesystem&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Size&nbsp; Used Avail Use% Mounted on</span><br />
+<span style="color: #0000ff;">/dev/sda5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1.3T&nbsp; 811G&nbsp; 394G&nbsp; 68% /</span><br />
+<span style="color: #0000ff;">tmpfs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 24G&nbsp;&nbsp; 88K&nbsp;&nbsp; 24G&nbsp;&nbsp; 1% /dev/shm</span><br />
+<span style="color: #0000ff;">/dev/sda1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2.0G&nbsp;&nbsp; 61M&nbsp; 1.8G&nbsp;&nbsp; 4% /boot</span><br />
+<span style="color: #0000ff;">/dev/sda3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 9.7G&nbsp; 8.8G&nbsp; 846M&nbsp; 92% /home</span></p>
+<p>报警的是/home分区，可用空间只有846M了。我们再看下/home下哪个目录比较大：</p>
+<p><span style="color: #0000ff;">[root@CH36 home]# du -sh *</span><br />
+<span style="color: #0000ff;">751M&nbsp;&nbsp;&nbsp; xxx</span><br />
+<span style="color: #0000ff;">32K&nbsp;&nbsp;&nbsp;&nbsp; ganglia</span><br />
+<span style="color: #0000ff;">72K&nbsp;&nbsp;&nbsp;&nbsp; hadoop</span><br />
+<span style="color: #0000ff;">16K&nbsp;&nbsp;&nbsp;&nbsp; lost+found</span><br />
+<span style="color: #0000ff;">1.5G&nbsp;&nbsp;&nbsp; abc</span><br />
+<span style="color: #0000ff;">44K&nbsp;&nbsp;&nbsp;&nbsp; mysql</span><br />
+<span style="color: #0000ff;">60K&nbsp;&nbsp;&nbsp;&nbsp; d</span><br />
+<span style="color: #0000ff;">3.7M&nbsp;&nbsp;&nbsp; server</span><br />
+<span style="color: #0000ff;">32K&nbsp;&nbsp;&nbsp;&nbsp; e</span></p>
+<p>奇怪的事情发生了，这些目录大小合计才2G多，应该有7G左右可用才对，为什么df与du的输出矛盾呢？</p>
+<p><!--more-->考察一下du与df这两个命令。</p>
+<h2>1.du命令</h2><br />
+du -sh命令通过将指定文件系统路径下所有的目录、符号链接、文件使用的块数累加起来得到总块数以及总大小。它会遍历这个目录，针对所有真实存在的文件、目录等汇总，给出最终结果。所以，通过du -sh给出的已使用空间情况，肯定是真实的！</p>
+<h2>2.df命令</h2><br />
+df命令常被用来检查分区空间使用情况。它与du不同，它是查看文件系统磁盘块分配图得出总块数与剩余块数。</p>
+<p>文件系统分配一些磁盘块用来记录它自身的一些数据，如i节点，磁盘分布图，间接块，超级块等。这些称为MetaData，对于用户级程序如du是不可见的。而df命令则查看磁盘分配图并考虑MetaData。</p>
+<p>描述还是比较抽象，我们看下Linux下写一个文件的后台操作：</p>
+<ol>
+<li>首先，获取这个文件的文件句柄，这是会判断这个文件是否存在！</li>
+<li>然后，程序所有的写入操作仅仅使用文件句柄，而不再关注具体文件是否存在！Linux中允许对一个正在写入的文件进行删除RM或者移动MV，而Windows中是不允许这样的操作的。</li><br />
+</ol><br />
+可能会有这样的疑问了：</p>
+<p><strong>文件都删除了，应用程序还在写入，写到哪里去了呢？</strong></p>
+<p>其实应用程序获取句柄，就直接指向到了磁盘位置，到了数据块的级别上进行写入了，不再检查数据块所属的文件是否存在。这时候的写入，对于其他人，由于访问的入口--文件--不存在了，所以是看不到其写入的内容的！</p>
+<h2>解决方案</h2><br />
+了解了du和df的基本原理，再看我们的这个问题，基本可以确认，du的结果是真实的使用情况，而开发人员的处理方式可能是直接删除RM了大文件。先验证一下这个猜测：</p>
+<p>通过ps查到java应用程序的pid为12136，我们看看它所持有的文件句柄中有哪些异常：<br />
+<span style="color: #0000ff;">[root@CH36 home]# ls -l /proc/12136/fd | grep -i deleted</span><br />
+<span style="color: #0000ff;">l-wx------ 1 xxx xxx 64 Jan&nbsp; 8 10:40 1 -> /home/xxx/nohup.out (deleted)</span><br />
+<span style="color: #0000ff;">l-wx------ 1 xxx xxx 64 Jan&nbsp; 8 10:40 2 -> /home/xxx/nohup.out (deleted)</span><br />
+<span style="color: #0000ff;">l-wx------ 1 xxx xxx 64 Jan&nbsp; 8 10:40 97 -> /home/xxx/log.log.5 (deleted)</span></p>
+<p>再查看这些文件，都不存在。事实上，即使存在同名文件，也可能是删除后新生成的，与句柄原始对应的不是同一个文件了。</p>
+<p>与开发人员确认后，事实就是如此。重启Java应用后，df能够看到与du中查看到的已使用空间相一致！</p>
+<p><strong>正确的清空文件的方式是执行shell命令"<span style="color: #0000ff;">> file.txt</span>"。</strong></p>
+<h2>其他：调整ext4的预留空间大小百分比</h2><br />
+在开始检查问题时，还误入歧途，认为可能是ext4文件系统保留空间的问题。也记录于此吧。</p>
+<p>ext3和ext4文件系统有一个特点，默认每个分区保留5%的空间，不允许非root用户使用。我们应该这部分空间的存在，或者什么时候可以救个急。</p>
+<h3>1.查看ext4分区的预留空间</h3><br />
+<span style="color: #0000ff;">shell> dumpe2fs /dev/sda5 | grep 'Reserved block count'</span><br />
+<span style="color: #0000ff;">dumpe2fs 1.41.12 (17-May-2010)</span><br />
+<span style="color: #0000ff;">Reserved block count:&nbsp;&nbsp;&nbsp;&nbsp; 16893926</span></p>
+<p>块大小为4k，则这个分区保留了64G，确实是总量1.3T的5%。</p>
+<h3>2.设置预留空间百分比</h3><br />
+<span style="color: #0000ff;">[root@CH36 home]# df -h</span><br />
+<span style="color: #0000ff;">Filesystem&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Size&nbsp; Used Avail Use% Mounted on</span><br />
+<span style="color: #0000ff;">/dev/sda5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1.3T&nbsp; 812G&nbsp; 394G&nbsp; 68% /</span><br />
+<span style="color: #0000ff;">tmpfs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 24G&nbsp;&nbsp; 88K&nbsp;&nbsp; 24G&nbsp;&nbsp; 1% /dev/shm</span><br />
+<span style="color: #0000ff;">/dev/sda1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2.0G&nbsp;&nbsp; 61M&nbsp; 1.8G&nbsp;&nbsp; 4% /boot</span><br />
+<span style="color: #0000ff;">/dev/sda3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 9.7G&nbsp; 2.7G&nbsp; 7.0G&nbsp; 28% /home</span></p>
+<p><span style="color: #0000ff;">[root@CH36 home]# tune2fs -m 0 /dev/sda5</span><br />
+<span style="color: #0000ff;">tune2fs 1.41.12 (17-May-2010)</span><br />
+<span style="color: #0000ff;">Setting reserved blocks percentage to 0% (0 blocks)</span></p>
+<p><span style="color: #0000ff;">[root@CH36 home]# df -h</span><br />
+<span style="color: #0000ff;">Filesystem&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Size&nbsp; Used Avail Use% Mounted on</span><br />
+<span style="color: #0000ff;">/dev/sda5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1.3T&nbsp; 812G&nbsp; 458G&nbsp; 64% /</span><br />
+<span style="color: #0000ff;">tmpfs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 24G&nbsp;&nbsp; 88K&nbsp;&nbsp; 24G&nbsp;&nbsp; 1% /dev/shm</span><br />
+<span style="color: #0000ff;">/dev/sda1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2.0G&nbsp;&nbsp; 61M&nbsp; 1.8G&nbsp;&nbsp; 4% /boot</span><br />
+<span style="color: #0000ff;">/dev/sda3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 9.7G&nbsp; 2.7G&nbsp; 7.0G&nbsp; 28% /home</span></p>
+<p>可以看到，调整后，可用空间增加了64G！</p>
+<p>参考：<br />
+<a href="http://askubuntu.com/questions/209934/why-do-df-and-du-show-different-output" target="_blank">http://askubuntu.com/questions/209934/why-do-df-and-du-show-different-output</a><br />
+<a href="http://www.ha97.com/5067.html" target="_blank">http://www.ha97.com/5067.html</a><br />
+<a href="http://www.linuxjournal.com/article/2747" target="_blank">http://www.linuxjournal.com/article/2747</a><br />
+<a href="http://www.zhaokunyao.com/archives/3469" target="_blank">http://www.zhaokunyao.com/archives/3469</a></p>
+<p><object type="application/x-shockwave-flash" data="http://www.sqlparty.com/wp-content/uploads/2014/01/dewplayer.swf" width="200" height="20" id="dewplayer" name="dewplayer"><param name="wmode" value="transparent" /><param name="movie" value="http://www.sqlparty.com/wp-content/uploads/2014/01/dewplayer.swf" /><param name="flashvars" value="mp3=http://sqlparty.dbankcloud.com/%E8%8B%B1%E9%9B%84%E7%9A%84%E9%BB%8E%E6%98%8E.mp3&amp;volume=48" /></object></p>

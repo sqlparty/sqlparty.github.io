@@ -1,0 +1,70 @@
+---
+layout: post
+status: publish
+published: true
+title: 执行动态SQL语句查询，并输出参数
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "在SQLServer下，输出执行一个动态查询语句，并把语句中的@incategory的结果输出。语句如下：\r\n\r\n[sql]\r\ndeclare
+  @id int ;\r\ndeclare @sqlexec nvarchar(3000) ;\r\ndeclare @category varchar(500);\r\ndeclare
+  @tabl varchar(500);\r\nset @id=1;\r\nset @tabl='test4';\r\n\r\nSET @sqlexec='SELECT
+  @incategory=category FROM '\r\n\t\t + @tabl\r\n         + ' WHERE slno='\r\n         +
+  cast(@id as varchar(32));\r\nEXEC sp_executesql @sqlexec,N'@incategory varchar(500)
+  output',@incategory=@category output ;\r\n\r\nSET @category=@category+'NOTEND';\r\n\r\nIF
+  @id >3\r\nBEGIN\r\n....\r\nEND\r\n[/sql]\r\n\r\n现在要用mysql来实现这样的动态查询，并也要有个输出结果，怎样处理?\r\n\r\n"
+wordpress_id: 363
+wordpress_url: http://www.sqlparty.com/?p=363
+date: '2013-08-09 02:00:28 +0800'
+date_gmt: '2013-08-08 18:00:28 +0800'
+categories:
+- 题炼
+tags:
+- 动态SQL
+- 变量
+---
+<p>在SQLServer下，输出执行一个动态查询语句，并把语句中的@incategory的结果输出。语句如下：</p>
+<p>[sql]<br />
+declare @id int ;<br />
+declare @sqlexec nvarchar(3000) ;<br />
+declare @category varchar(500);<br />
+declare @tabl varchar(500);<br />
+set @id=1;<br />
+set @tabl='test4';</p>
+<p>SET @sqlexec='SELECT @incategory=category FROM '<br />
+		 + @tabl<br />
+         + ' WHERE slno='<br />
+         + cast(@id as varchar(32));<br />
+EXEC sp_executesql @sqlexec,N'@incategory varchar(500) output',@incategory=@category output ;</p>
+<p>SET @category=@category+'NOTEND';</p>
+<p>IF @id >3<br />
+BEGIN<br />
+....<br />
+END<br />
+[/sql]</p>
+<p>现在要用mysql来实现这样的动态查询，并也要有个输出结果，怎样处理?</p>
+<p><!--more--></p>
+<div class="dailyanswer">本题主要考察MySQL用户定义变量和动态SQL的用法。MySQL中用户定义变量可以直接通过set来声明和赋值。set @a=1;等价于set @a:=1，但是select @a:=col1 from t1不能用@a=col，因为后者变成了判断条件。</p>
+<p>而MySQL中使用动态SQL，包括三部分SQL语句：</p>
+<ol>
+<li>prepare 预备语句，便于后面执行</li>
+<li>execute 执行prepare好的语句</li>
+<li>deallocate prepare 释放prepare好的语句</li><br />
+</ol><br />
+针对本题内容，结合变量和动态SQL，可以如下：</p>
+<p>[sql]<br />
+set @id:=1;<br />
+set @tabl:='test4';<br />
+set @sqlexec:=concat('select @category:=category from ',@tabl,' where slno=',cast(@id as char));<br />
+prepare stmt1 from @sqlexec ;<br />
+execute stmt1;<br />
+deallocate prepare stmt1 ;</p>
+<p>/*@category这里就可以直接使用*/<br />
+SET @category:=concat(@category,'NOTEND');<br />
+...<br />
+[/sql]</p>
+<p></div></p>

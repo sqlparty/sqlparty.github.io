@@ -1,0 +1,257 @@
+---
+layout: post
+status: publish
+published: true
+title: eCryptfs企业级加密文件系统
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Ecryptfs是一个功能强大的企业级加密文件系统，通过堆叠在其它文件系统之上（如 Ext2, Ext3, ReiserFS, JFS 等），为应用程序提供透明、动态、高效和安全的加密功能。\r\n其有如下特点：\r\n<ul>\r\n\t<li>支持文件粒度：加密到每一个文件。你可以单独取出一个文件进行解密。而不是像其它软件那样，制作一个大大的文件包。</li>\r\n\t<li>系统内核支持，用户透明：解密文件夹挂载点（在哪查看解密文件夹），对用户和系统是透明的（与平常文件夹没有区别）。可以对复杂软件进行加密支持，比如sql数据库文件夹、web文件夹、聊天记录（对软件没有影响，也不需设置）。</li>\r\n\t<li>多种加密方式：与普通软件不同，它提供了不同强度、方式的加密。</li>\r\n\t<li>防止文件窃取：加密文件经过对称密钥算法加密后一密文的形式存放在物理介质上，即使文件丢失或被窃取，在加密密钥未泄漏的情况下，非授权用户几乎无法通过密文逆向获得文件的明文。
+  可以应对存储介质失窃的威胁。</li>\r\n</ul>\r\n本质上，eCryptfs 就像是一个内核版本的 Pretty Good Privacy（PGP）服务，插在
+  VFS（虚拟文件系统层）和 下层物理文件系统之间，充当一个&ldquo;过滤器&rdquo;的角色。用户应用程序对加密文件的写请求，经系统调用层到达 VFS 层，VFS
+  转给 eCryptfs 文件系统组件（后面会介绍）处理，处理完毕后，再转给下层物理文件系统；读请求（包括打开文件）流程则相反。\r\n\r\n"
+wordpress_id: 205
+wordpress_url: http://www.sqlparty.com/?p=205
+date: '2013-07-30 22:12:18 +0800'
+date_gmt: '2013-07-30 14:12:18 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- 文件系统
+- 安全
+---
+<p>Ecryptfs是一个功能强大的企业级加密文件系统，通过堆叠在其它文件系统之上（如 Ext2, Ext3, ReiserFS, JFS 等），为应用程序提供透明、动态、高效和安全的加密功能。<br />
+其有如下特点：</p>
+<ul>
+<li>支持文件粒度：加密到每一个文件。你可以单独取出一个文件进行解密。而不是像其它软件那样，制作一个大大的文件包。</li>
+<li>系统内核支持，用户透明：解密文件夹挂载点（在哪查看解密文件夹），对用户和系统是透明的（与平常文件夹没有区别）。可以对复杂软件进行加密支持，比如sql数据库文件夹、web文件夹、聊天记录（对软件没有影响，也不需设置）。</li>
+<li>多种加密方式：与普通软件不同，它提供了不同强度、方式的加密。</li>
+<li>防止文件窃取：加密文件经过对称密钥算法加密后一密文的形式存放在物理介质上，即使文件丢失或被窃取，在加密密钥未泄漏的情况下，非授权用户几乎无法通过密文逆向获得文件的明文。 可以应对存储介质失窃的威胁。</li><br />
+</ul><br />
+本质上，eCryptfs 就像是一个内核版本的 Pretty Good Privacy（PGP）服务，插在 VFS（虚拟文件系统层）和 下层物理文件系统之间，充当一个&ldquo;过滤器&rdquo;的角色。用户应用程序对加密文件的写请求，经系统调用层到达 VFS 层，VFS 转给 eCryptfs 文件系统组件（后面会介绍）处理，处理完毕后，再转给下层物理文件系统；读请求（包括打开文件）流程则相反。</p>
+<p><!--more--></p>
+<h2>eCryptfs加密文件系统的架构</h2><br />
+<a href="http://www.sqlparty.com/wp-content/uploads/2013/07/eCryptfs.png"><img class="alignnone size-medium wp-image-206" alt="eCryptfs" src="http://www.sqlparty.com/wp-content/uploads/2013/07/eCryptfs-300x224.png" width="300" height="224" /></a></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/eCryptfs2.png"><img class="alignnone size-medium wp-image-207" alt="eCryptfs2" src="http://www.sqlparty.com/wp-content/uploads/2013/07/eCryptfs2-300x292.png" width="300" height="292" /></a></p>
+<h2>eCryptfs 不足</h2><br />
+根据<a href=" http://www.ibm.com/developerworks/cn/linux/l-cn-ecryptfs/" target="_blank"> http://www.ibm.com/developerworks/cn/linux/l-cn-ecryptfs/</a> 中的描述，有如下不足：</p>
+<ol>
+<li>写操作性能比较差。读操作的开销不算太大，最多降低 29%，有些小文件测试项目反而性能更好；对于写操作，所有测试项目的结果都很差，普遍下降 16 倍左右。这是因为 Page Cache 里面只存放明文，因此首次数据的读取需要解密操作，后续的读操作没有开销；而每一次写 x 字节的数据，就会涉及 ((x &ndash; 1) / extent_size + 1) * extent_size 字节的加密操作，因此开销比较大。</li>
+<li>有两种情况可能造成信息泄漏：</li><br />
+</ol><br />
+a. 当系统内存不足时，Page Cache 中的加密文件的明文页可能会被交换到 swap 区，目前的解决方法是用 dm-crypt 加密 swap 区。<br />
+b. 应用程序也有可能在读取加密文件后，将其中某些内容以临时文件的方式写入未挂载 eCryptfs 的目录中（比如直接写到 /tmp 中），解决方案是配置应用程序或修改其实现。</p>
+<p>eCryptfs 实现的安全性完全依赖于操作系统自身的安全。如果 Linux Kernel 被攻陷，那么黑客可以轻而易举地获得文件的明文，FEK 等重要信息。</p>
+<h2>eCryptfs使用方法</h2><br />
+eCryptfs需要内核组件和用户层组件。<br />
+内核组件需要包含：</p>
+<pre> Code maturity level options ---><br />
+ [*] Prompt for development and/or<br />
+ incomplete code/drivers<br />
+Security options ---><br />
+ Enable access key retention support<br />
+Cryptographic options ---><br />
+  MD5 digest algorithm<br />
+ AES cipher algorithms<br />
+File systems ---><br />
+ Miscellaneous filesystems ---><br />
+  eCrypt filesystem layer support (EXPERIMENTAL)<br />
+</pre><br />
+首先需要加载eCryptfs内核模块<br />
+<span style="color: #0000ff;">shell>modprobe ecryptfs</span><br />
+然后将eCryptfs挂载到准备存放加密文件的目录<br />
+<span style="color: #0000ff;"> shell>mount -t ecryptfs <real_path> <ecryptfs_mounted_path></span> #推荐ecryptfs_mounted_path和真实目录real_path一致，这样非授权用户不能通过原路径访问加密文件。<br />
+<em>有时会在mount时报错：</em><br />
+<em> mount: wrong fs type, bad option, bad superblock on /db/test,</em><br />
+<em> missing codepage or helper program, or other error</em><br />
+<em> In some cases useful info is found in syslog - try</em><br />
+<em> dmesg | tail or so</em><br />
+<em> 其原因是没有安装对应的ecryptfs-utils，确认是否有安装：</em><br />
+<em> shell>rpm -qa | grep -i ecryptfs</em><br />
+<em> 如果确认没有安装，则表示缺失用户层组件，需要安装，这里分别下载了</em><br />
+<a href=" http://mirror.centos.org/centos/6/os/x86_64/Packages/ecryptfs-utils-82-6.el6_1.3.x86_64.rpm" target="_blank"><em> http://mirror.centos.org/centos/6/os/x86_64/Packages/ecryptfs-utils-82-6.el6_1.3.x86_64.rpm</em></a><br />
+<a href=" http://mirror.centos.org/centos/6/os/x86_64/Packages/trousers-0.3.4-4.el6.x86_64.rpm" target="_blank"><em> http://mirror.centos.org/centos/6/os/x86_64/Packages/trousers-0.3.4-4.el6.x86_64.rpm</em></a><br />
+<em> 进行安装后，可以成功mount。</em><br />
+说明：<br />
+eCryptfs默认使用AES-128算法以及用口令加密FEK。如果用户想使用公钥加密算法加密FEK，需要事先用OpenSSL产生公钥/私钥对。</p>
+<h2>eCryptfs使用示例</h2><br />
+示例将/db/test的内容加密挂载到/db/test目录下。</p>
+<p><span style="color: #0000ff;">shell>cd /db/test/</span><br />
+<span style="color: #0000ff;"> shell>echo "hello" > before.txt</span> #在加密前创建文件before.txt<br />
+<span style="color: #0000ff;"> shell>mount -t ecryptfs /db/test /db/test</span> #将/db/test加载到/db/test目录中<br />
+<span style="color: #0000ff;">Select key type to use for newly created files:</span><br />
+<span style="color: #0000ff;"> 1) passphrase</span><br />
+<span style="color: #0000ff;"> 2) tspi</span><br />
+<span style="color: #0000ff;"> 3) openssl</span><br />
+<span style="color: #0000ff;"> Selection: 1</span> #这里选择密码验证的方式<br />
+<span style="color: #0000ff;">Passphrase:</span> #输入密码，这里不会显示出来，一定要记牢！<br />
+<span style="color: #0000ff;">Select cipher:</span><br />
+<span style="color: #0000ff;"> 1) aes: blocksize = 16; min keysize = 16; max keysize = 32 (not loaded)</span><br />
+<span style="color: #0000ff;"> 2) blowfish: blocksize = 16; min keysize = 16; max keysize = 56 (not loaded)</span><br />
+<span style="color: #0000ff;"> 3) des3_ede: blocksize = 8; min keysize = 24; max keysize = 24 (not loaded)</span><br />
+<span style="color: #0000ff;"> 4) cast6: blocksize = 16; min keysize = 16; max keysize = 32 (not loaded)</span><br />
+<span style="color: #0000ff;"> 5) cast5: blocksize = 8; min keysize = 5; max keysize = 16 (not loaded)</span><br />
+<span style="color: #0000ff;"> Selection [aes]:</span> #选择加密方式。这里直接回车，选择默认的aes加密方式<br />
+<span style="color: #0000ff;">Select key bytes:</span><br />
+<span style="color: #0000ff;"> 1) 16</span><br />
+<span style="color: #0000ff;"> 2) 32</span><br />
+<span style="color: #0000ff;"> 3) 24</span><br />
+<span style="color: #0000ff;"> Selection [16]:</span> #选择加密位数。这里直接回车，选择默认的16位<br />
+<span style="color: #0000ff;"> Enable plaintext passthrough (y/n) [n]:</span> #是否正常显示未经加密文件，默认是 n，以确保你不会误将秘密写入未经加密文件。<br />
+<span style="color: #0000ff;"> Enable filename encryption (y/n) [n]: y</span> #是否把文件名也进行加密，默认是 n。如果选择y，那么在没有解密的情况下，文件名呈现乱码。<br />
+<span style="color: #0000ff;">Filename Encryption Key (FNEK) Signature [a216278e6e397a04]:</span><br />
+<span style="color: #0000ff;"> Attempting to mount with the following options:</span><br />
+<span style="color: #0000ff;"> ecryptfs_unlink_sigs</span><br />
+<span style="color: #0000ff;"> ecryptfs_fnek_sig=a216278e6e397a04</span><br />
+<span style="color: #0000ff;"> ecryptfs_passthrough</span><br />
+<span style="color: #0000ff;"> ecryptfs_key_bytes=16</span><br />
+<span style="color: #0000ff;"> ecryptfs_cipher=aes</span><br />
+<span style="color: #0000ff;"> ecryptfs_sig=a216278e6e397a04</span><br />
+<span style="color: #0000ff;"> WARNING: Based on the contents of [/root/.ecryptfs/sig-cache.txt],</span> #如果设置的密码是第一次使用，它会提示你输入可能有误，因为/root/.ecryptfs/sig-cache.txt中没有相关记录。密码标识只存在于你现在的系统中，是怕你忘记密码，它会告诉你这个密码是否用过。因为ecryptfs在密码错误的情况下一样可以进行错误解密，实际上是另外一种形式的加密。这里可以忽略之。<br />
+<span style="color: #0000ff;">it looks like you have never mounted with this key</span><br />
+<span style="color: #0000ff;"> before. This could mean that you have typed your</span><br />
+<span style="color: #0000ff;"> passphrase wrong.</span></p>
+<p><span style="color: #0000ff;">Would you like to proceed with the mount (yes/no)? : yes</span> #是否继续mount？当然是！否则就退出mount操作。<br />
+<span style="color: #0000ff;">Would you like to append sig [a216278e6e397a04] to</span><br />
+<span style="color: #0000ff;"> [/root/.ecryptfs/sig-cache.txt]</span><br />
+<span style="color: #0000ff;"> in order to avoid this warning in the future (yes/no)? : no</span> #是否把密码标识保存起来？选择no会有更好的安全性，但是你自己得把密码和密码标识保存好。这一步与上面的WARNING相关。<br />
+<span style="color: #0000ff;">Not adding sig to user sig cache file; continuing with mount.</span><br />
+<span style="color: #0000ff;"> Mounted eCryptfs</span><br />
+<span style="color: #0000ff;"> shell>mount</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+<span style="color: #0000ff;"> /db/test on /db/test type ecryptfs (rw,ecryptfs_sig=a216278e6e397a04,ecryptfs_cipher=aes,ecryptfs_key_bytes=16,ecryptfs_fnek_sig=a216278e6e397a04,ecryptfs_unlink_sigs)</span><br />
+<strong>1.测试能够访问加密前文件</strong><br />
+<span style="color: #0000ff;">shell>cat before.txt</span><br />
+<span style="color: #0000ff;"> hello</span><br />
+<strong>2.测试新建文件，添加内容</strong><br />
+<span style="color: #0000ff;">shell>echo "hello after" > after1.txt</span><br />
+<span style="color: #0000ff;"> shell>cat after1.txt</span><br />
+<span style="color: #0000ff;"> hello after</span><br />
+<span style="color: #0000ff;"> shell>ls -lrt</span><br />
+<span style="color: #0000ff;"> total 8</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 root root 6 Apr 24 09:55 before.txt</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 root root 12 Apr 24 10:00 after1.txt</span><br />
+<strong>3.拷贝新旧文件至未加密文件夹</strong><br />
+<span style="color: #0000ff;">shell>cp before.txt after1.txt /tmp</span><br />
+<span style="color: #0000ff;"> shell>cat /tmp/before.txt /tmp/after1.txt</span><br />
+<span style="color: #0000ff;"> hello</span><br />
+<span style="color: #0000ff;"> hello after</span><br />
+<span style="color: #0000ff;"> shell>ls -lrt /tmp/before.txt /tmp/after1.txt</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 root root 6 Apr 24 10:02 /tmp/before.txt</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 root root 12 Apr 24 10:02 /tmp/after1.txt</span><br />
+<strong>4.新建终端连接，相同用户，执行类似操作</strong><br />
+<span style="color: #800080;">shell2>cd /db/test</span><br />
+<span style="color: #800080;"> shell2>ls -lrt</span><br />
+<span style="color: #800080;"> ls -lrt</span><br />
+<span style="color: #800080;"> total 8</span><br />
+<span style="color: #800080;"> -rw-r--r--. 1 root root 6 Apr 24 09:55 before.txt</span><br />
+<span style="color: #800080;"> -rw-r--r--. 1 root root 12 Apr 24 10:00 after1.txt</span><br />
+<span style="color: #800080;"> shell2>cat before.txt</span><br />
+<span style="color: #800080;"> cat: before.txt: Input/output error</span><br />
+<span style="color: #800080;"> shell2>cat after1.txt</span><br />
+<span style="color: #800080;"> cat: after1.txt: Input/output error</span><br />
+<span style="color: #800080;"> shell2>cat /tmp/before.txt</span><br />
+<span style="color: #800080;"> hello</span><br />
+<span style="color: #800080;"> shell2>cat /tmp/after1.txt</span><br />
+<span style="color: #800080;"> hello after</span><br />
+<span style="color: #ff0000;">【重要】</span><br />
+<span style="color: #ff0000;"> 以上测试完全看不出mount eCryptfs时如&ldquo;不应正常显示未经加密文件&rdquo;，&ldquo;文件名进行加密&rdquo;等的设置，而且不同用户连接有不同的表现，这是为什么？？？</span><br />
+<span style="color: #ff0000;"> 这个问题一度困扰我这个初次接触eCryptfs的人，偶然想到，eCryptfs实质是在原有文件系统之上堆叠了一层。第一个用户在mount之前就切换到了/db/test目录下，那么在mount之后，/db/test其实包括两层文件系统。第一个用户依然在两层文件系统的下面一层文件系统（即原文件系统）活动！这样第一个用户的操作其实未经过eCryptfs这一层的任何处理，包括创建的after1.txt其实是未加密的！！</span><br />
+<span style="color: #ff0000;"> 而第二个用户再次进入/db/test目录时，已经处于上层文件系统控制，即eCryptfs之上，任何操作都受eCryptfs管理。所以其查看before.txt和after1.txt这两个实际未加密的文件，由于eCryptfs的设置，无法查看，所以报错Input/output error。</span><br />
+<strong>5.理清思路后，接着使用第一个用户进行试验</strong><br />
+<span style="color: #0000ff;">shell>cd /db/test</span> #重新进入/db/test，这次实际是进入eCryptfs文件系统<br />
+<span style="color: #0000ff;">shell>echo "hello after2" > after2.txt</span><br />
+<span style="color: #0000ff;"> shell>ls -lrt</span><br />
+<span style="color: #0000ff;"> total 20</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 root root 6 Apr 24 09:55 before.txt</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 root root 12 Apr 24 10:00 after1.txt</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 root root 13 Apr 24 10:21 after2.txt</span><br />
+<span style="color: #0000ff;"> shell>cat *</span><br />
+<span style="color: #0000ff;"> cat: after1.txt: Input/output error</span><br />
+<span style="color: #0000ff;"> hello after2</span><br />
+<span style="color: #0000ff;"> cat: before.txt: Input/output error</span><br />
+<span style="color: #0000ff;"> shell>cp after2.txt /tmp/after2.txt</span><br />
+<span style="color: #0000ff;"> shell>cat /tmp/after2.txt</span><br />
+<span style="color: #0000ff;"> hello after2</span><br />
+<span style="color: #0000ff;">6.卸载加密目录</span><br />
+<span style="color: #0000ff;">shell>umount /db/test</span><br />
+<span style="color: #0000ff;"> umount: /db/test: device is busy.</span><br />
+<span style="color: #0000ff;"> (In some cases useful info about processes that use</span><br />
+<span style="color: #0000ff;"> the device is found by lsof(8) or fuser(1))</span><br />
+<span style="color: #0000ff;"> umount: /db/test: device is busy.</span><br />
+<span style="color: #0000ff;"> (In some cases useful info about processes that use</span><br />
+<span style="color: #0000ff;"> the device is found by lsof(8) or fuser(1))</span><br />
+<span style="color: #0000ff;"> shell>cd ..</span> #卸载时，由于自身在该目录下，即挂载的目录处于busy状态，先退出该目录<br />
+<span style="color: #0000ff;">shell>umount /db/test</span><br />
+<strong>7.检查文件</strong><br />
+<span style="color: #0000ff;">shell>cd test</span><br />
+<span style="color: #0000ff;"> shell>ls -lrt</span><br />
+<span style="color: #0000ff;"> total 20</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 root root 6 Apr 24 09:55 before.txt</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 root root 12 Apr 24 10:00 after1.txt</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 root root 12288 Apr 24 10:21 ECRYPTFS_FNEK_ENCRYPTED.FWaW3WSCPXZu.-SDIr9k1mgbIGpz2af9QFYeFaEfTpC3JN6NiPzuA7R6gU--</span><br />
+可以看到，卸载后，加密文件名称呈现乱码，而且大小为12288，加密后大小与实际大小不同。<br />
+<span style="color: #0000ff;">shell>cat EC*</span> #尝试查看加密文件<br />
+<显示乱码><br />
+<span style="color: #0000ff;">shell>cat /tmp/after2.txt</span><br />
+<span style="color: #0000ff;"> hello after2</span><br />
+<span style="color: #0000ff;"> shell>cat before.txt after1.txt</span><br />
+<span style="color: #0000ff;"> hello</span><br />
+<span style="color: #0000ff;"> hello after</span></p>
+<h2>小结</h2><br />
+以上测试可以看出eCryptfs的实现效果。</p>
+<ol>
+<li>mount后，对应用透明，从加密文件系统中拷出的内容，自动解密。</li>
+<li>mount时如果指定不允许Enable plaintext passthrough，那么对未加密文件无法操作。</li>
+<li>mount时如果指定Enable filename encryption，那么对文件名会做加密处理，umount后可以看到效果。</li>
+<li>umount后，所有加密文件内容无法被看到。</li><br />
+</ol></p>
+<h2>eCryptfs开机自动挂载</h2><br />
+这里演示密钥文件保存到U盘，开机依次挂载U盘和eCryptfs文件系统。<br />
+U盘对应设备为/dev/sdb1。<br />
+<span style="color: #0000ff;">shell>mkdir /mnt/usb</span><br />
+<span style="color: #0000ff;"> shell>mount -t vfat /dev/sdb1 /mnt/usb</span><br />
+获取/root/.ecryptfs/sig-cache.txt文件中的密码标识，或者之前记录的密码标识，这里为a216278e6e397a04。<br />
+<span style="color: #0000ff;">shell>vi /root/.ecryptfsrc</span><br />
+<span style="color: #0000ff;"> key=passphrase:passphrase_passwd_file=/mnt/usb/passwd_file.txt</span><br />
+<span style="color: #0000ff;"> ecryptfs_sig=a216278e6e397a04</span><br />
+<span style="color: #0000ff;"> ecryptfs_fnek_sig=a216278e6e397a04</span><br />
+<span style="color: #0000ff;"> ecryptfs_cipher=aes</span><br />
+<span style="color: #0000ff;"> ecryptfs_key_bytes=16</span><br />
+<span style="color: #0000ff;"> ecryptfs_passthrough=n</span><br />
+<span style="color: #0000ff;"> ecryptfs_enable_filename_crypto=y</span><br />
+当进行mount时，eCryptfs首先尝试读取当前用户HOME目录下的.ecryptfsrc文件中的选项，然后读入命令行给定的参数。eCryptfs对于没有给出具体值的必填项会提示用户输入。<br />
+一旦成功完成mount，写入<ecryptfs_mounted_path>的文件会被自动加密，保存到<real_path>中去。<br />
+<span style="color: #0000ff;">shell>vi /mnt/usb/passwd_file.txt</span><br />
+<span style="color: #0000ff;"> passphrase_passwd=some_passphrase</span> #记录挂载需要的密码。确保使用正确的密码<br />
+<span style="color: #0000ff;">shell>vi /etc/fstab</span> #添加usb与eCryptfs的挂载<br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;"> /dev/sdb1 /mnt/usb vfat ro 0 0</span><br />
+<span style="color: #0000ff;"> /db/test /db/test ecryptfs defaults 0 0</span><br />
+<span style="color: #0000ff;"> shell>mount -a</span> #尝试挂载<br />
+<span style="color: #0000ff;">Attempting to mount with the following options:</span><br />
+<span style="color: #0000ff;"> ecryptfs_unlink_sigs</span><br />
+<span style="color: #0000ff;"> ecryptfs_fnek_sig=a216278e6e397a04</span><br />
+<span style="color: #0000ff;"> ecryptfs_key_bytes=16</span><br />
+<span style="color: #0000ff;"> ecryptfs_cipher=aes</span><br />
+<span style="color: #0000ff;"> ecryptfs_sig=a216278e6e397a04</span><br />
+<span style="color: #0000ff;"> Mounted eCryptfs</span></p>
+<p><em>有时，此步骤会报错：</em><br />
+<em> Error attempting to evaluate mount options: [-2] No such file or directory</em><br />
+<em> Check your system logs for details on why this happened.</em><br />
+<em> Try updating your ecryptfs-utils package, and/or</em><br />
+<em> submit a bug report on https://launchpad.net/ecryptfs</em><br />
+<em> 原因可能是passphrase_passwd_file=xxx 中xxx后面紧跟了空格。具体可以查看系统日志。</em></p>
+<p>如果必要的话，重启测试下。如果USB设备不能自动挂载（eCryptfs也就无法挂载），那么可以尝试在/etc/rc.d/rc.local中加入：<br />
+/bin/mount -a<br />
+exit 0</p>
+<p>参考：<br />
+<a href="http://wiki.ubuntu.org.cn/Ecryptfs%E4%BC%81%E4%B8%9A%E7%BA%A7%E5%8A%A0%E5%AF%86%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F" target="_blank">http://wiki.ubuntu.org.cn/Ecryptfs%E4%BC%81%E4%B8%9A%E7%BA%A7%E5%8A%A0%E5%AF%86%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F</a><br />
+<a href="http://wiki.ubuntu.org.cn/Ecryptfs" target="_blank">http://wiki.ubuntu.org.cn/Ecryptfs</a><br />
+<a href="http://www.ibm.com/developerworks/cn/linux/l-cn-ecryptfs/" target="_blank"> http://www.ibm.com/developerworks/cn/linux/l-cn-ecryptfs/</a><br />
+<a href="http://www.linuxjournal.com/article/9400" target="_blank">http://www.linuxjournal.com/article/9400</a></p>

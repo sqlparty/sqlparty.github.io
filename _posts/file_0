@@ -1,0 +1,58 @@
+---
+layout: post
+status: publish
+published: true
+title: 有趣的查询：查询连续七天登录的用户(实现MySQL下的row_number)
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "场景：有一个登录表tmp_test(uid int, login_time datetime)。需要查询出所有在某段时间内(如2012-1-1至2012-1-17)连续7天都有登录的用户uid。这样的一句话SQL如何编写？\r\n\r\n本题来源<a
+  title=\"一个有趣的查询\" href=\"http://www.mysqlops.com/2012/03/06/an_interesting_query.html\"
+  target=\"_blank\">mysqlops</a>，这里取其基本内容进行讨论。\r\n\r\n"
+wordpress_id: 7
+wordpress_url: http://www.sqlparty.com/?p=7
+date: '2013-07-23 22:57:21 +0800'
+date_gmt: '2013-07-23 14:57:21 +0800'
+categories:
+- 题炼
+tags:
+- 数据库
+- MySQL
+- row_number
+---
+<p>场景：有一个登录表tmp_test(uid int, login_time datetime)。需要查询出所有在某段时间内(如2012-1-1至2012-1-17)连续7天都有登录的用户uid。这样的一句话SQL如何编写？</p>
+<p>本题来源<a title="一个有趣的查询" href="http://www.mysqlops.com/2012/03/06/an_interesting_query.html" target="_blank">mysqlops</a>，这里取其基本内容进行讨论。</p>
+<p><!--more--></p>
+<div class="dailyanswer">分析：跳过原文中的分析，我们直奔需求的核心，即连续和7天。在sql中对于连续的判断，有时候需要使用到max，min以及count然后数量比较，但这里显然不可行。看似简单的问题并不一定那么好入手。</div></p>
+<div class="dailyanswer"></div></p>
+<div class="dailyanswer">查看原文的高效方案的解答，很有启发。为所有记录编号row_number，可以实现连续。连续编号与连续日期，实现了相对的同步，通过运算可以划归为统一分组，实现筛选。实现的MySQL方言如下：[sql]<br />
+select distinct uid<br />
+from<br />
+(<br />
+     select uid,day_num_group<br />
+     from<br />
+     (<br />
+        select A.uid,<br />
+        A.days - @num:=@num+1 as day_num_group<br />
+        from<br />
+        (<br />
+          select t1.uid,<br />
+                 datediff(t1.login_time,'1980-1-1') as days<br />
+          from tmp_test t1<br />
+          where login_time >='2012-01-01 00:00:00'<br />
+            AND login_time <'2012-01-18 00:00:00'<br />
+          group by t1.uid,datediff(login_time,'1980-1-1')<br />
+        )A,<br />
+        (select @num=1) B<br />
+        order by A.uid,A.days<br />
+     ) T<br />
+     group by uid,day_num_group<br />
+     having count(1) >= 7<br />
+) T_1<br />
+[/sql]</p>
+<p>这里变量@num的使用仅仅是为排序后的记录添加编号，在Oracle，Sqlserver，DB2等环境下使用分析函数row_number就可以轻松实现。</p>
+<p></div></p>

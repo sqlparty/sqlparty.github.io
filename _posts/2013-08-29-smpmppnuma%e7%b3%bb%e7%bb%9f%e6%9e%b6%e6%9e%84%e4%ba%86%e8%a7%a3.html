@@ -1,0 +1,78 @@
+---
+layout: post
+status: publish
+published: true
+title: SMP/MPP/NUMA系统架构了解
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "数据库管理员常规的优化行为通常在软件层面，容易忽略硬件的底层架构的充分利用。在单机MySQL多实例假设的过程中了解到NUMA架构的特性，进而期望对时下流行的硬件架构有所了解，遂有此文记录。\r\n\r\n本文涉及到如下三种常见服务器架构：\r\n<ol>\r\n\t<li>SMP(Symmetric
+  Multi-Processor，对称多处理结构)</li>\r\n\t<li>NUMA(Non-Uniform Memory Access，非一致性内存访问)</li>\r\n\t<li>MPP(Massive
+  Parallel Processing，海量并行处理结构)</li>\r\n</ol>\r\n"
+wordpress_id: 498
+wordpress_url: http://www.sqlparty.com/?p=498
+date: '2013-08-29 22:54:21 +0800'
+date_gmt: '2013-08-29 14:54:21 +0800'
+categories:
+- 系统
+tags:
+- 系统
+- SMP
+- NUMA
+- MPP
+---
+<p>数据库管理员常规的优化行为通常在软件层面，容易忽略硬件的底层架构的充分利用。在单机MySQL多实例假设的过程中了解到NUMA架构的特性，进而期望对时下流行的硬件架构有所了解，遂有此文记录。</p>
+<p>本文涉及到如下三种常见服务器架构：</p>
+<ol>
+<li>SMP(Symmetric Multi-Processor，对称多处理结构)</li>
+<li>NUMA(Non-Uniform Memory Access，非一致性内存访问)</li>
+<li>MPP(Massive Parallel Processing，海量并行处理结构)</li><br />
+</ol><br />
+<!--more--></p>
+<h2>SMP(Symmetric Multi-Processor，对称多处理结构)</h2><br />
+SMP服务器中有多个处理器对称工作，无主次之分。各处理器平等使用所有物理内存，对资源的权限和访问效率都一样，由单一操作系统来控制。由于多处理器在内存访问上是完全平等的，所以SMP也被称为一致性内存访问(UMA, Uniform Memory Access)。<br />
+架构示意图：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/smp.png"><img class="alignnone size-medium wp-image-499" alt="smp" src="http://www.sqlparty.com/wp-content/uploads/2013/08/smp-300x192.png" width="300" height="192" /></a><br />
+本图引自 <a href="http://en.wikipedia.org/wiki/Symmetric_multiprocessing" target="_blank">http://en.wikipedia.org/wiki/Symmetric_multiprocessing</a></p>
+<p>SMP的资源共享特质也导致了其扩展存在瓶颈：每一个共享的环节出现瓶颈都会影响整个SMP服务器，尤其是内存！每一个处理器必须通过同一条内存总线访问同一处内存资源，所以随着处理器数量的增加，内存访问、总线使用的冲突就会迅速增加，最终造成处理器资源的浪费，使得处理器性能的有效性大大降低。</p>
+<h2>NUMA(Non-Uniform Memory Access，非一致性内存访问)</h2><br />
+SMP这样的一致性内存访问结构由于公用总线等资源，存在扩展上的限制。而NUMA为提高扩展性提供了一种方案。</p>
+<p>架构示意图：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/numa.png"><img class="alignnone size-full wp-image-500" alt="numa" src="http://www.sqlparty.com/wp-content/uploads/2013/08/numa.png" width="420" height="223" /></a><br />
+本图引自&nbsp;<a href="http://www.xasun.com/article/4d/2076.html" target="_blank"> http://www.xasun.com/article/4d/2076.html</a></p>
+<p>其特点是：</p>
+<ul>
+<li>由多个CPU模块组成，CPU模块也称为NUMA节点。每个节点可以包括多个处理器，有独立的本地内存，I/O插槽。</li>
+<li>NUMA节点间通过互联模块(称为Crossbar Switch)进行连接和信息交互，所以每个CPU可以访问整个系统的内存。显然，访问本地内存速度将远高于访问其他NUMA节点的内存。由于内存资源的不同存取代价，所以有了非一致性存储NUMA的名称。</li>
+<li>基于本地内存与其他节点的内存的访问效率差异，开发应用程序应尽量减少不同NUMA节点之间的信息交互。</li><br />
+</ul><br />
+NUMA虽然相对SMP服务器扩展性较好，但是依然有局限，单个节点的内存容量有限，而访问远地内存的延时远远超过本地内存。当CPU数量增加时，系统性能无法线性增加。</p>
+<h2>MPP(Massive Parallel Processing，海量并行处理结构)</h2><br />
+无论是SMP架构还是NUMA架构，作为单台服务器，扩展能力毕竟有限，MPP提供了使用SMP服务器作为节点的系统扩展方案。</p>
+<p>架构示意图：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/mpp.png"><img class="alignnone size-full wp-image-501" alt="mpp" src="http://www.sqlparty.com/wp-content/uploads/2013/08/mpp.png" width="418" height="227" /></a></p>
+<p>本图引自&nbsp;<a href="http://www.xasun.com/article/4d/2076.html" target="_blank"> http://www.xasun.com/article/4d/2076.html</a></p>
+<p>其特点是：</p>
+<ul>
+<li>单个节点是SMP服务器，所以MPP其实与SMP、NUMA服务器不同，其实由<strong>多台物理机</strong>组成。</li>
+<li>不同节点间通过"节点互联网络"进行通信，"节点互联网络"仅供MPP服务器内部使用，对用户而言是透明的</li>
+<li>用户角度只看到一个服务器系统</li>
+<li>每个SMP服务器只访问本地的资源，不会跨节点资源占用。而节点间的信息交互，称为数据重分配(Data Redistribution)</li><br />
+</ul><br />
+这样的架构提供了完全无共享(Share Nothing)系统结构，理论上可以无限扩展！但是MPP服务器需要一种复杂的机制来调度和平衡各个节点的负载和并行处理过程。常用的一种做法是添加一层系统级软件来隔离这种复杂度对开发人员的影响，如特定数据库系统。这样开发人员只需要与数据库系统交互，而由数据库系统实现后代MPP系统节点间的调度、并行。</p>
+<h2>NUMA与MPP的主要区别</h2><br />
+1. 节点交互机制不同。<br />
+虽然NUMA和MPP都划分节点，但是NUMA节点交互在同一物理服务器内部实现。当某个CPU需要访问远地内存时，需要等待，这也是NUMA服务器无法实现CPU增加时性能线程扩展的主因。而MPP的节点交互使用SMP服务器外部的网络I/O实现。每个节点只访问本地内存和存储，节点之间的信息交互与节点本身的处理是并行进行的，因此MPP在增加节点时性能基本可以实现线性扩展。</p>
+<p>2.内存访问机制。<br />
+NUMA可以跨节点访问，但是本地内存访问成本远低应尽量使用本地内存。MPP则只能访问本地内存。</p>
+<h2>数据库应用场景</h2></p>
+<ul>
+<li>SMP和NUMA架构都提高了单台服务器的并行能力，而且存储，I/O要求都适中，这正合适于联机事务处理为主的OLTP系统。</li><br />
+</ul></p>
+<ul>
+<li>而MPP提供了更卓越的并行处理能力和存储能力，这更适合复杂数据分析处理为主的OLAP系统。</li><br />
+</ul></p>

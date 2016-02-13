@@ -1,0 +1,97 @@
+---
+layout: post
+status: publish
+published: true
+title: Puppet介绍
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Puppet是一个系统自动化运维工具，可以实现各种管理任务，如批量的程序安装，配置，升级，以及备份、用户管理等。\r\n\r\n<a href=\"http://www.sqlparty.com/wp-content/uploads/2013/09/puppet-labs-logo.png\"><img
+  class=\"alignnone  wp-image-697\" alt=\"puppet-labs-logo\" src=\"http://www.sqlparty.com/wp-content/uploads/2013/09/puppet-labs-logo.png\"
+  width=\"679\" height=\"317\" /></a>\r\n\r\n官网地址： <a href=\"http://puppetlabs.com/\"
+  target=\"_blank\">http://puppetlabs.com/</a>\r\n\r\n当面对大量的服务器时，有很多内容需要考虑：\r\n<ol>\r\n\t<li>如何自动化更新多台服务器的软件和配置？</li>\r\n\t<li>如何同步不同服务器间配置</li>\r\n\t<li>如何能够将我们的操作自动的文档化，以及自动更新这些文档</li>\r\n\t<li>如何处理不同的平台</li>\r\n\t<li>对于系统管理，如何做好配置等的版本管理？</li>\r\n\t<li>...</li>\r\n</ol>\r\n使用Puppet可以很好的解决上述问题，基于这个工具，可以提高日常工作效率和水平，也降低了操作的复杂度，减少了错误发生。\r\n\r\n"
+wordpress_id: 696
+wordpress_url: http://www.sqlparty.com/?p=696
+date: '2013-09-18 22:52:53 +0800'
+date_gmt: '2013-09-18 14:52:53 +0800'
+categories:
+- 系统
+tags:
+- Puppet
+---
+<p>Puppet是一个系统自动化运维工具，可以实现各种管理任务，如批量的程序安装，配置，升级，以及备份、用户管理等。</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/09/puppet-labs-logo.png"><img class="alignnone  wp-image-697" alt="puppet-labs-logo" src="http://www.sqlparty.com/wp-content/uploads/2013/09/puppet-labs-logo.png" width="679" height="317" /></a></p>
+<p>官网地址： <a href="http://puppetlabs.com/" target="_blank">http://puppetlabs.com/</a></p>
+<p>当面对大量的服务器时，有很多内容需要考虑：</p>
+<ol>
+<li>如何自动化更新多台服务器的软件和配置？</li>
+<li>如何同步不同服务器间配置</li>
+<li>如何能够将我们的操作自动的文档化，以及自动更新这些文档</li>
+<li>如何处理不同的平台</li>
+<li>对于系统管理，如何做好配置等的版本管理？</li>
+<li>...</li><br />
+</ol><br />
+使用Puppet可以很好的解决上述问题，基于这个工具，可以提高日常工作效率和水平，也降低了操作的复杂度，减少了错误发生。</p>
+<p><!--more--></p>
+<p>一个示例来说明常规做法与使用Puppet的区别：<br />
+<strong>场景：</strong><br />
+新用户carl加入公司，需要在一些服务器上为他添加账户。<br />
+<strong>传统方案：</strong></p>
+<ol>
+<li>登录到server 1</li>
+<li>执行useradd carl，创建新账户、密码、home目录</li>
+<li>登录到server 2，重复上述步骤</li>
+<li>登录到server 3，重复上述步骤</li>
+<li>在所有需要配置的服务器上重复上述步骤</li><br />
+</ol><br />
+<strong> 使用Puppet：</strong><br />
+添加如下命令到你的Puppet代码中：<br />
+user { 'carl':<br />
+ensure => present,<br />
+}</p>
+<p>Puppet会几分钟中在所有相应的服务器上自动执行账户添加。它会首先检查该服务器上是否有carl用户，没有则添加该用户。</p>
+<p>puppet会自动检测系统类型，调用适当的程序完成操作。</p>
+<p><strong>使用Puppet的优势：</strong><br />
+可以看到，使用Puppet有如下好处：</p>
+<ol>
+<li>只需要在一处指定操作，而不需要分别在每台主机上执行</li>
+<li>不用操心不同平台的差异</li><br />
+</ol><br />
+Puppet本身可以认为是一个解释器，其读取Puppet代码，然后将变化应用到指定的主机。</p>
+<p>Puppet代码并不像shell脚本这样的语言有那么多样的指令，其代码看上去更新一些声明的语句，如：<br />
+package { 'curl':<br />
+ensure => installed,<br />
+}<br />
+这段代码的含义是：应安装curl包。Puppet会先检查curl是否已经安装，如果没有，则安装。</p>
+<p>如上这样的代码称为Puppet manifest，它并不给出命令，而是描述应该是怎样，由Puppet决定怎么做。类似这样的语言是声明式的语言。我们也可以推测，可以进行重复声明，而结果不会受到影响。</p>
+<p>Puppet中声明是基于resources以及它们的attributes，我们不需要关注resources具体实现的细节。</p>
+<p>Puppet有如下内置resources：</p>
+<ul>
+<li>Packages</li>
+<li>Files</li>
+<li>Services</li>
+<li>Users</li>
+<li>Groups</li>
+<li>YUM repos</li>
+<li>Nagios configuration</li>
+<li>Log messages</li>
+<li>/etc/hosts entries</li>
+<li>Network interfaces</li>
+<li>SSH keys</li>
+<li>SELinux settings</li>
+<li>Kerberos configuration</li>
+<li>ZFS attributes</li>
+<li>E-mail aliases</li>
+<li>Mailing lists</li>
+<li>Mounted filesystems</li>
+<li>Scheduled jobs</li>
+<li>VLANs</li>
+<li>Solaris zones</li><br />
+</ul><br />
+Puppet支持自定义resource，这样使得Puppet的功能几乎不受限制，可以自动化几乎任何可以想到的方面。</p>
+<p>参考：<br />
+《Puppet 3 Beginner's Guide》</p>

@@ -1,0 +1,83 @@
+---
+layout: post
+status: publish
+published: true
+title: 能否实现行转列(Pivot),并且合并列？
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "有如下形式的表mytable2：\r\n\r\n[sql]\r\nID    TYPE   SUBTYPE    COUNT   MONTH\r\n
+  1      A      Z          1       7/1/2008\r\n 1      A      Z          3
+  \      7/1/2008\r\n 2      B      C          2       7/2/2008\r\n
+  1      A      Z          3       7/2/2008\r\n[/sql]\r\n\r\n我能否用SQL查询得到如下的输出：\r\n\r\n[sql]\r\nID
+  \   A_Z   B_C   MONTH\r\n1     4     0     7/1/2008\r\n2     0     2     7/2/2008\r\n1
+  \    0     3     7/2/2008\r\n[/sql]\r\n\r\n这样，TYPE和SUBTYPE合并成新的列，而COUNT列根据ID，MONTH分组求和。\r\n\r\n注意：这里假设我们有100多这样的TYPES和SUBTYPES，所以如果在SQL中硬编码A和Z可能并不是非常有效。这样的SQL如何实现呢？这里RDBMS为SQLServer。\r\n\r\n本题来源<a
+  title=\"Pivot Table and Concatenate Columns\" href=\"http://stackoverflow.com/questions/159456/pivot-table-and-concatenate-columns\"
+  target=\"_blank\">stackoverflow</a>\r\n\r\n"
+wordpress_id: 348
+wordpress_url: http://www.sqlparty.com/?p=348
+date: '2013-08-07 06:59:25 +0800'
+date_gmt: '2013-08-06 22:59:25 +0800'
+categories:
+- 题炼
+tags:
+- 行转列
+- pivot
+- 动态SQL
+---
+<p>有如下形式的表mytable2：</p>
+<p>[sql]<br />
+ID    TYPE   SUBTYPE    COUNT   MONTH<br />
+ 1      A      Z          1       7/1/2008<br />
+ 1      A      Z          3       7/1/2008<br />
+ 2      B      C          2       7/2/2008<br />
+ 1      A      Z          3       7/2/2008<br />
+[/sql]</p>
+<p>我能否用SQL查询得到如下的输出：</p>
+<p>[sql]<br />
+ID    A_Z   B_C   MONTH<br />
+1     4     0     7/1/2008<br />
+2     0     2     7/2/2008<br />
+1     0     3     7/2/2008<br />
+[/sql]</p>
+<p>这样，TYPE和SUBTYPE合并成新的列，而COUNT列根据ID，MONTH分组求和。</p>
+<p>注意：这里假设我们有100多这样的TYPES和SUBTYPES，所以如果在SQL中硬编码A和Z可能并不是非常有效。这样的SQL如何实现呢？这里RDBMS为SQLServer。</p>
+<p>本题来源<a title="Pivot Table and Concatenate Columns" href="http://stackoverflow.com/questions/159456/pivot-table-and-concatenate-columns" target="_blank">stackoverflow</a></p>
+<p><!--more--></p>
+<div class="dailyanswer">本题第一眼看的时候，我们能想到用case when来实现行转列以及求和的需求，但是由于TYPES和SUBTYPES数量大，我们可以试试SQLServer 2005的Pivot，当然依然需要拼接动态SQL。具体如下：[sql]<br />
+/*声明三个字符变量，都用于保存拼接出的字符串结果*/<br />
+declare @sql as varchar(max)<br />
+declare @pivot_list as varchar(max) -- leave null for coalesce technique<br />
+declare @select_list as varchar(max) -- leave null for coalesce technique</p>
+<p>/*加号+实现concat拼接字符串的功能；coalesce处理null*/<br />
+select @pivot_list = coalesce(@pivot_list + ', ', '') + '[' + pivot_code + ']'<br />
+    	,@select_list = coalesce(@select_list + ', ', '') + 'isnull([' + pivot_code + '], 0) as [' + pivot_code + ']'<br />
+from (<br />
+    select distinct concat(type, '_', subtype) as pivot_code<br />
+    from mytable2<br />
+) as pivot_codes</p>
+<p>set @sql = '<br />
+;with p as (<br />
+    select id, [month], [type] + ''_'' + subtype as pivot_code, sum([count]) as [count]<br />
+    from mytable2<br />
+    group by id, [month], [type] + ''_'' + subtype<br />
+)<br />
+select id, [month], '' + @select_list + ''<br />
+from p<br />
+pivot (<br />
+    sum([count])<br />
+    for pivot_code in (<br />
+    	'' + @pivot_list + ''<br />
+    )<br />
+) as pvt<br />
+'</p>
+<p>/*执行生成的动态SQL*/<br />
+exec (@sql)<br />
+[/sql]</p>
+<p><span style="line-height: 1.714285714; font-size: 1rem;">上述方法，首先使用子查询表pivot_codes找出所有不同的合并列，并利用其生成拼接字符串。然后利用pivot进行行转列的操作和sum操作。</span></p>
+<p>由于语句动态生成，其实也可以类似上述方式拼接成case when语句，但是相较pivot的使用比较笨拙，在其他RDBMS下可以考虑尝试。</p>
+<p></div></p>

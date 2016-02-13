@@ -1,0 +1,88 @@
+---
+layout: post
+status: publish
+published: true
+title: Linux下mount NTFS文件系统
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "在PC上安装了双系统Linux(CentOS 6.3)+XP，但是CentOS下无法访问XP下的NTFS文件系统，咋整呢？\r\n\r\n查了下网络，有两种方案，一种是安装内核模块，可到
+  http:&#47;&#47;sourceforge.net&#47;projects&#47;linux-ntfs&#47;files&#47; 下载，需下载与你系统内核想对应的版本，使用uname
+  -a 查看当前内核版本。安装后就可以使用mount -t ntfs &#47;dev&#47;sda1 &#47;mnt 挂载了。这种方法问题在于挂载的ntfs分区是只读的。\r\n\r\n这里选择另外一种方案：安装ntfs-3g，使用ntfs-3g挂载的分区就是可读写的了。\r\n\r\n具体安装方式如下：\r\n<h2>1.下载<&#47;h2>\r\n下载页面
+  <a href=\"http:&#47;&#47;www.tuxera.com&#47;community&#47;ntfs-3g-download&#47;\"
+  target=\"_blank\">http:&#47;&#47;www.tuxera.com&#47;community&#47;ntfs-3g-download&#47;<&#47;a>\r\n\r\n<span
+  style=\"color: #0000ff;\">shell> wget http:&#47;&#47;tuxera.com&#47;opensource&#47;ntfs-3g_ntfsprogs-2013.1.13.tgz<&#47;span>\r\n\r\n<a
+  href=\"http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;11&#47;ntfs-3g.png\"><img
+  class=\"alignnone size-full wp-image-762\" alt=\"ntfs-3g\" src=\"http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;11&#47;ntfs-3g.png\"
+  width=\"160\" height=\"61\" &#47;><&#47;a>\r\n\r\n"
+wordpress_id: 761
+wordpress_url: http://www.sqlparty.com/?p=761
+date: '2013-11-04 22:08:44 +0800'
+date_gmt: '2013-11-04 14:08:44 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- 文件系统
+---
+<p>在PC上安装了双系统Linux(CentOS 6.3)+XP，但是CentOS下无法访问XP下的NTFS文件系统，咋整呢？</p>
+<p>查了下网络，有两种方案，一种是安装内核模块，可到 http:&#47;&#47;sourceforge.net&#47;projects&#47;linux-ntfs&#47;files&#47; 下载，需下载与你系统内核想对应的版本，使用uname -a 查看当前内核版本。安装后就可以使用mount -t ntfs &#47;dev&#47;sda1 &#47;mnt 挂载了。这种方法问题在于挂载的ntfs分区是只读的。</p>
+<p>这里选择另外一种方案：安装ntfs-3g，使用ntfs-3g挂载的分区就是可读写的了。</p>
+<p>具体安装方式如下：</p>
+<h2>1.下载<&#47;h2><br />
+下载页面 <a href="http:&#47;&#47;www.tuxera.com&#47;community&#47;ntfs-3g-download&#47;" target="_blank">http:&#47;&#47;www.tuxera.com&#47;community&#47;ntfs-3g-download&#47;<&#47;a></p>
+<p><span style="color: #0000ff;">shell> wget http:&#47;&#47;tuxera.com&#47;opensource&#47;ntfs-3g_ntfsprogs-2013.1.13.tgz<&#47;span></p>
+<p><a href="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;11&#47;ntfs-3g.png"><img class="alignnone size-full wp-image-762" alt="ntfs-3g" src="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;11&#47;ntfs-3g.png" width="160" height="61" &#47;><&#47;a></p>
+<p><!--more--></p>
+<h2>2.安装<&#47;h2><br />
+<span style="color: #0000ff;">shell> tar -zxvf ntfs-3g_ntfsprogs-2013.1.13.tgz<&#47;span><br />
+<span style="color: #0000ff;">shell> cd ntfs-3g_ntfsprogs-2013.1.13<&#47;span><br />
+<span style="color: #0000ff;">shell> .&#47;configure<&#47;span><br />
+<span style="color: #0000ff;">shell> make<&#47;span><br />
+<span style="color: #0000ff;">shell> make install<&#47;span>&nbsp; #这步需要root权限</p>
+<h2>3.使用<&#47;h2><br />
+查看现有分区情况</p>
+<p><span style="color: #0000ff;">shell> fdisk -l<&#47;span></p>
+<p><span style="color: #0000ff;">Disk &#47;dev&#47;sdb: 120.0 GB, 120034123776 bytes<&#47;span><br />
+<span style="color: #0000ff;">255 heads, 63 sectors&#47;track, 14593 cylinders<&#47;span><br />
+<span style="color: #0000ff;">Units = cylinders of 16065 * 512 = 8225280 bytes<&#47;span><br />
+<span style="color: #0000ff;">Sector size (logical&#47;physical): 512 bytes &#47; 512 bytes<&#47;span><br />
+<span style="color: #0000ff;">I&#47;O size (minimum&#47;optimal): 512 bytes &#47; 512 bytes<&#47;span><br />
+<span style="color: #0000ff;">Disk identifier: 0x0fa96ec5<&#47;span></p>
+<p><span style="color: #0000ff;">&nbsp;&nbsp; Device Boot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Start&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; End&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Blocks&nbsp;&nbsp; Id&nbsp; System<&#47;span><br />
+<span style="color: #0000ff;">&#47;dev&#47;sdb1&nbsp;&nbsp; *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2618&nbsp;&nbsp;&nbsp; 21029053+&nbsp;&nbsp; c&nbsp; W95 FAT32 (LBA)<&#47;span><br />
+<span style="color: #0000ff;">&#47;dev&#47;sdb2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10573&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10636&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 512000&nbsp;&nbsp; 83&nbsp; Linux<&#47;span><br />
+<span style="color: #0000ff;">&#47;dev&#47;sdb3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10636&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 14594&nbsp;&nbsp;&nbsp; 31788032&nbsp;&nbsp; 8e&nbsp; Linux LVM<&#47;span><br />
+<span style="color: #0000ff;">&#47;dev&#47;sdb4&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2619&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10572&nbsp;&nbsp;&nbsp; 63890505&nbsp;&nbsp;&nbsp; f&nbsp; W95 Ext'd (LBA)<&#47;span><br />
+<span style="color: #0000ff;">&#47;dev&#47;sdb5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2619&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7244&nbsp;&nbsp;&nbsp; 37158313+&nbsp;&nbsp; 7&nbsp; HPFS&#47;NTFS<&#47;span><br />
+<span style="color: #0000ff;">&#47;dev&#47;sdb6&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7245&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 9870&nbsp;&nbsp;&nbsp; 21086863&nbsp;&nbsp;&nbsp; 7&nbsp; HPFS&#47;NTFS<&#47;span><br />
+<span style="color: #0000ff;">&#47;dev&#47;sdb7&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 9871&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10572&nbsp;&nbsp;&nbsp;&nbsp; 5638783+&nbsp;&nbsp; b&nbsp; W95 FAT32<&#47;span><br />
+<span style="color: #0000ff;">...<&#47;span></p>
+<p>创建目录用于挂载</p>
+<p><span style="color: #0000ff;">shell> mkdir -p &#47;media&#47;disk1<&#47;span><br />
+<span style="color: #0000ff;">shell> mount -t ntfs-3g &#47;dev&#47;sdb5 &#47;media&#47;disk1<&#47;span><br />
+<span style="color: #0000ff;">shell> ls -lrt &#47;media&#47;disk1<&#47;span><br />
+<span style="color: #0000ff;">总用量 717393<&#47;span><br />
+<span style="color: #0000ff;">drwxrwxrwx. 1 root root&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4096 3月&nbsp; 31 2009 grub4dos-0.4.4<&#47;span><br />
+<span style="color: #0000ff;">-rwxrwxrwx. 1 root root&nbsp;&nbsp; 1084192 1月&nbsp; 20 2010 wubi.exe<&#47;span><br />
+<span style="color: #0000ff;">-rwxrwxrwx. 2 root root&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 226 1月&nbsp; 21 2010 README.diskdefines<&#47;span><br />
+<span style="color: #0000ff;">-rwxrwxrwx. 1 root root&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 1月&nbsp; 21 2010 ubuntu<&#47;span><br />
+<span style="color: #0000ff;">-rwxrwxrwx. 1 root root&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5338 1月&nbsp; 21 2010 md5sum.txt<&#47;span><br />
+<span style="color: #0000ff;">drwxrwxrwx. 1 root root&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4096 8月&nbsp;&nbsp; 7 2010 System Volume Information<&#47;span><br />
+<span style="color: #0000ff;">...<&#47;span></p>
+<p>测试读写</p>
+<p><span style="color: #0000ff;">shell> cd &#47;media&#47;disk1<&#47;span><br />
+<span style="color: #0000ff;">shell> cat md5sum.txt<&#47;span><br />
+<span style="color: #0000ff;">shell> touch newfile<&#47;span></p>
+<p>都没问题，OK！</p>
+<p>方便起见，开机自动挂载：</p>
+<p>在&#47;etc&#47;fstab中添加：</p>
+<p><span style="color: #0000ff;">&#47;dev&#47;sdb5 &#47;media&#47;disk1&nbsp; ntfs-3g default 0 0<&#47;span><br />
+<span style="color: #0000ff;">&#47;dev&#47;sdb6 &#47;media&#47;disk2&nbsp; ntfs-3g default 0 0<&#47;span></p>
+<p>Done!</p>
+<p>参考：<br />
+<a href="http:&#47;&#47;ohyeahbbs.blog.51cto.com&#47;1775490&#47;865107" target="_blank">http:&#47;&#47;ohyeahbbs.blog.51cto.com&#47;1775490&#47;865107<&#47;a></p>

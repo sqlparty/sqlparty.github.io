@@ -1,0 +1,112 @@
+---
+layout: post
+status: publish
+published: true
+title: Linux性能监控-vmstat/uptime/w/ps/free
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Linux下提供了多样的工具，帮助进行性能等各方面的监控。本文初步介绍vmstat, uptime, w, ps, free这几个命令。\r\n\r\n"
+wordpress_id: 334
+wordpress_url: http://www.sqlparty.com/?p=334
+date: '2013-08-05 21:16:25 +0800'
+date_gmt: '2013-08-05 13:16:25 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- vmstat
+- uptime
+- w
+- ps
+- free
+---
+<p>Linux下提供了多样的工具，帮助进行性能等各方面的监控。本文初步介绍vmstat, uptime, w, ps, free这几个命令。</p>
+<p><!--more--></p>
+<p>1.<strong>vmstat</strong> 显示进程、内存、页面、块I/O、陷阱、CPU活动等信息<br />
+vmstat指定平均或者取样。取样的话需要指定取样频率和时长。</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/vmstat.png"><img class="alignnone size-full wp-image-335" alt="vmstat" src="http://www.sqlparty.com/wp-content/uploads/2013/08/vmstat.png" width="716" height="84" /></a><br />
+procs:</p>
+<p>r 等待运行的进程数<br />
+b 处于不可中断睡眠状态的进程数</p>
+<p>memory: 单位为k。buff是用作内核缓存的内存量，cache是缓冲的交换区总量<br />
+inact 不活跃的内存 (-a选项)<br />
+active 活跃的内容(-a选项)</p>
+<p>swap:<br />
+si 从磁盘交换到内存的内存量<br />
+so 交换至磁盘的内存量</p>
+<p>io:<br />
+bi 从块设备中接收的块数量<br />
+bo 发送至块设备的块数量</p>
+<p>system:<br />
+in 每秒中断数，包括时钟<br />
+cs 每秒上下文交换的次数</p>
+<p>cpu:CPU时间的百分比<br />
+us 用户时间<br />
+sy 系统时间<br />
+id 空闲时间<br />
+wa IO等待时间<br />
+st "steal time" 与虚拟化环境相关<br />
+使用如：vmstat 2 3每隔2秒执行一次，一共执行三次。<br />
+注意：第一行数据显示的是从上次reboot以来的平均值，之后的信息是间隔段内的取样</p>
+<p>常用参数：<br />
+-m 显示内核的内存使用情况<br />
+-a 显示活跃和不活跃内存信息<br />
+-n 指定只显示一次列头<br />
+-p {partition} 指定本参数时，vmstat也会提供I/O统计信息</p>
+<p>2.<strong>uptime,w</strong> 显示系统评价负载<br />
+显示登录用户，负载信息。负载指的是1分钟、5分钟、15分钟内进程队列中的长度。</p>
+<p><strong><em>如何判断系统是否已经OverLoad？</em></strong><br />
+<span style="text-decoration: underline;">对一般的系统来说，根据cpu数量去判断。如果平均负载始终在1.2一下，而你有2颗cup的机器。那么基本不会出现cpu不够用的情况。也就是Load平均要小于Cpu的数量</span></p>
+<p>3.<strong>ps,pstree</strong> 显示进程<br />
+ps命令显示进程详细信息。其有三种类型的名称参数：UNIX、BSD、GNU。<br />
+ps -e 显示所有进程，如：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/ps.png"><img class="alignnone size-full wp-image-336" alt="ps" src="http://www.sqlparty.com/wp-content/uploads/2013/08/ps.png" width="390" height="293" /></a><br />
+常用参数包括：<br />
+-l 显示长格式，显示更多信息<br />
+-e 显示所有进程<br />
+-F 显示更多信息<br />
+-L 显示线程，可能包括LWP和NLWP线程</p>
+<p>显示所有进程详细信息：ps -elFL</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/ps2.png"><img class="alignnone size-full wp-image-337" alt="ps2" src="http://www.sqlparty.com/wp-content/uploads/2013/08/ps2.png" width="922" height="245" /></a><br />
+各列含义如下：<br />
+F &nbsp; &nbsp;process flag，进程标识，十六进制，是以下标识的和：<br />
+1 &nbsp; &nbsp;表示进程生成了但是没有执行<br />
+4 &nbsp; &nbsp;表示拥有root权限<br />
+5 &nbsp; &nbsp;表示1+4<br />
+S &nbsp; &nbsp;进程状态，S睡眠，R运行，D不可中断的睡眠，T跟踪/停止，Z僵尸进程<br />
+UID &nbsp; &nbsp;进程拥有者或者启动者名称<br />
+PID &nbsp; &nbsp;进程号<br />
+PPID &nbsp; &nbsp;父进程号<br />
+LWP &nbsp; &nbsp;light weight process,或称为线程 id<br />
+C &nbsp; &nbsp;进程的CPU利用率<br />
+NLWP &nbsp; &nbsp;Number of lwps，线程数<br />
+PRI &nbsp; &nbsp; 进程优先级<br />
+NI &nbsp; &nbsp; nice level<br />
+ADDR &nbsp; &nbsp; 进程地址，不显示<br />
+SZ &nbsp; &nbsp;内存使用量，code+data+stack，单位k<br />
+WCHAN &nbsp; &nbsp; 睡眠状态的进程的内核函数名称。如果进程在运行，则为'-'。如果进程是多线程的，而ps命令没有显示线程信息，则显示'*'<br />
+RSS( resident set size ) &nbsp; &nbsp; 任务使用的非交互的物理内存，单位k<br />
+PSR &nbsp; &nbsp; 进程当前分配给的处理器<br />
+STIME &nbsp; &nbsp; 命令启动运行的时间<br />
+TTY &nbsp; &nbsp; 终端<br />
+CMD &nbsp; &nbsp; 启动任务的命令，包括参数</p>
+<p>pstree通过树形结构展示所有进程以及它们之间关系，子进程作为父进程的分支。</p>
+<p>参考：<br />
+<a href="http://alasir.com/books/bsd/448-453.html" target="_blank">http://alasir.com/books/bsd/448-453.html</a></p>
+<p>4.<strong>free</strong> 内存使用情况<br />
+free显示汇总的内存(包括交换分区)使用情况。也包括buffer和内核使用的cache的情况。</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/free1.png"><img class="alignnone size-full wp-image-338" alt="free1" src="http://www.sqlparty.com/wp-content/uploads/2013/08/free1.png" width="649" height="85" /></a><br />
+下图展示了各展示字段与实际存储间关系：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/free2.png"><img class="alignnone size-full wp-image-339" alt="free2" src="http://www.sqlparty.com/wp-content/uploads/2013/08/free2.png" width="716" height="481" /></a><br />
+本图来源《Linux Performance and Tuning Guidelines》,IBM RedBook<br />
+shared:共享内存占用大小<br />
+buffers: 块设备的读写缓冲区，是作为Buffer cache的内存。<br />
+cached: 文件系统的cache，是作为Page cache的内存。<br />
+Buffer cache和Page cache的区别见文章"Linux下Buffer cache与Page cache的区别"</p>
+<p>常用参数：<br />
+-b, -k, -m, -g 分别以字节、千K、兆M、吉G作为单位来显示结果</p>

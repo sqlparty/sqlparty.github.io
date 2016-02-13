@@ -1,0 +1,61 @@
+---
+layout: post
+status: publish
+published: true
+title: MySQL复制异常：Relay log read failure:Could not parse relay log event entry
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "机房异常停电，MySQL服务器重启，重启时skip_slave_start。启动后，在Slave上执行start slave，但是SQL Thread无法正常运行下去。查看show
+  slave status，报如下错误：\r\n<pre>Relay log read failure: Could not parse relay log event
+  entry. The possible reasons are: the master's binary log is corrupted (you can check
+  this by running 'mysqlbinlog' on the binary log), the slave's relay log is corrupted
+  (you can check this by running 'mysqlbinlog' on the relay log), a network problem,
+  or a bug in the master's or slave's MySQL code. If you want to check the master's
+  binary log or slave's relay log, you will be able to know their names by issuing
+  'SHOW SLAVE STATUS' on this slave.</pre>\r\n看来貌似是slave的relay log异常断电后损坏了，sql
+  thread无法执行下去。此情况从未遇过，要修复relay log？无从下手，果断google。\r\n\r\n"
+wordpress_id: 82
+wordpress_url: http://www.sqlparty.com/?p=82
+date: '2013-07-26 20:47:14 +0800'
+date_gmt: '2013-07-26 12:47:14 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+- 问题集
+- Replication
+---
+<p>机房异常停电，MySQL服务器重启，重启时skip_slave_start。启动后，在Slave上执行start slave，但是SQL Thread无法正常运行下去。查看show slave status，报如下错误：</p>
+<pre>Relay log read failure: Could not parse relay log event entry. The possible reasons are: the master's binary log is corrupted (you can check this by running 'mysqlbinlog' on the binary log), the slave's relay log is corrupted (you can check this by running 'mysqlbinlog' on the relay log), a network problem, or a bug in the master's or slave's MySQL code. If you want to check the master's binary log or slave's relay log, you will be able to know their names by issuing 'SHOW SLAVE STATUS' on this slave.</pre><br />
+看来貌似是slave的relay log异常断电后损坏了，sql thread无法执行下去。此情况从未遇过，要修复relay log？无从下手，果断google。</p>
+<p><!--more--><br />
+看了&ldquo;参考&rdquo;中列出的网文，基本确定了解决方案，实践证明可行：</p>
+<p><strong>1）show slave status</strong> 查看如下两项：<strong>Relay_Master_Log_File</strong>(SQL线程最近执行的事件对应的主服务器上的日志文件)和<strong>Exec_Master_Log_pos</strong>(SQL线程最近执行的事件对应的主服务器上的日志文件位置)，记录下来。<br />
+注：如果使用了pt-heartbeat工具，从中也可以获取最近执行的语句对应的主服务器上的file和pos，最多有一秒的差别，如果检查间隔是一秒的话。</p>
+<p><strong>2）stop slave</strong> 停止slave，以便reset slave</p>
+<p><strong>3）reset slave</strong> 会清除master.info、relay-log.info以及所有relay log文件</p>
+<p><strong>4）重新change master</strong></p>
+<p>根据1）中获取的file和position信息重新执行change master to语句，如</p>
+<pre>change master to<br />
+master_host='192.168.10.178',<br />
+master_port=3371,<br />
+master_user='repl',<br />
+master_password='repl',<br />
+master_log_file='sm_3db-bin.000022',<br />
+master_log_pos=250880274<br />
+;</pre><br />
+<strong>5）start slave</strong></p>
+<p><strong>6）show slave status</strong>查看是否IO thread和SQL thread能正常运行。</p>
+<p>这样，根据新的起点重新获取relay log并执行之。如果sql thread遇到主键冲突等原因停止，可以通过</p>
+<p><strong>SET GLOBAL sql_slave_skip_counter=1;</strong><br />
+<strong>start slave;</strong><br />
+必要时候可以循环执行该两句，逐步跳过报错内容，直到恢复正常。</p>
+<p>参考：<br />
+<a href="http://www.watters.ws/mediawiki/index.php/Recover_from_mysql_log_read_failure" target="_blank">http://www.watters.ws/mediawiki/index.php/Recover_from_mysql_log_read_failure</a><br />
+<a href="http://www.penglixun.com/tech/database/relay-log-read-failure.html" target="_blank">http://www.penglixun.com/tech/database/relay-log-read-failure.html</a><br />
+<a href="http://blog.csdn.net/meirenxing/article/details/6317818" target="_blank">http://blog.csdn.net/meirenxing/article/details/6317818</a></p>

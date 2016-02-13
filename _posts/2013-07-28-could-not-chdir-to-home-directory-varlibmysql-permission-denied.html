@@ -1,0 +1,119 @@
+---
+layout: post
+status: publish
+published: true
+title: 'Could not chdir to home directory /var/lib/mysql: Permission denied'
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "mysql用户是MySQL的rpm包自动创建的，HOME目录为/var/lib/mysql，为其创建密码后用于登录，却提示：Could
+  not chdir to home directory /var/lib/mysql: Permission denied，直接进入了/目录。经检查，mysql用户完全拥有cd入/var/lib/mysql目录的权限，即登录后，可以直接cd
+  /var/lib/mysql！\r\n什么原因导致报这个信息呢？\r\n\r\n"
+wordpress_id: 134
+wordpress_url: http://www.sqlparty.com/?p=134
+date: '2013-07-28 08:42:14 +0800'
+date_gmt: '2013-07-28 00:42:14 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- selinux
+---
+<p>mysql用户是MySQL的rpm包自动创建的，HOME目录为/var/lib/mysql，为其创建密码后用于登录，却提示：Could not chdir to home directory /var/lib/mysql: Permission denied，直接进入了/目录。经检查，mysql用户完全拥有cd入/var/lib/mysql目录的权限，即登录后，可以直接cd /var/lib/mysql！<br />
+什么原因导致报这个信息呢？</p>
+<p><!--more--></p>
+<p>检查发现，系统日志/var/log/messages中包含如下警告信息：</p>
+<pre> Apr 8 14:06:18 CH146 setroubleshoot: SELinux is preventing /usr/sbin/sshd from search access on the directory /var/lib/mysql. For complete SELinux messages. run sealert -l 4dbc10bd-3132-4577-9ea6-753b8a75a6ae<br />
+ Apr 8 14:06:18 CH146 setroubleshoot: SELinux is preventing /usr/sbin/sshd from search access on the directory /var/lib/mysql. For complete SELinux messages. run sealert -l 4dbc10bd-3132-4577-9ea6-753b8a75a6ae<br />
+ Apr 8 14:06:18 CH146 setroubleshoot: SELinux is preventing /usr/sbin/sshd from search access on the directory /var/lib/mysql. For complete SELinux messages. run sealert -l 4dbc10bd-3132-4577-9ea6-753b8a75a6ae</pre><br />
+看来是SELinux在权限上进行了阻止，根据提示，我们运行</p>
+<p>[shell]<br />
+shell> sealert -l 4dbc10bd-3132-4577-9ea6-753b8a75a6ae</p>
+<p>(process:22180): Gtk-WARNING **: Locale not supported by C library.<br />
+Using the fallback 'C' locale.<br />
+SELinux is preventing /usr/sbin/sshd from search access on the directory /var/lib/mysql.</p>
+<p>***** Plugin catchall (100. confidence) suggests ***************************</p>
+<p>If you believe that sshd should be allowed search access on the mysql directory by default.<br />
+Then you should report this as a bug.<br />
+You can generate a local policy module to allow this access.<br />
+Do<br />
+allow this access for now by executing:<br />
+# grep sshd /var/log/audit/audit.log | audit2allow -M mypol<br />
+# semodule -i mypol.pp<br />
+[/shell]</p>
+<p>按照输出的结果提示来处理，即执行：</p>
+<p>[shell]<br />
+shell> grep sshd /var/log/audit/audit.log | audit2allow -M mypol<br />
+******************** IMPORTANT ***********************<br />
+To make this policy package active, execute:</p>
+<p>semodule -i mypol.pp</p>
+<p>shell> semodule -i mypol.pp<br />
+[/shell]</p>
+<p>这样执行后就可以正常的登录了，而不会有警告信息。</p>
+<p>当然，最简单的方式，是关闭SELINUX(setenforce 0)。</p>
+<p>补充：<br />
+SELinux是经过安全强化的Linux，它提供了更加全面和加强的权限控制。但是从另一方面看，对SELinux机制不熟悉可能导致一些问题的产生。例如，在cacti中使用Percona监控Linux模板来实现监控，需要采用ssh免密码登录，而在SELinux启用的环境下，无法使用免密码登录功能。在一些情况下，选择关闭SELinux或许是更加简便的选择。</p>
+<p>与SELinux相关的文件和操作：</p>
+<p>[shell]<br />
+shell> vi /etc/sysconfig/selinux</p>
+<p># This file controls the state of SELinux on the system.<br />
+# SELINUX= can take one of these three values:<br />
+# enforcing - SELinux security policy is enforced. 启用<br />
+# permissive - SELinux prints warnings instead of enforcing. 即使违反了策略也允许你继续操作，但是把你的违反的内容记录下来。<br />
+# disabled - No SELinux policy is loaded. 禁用<br />
+SELINUX=enforcing<br />
+# SELINUXTYPE= can take one of these two values:<br />
+# targeted - Targeted processes are protected,<br />
+# mls - Multi Level Security protection.<br />
+SELINUXTYPE=targeted</p>
+<p>shell> getenforce #查询当前SELinux值<br />
+Enforcing<br />
+shell> setenforce 0 #更改当前的SELINUX值 ，后面可以跟 enforcing,permissive 或者 1,0。<br />
+shell> sestatus -v #显示当前的 SELinux的信息<br />
+SELinux status: enabled<br />
+SELinuxfs mount: /selinux<br />
+Current mode: permissive<br />
+Mode from config file: enforcing<br />
+Policy version: 24<br />
+Policy from config file: targeted</p>
+<p>Process contexts:<br />
+Current context: unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023<br />
+Init context: system_u:system_r:init_t:s0<br />
+/usr/sbin/sshd system_u:system_r:sshd_t:s0-s0:c0.c1023</p>
+<p>File contexts:<br />
+Controlling term: unconfined_u:object_r:user_devpts_t:s0<br />
+/etc/passwd system_u:object_r:etc_t:s0<br />
+/etc/shadow system_u:object_r:shadow_t:s0<br />
+/bin/bash system_u:object_r:shell_exec_t:s0<br />
+/bin/login system_u:object_r:login_exec_t:s0<br />
+/bin/sh system_u:object_r:bin_t:s0 -&amp;gt; system_u:object_r:shell_exec_t:s0<br />
+/sbin/agetty system_u:object_r:getty_exec_t:s0<br />
+/sbin/init system_u:object_r:init_exec_t:s0<br />
+/sbin/mingetty system_u:object_r:getty_exec_t:s0<br />
+/usr/sbin/sshd system_u:object_r:sshd_exec_t:s0<br />
+/lib/libc.so.6 system_u:object_r:lib_t:s0 -&amp;gt; system_u:object_r:lib_t:s0<br />
+/lib/ld-linux.so.2 system_u:object_r:lib_t:s0 -&amp;gt; system_u:object_r:ld_so_t:s0<br />
+[/shell]</p>
+<p>其他重要命令：<br />
+1）Audit2allow<br />
+很重要的一个以python写的命令，主要用来处理日志，把日志中的违反策略的动作的记录，转换成 access vector，对开发安全策略非常有用。在refpolicy里，它的功能比以前有了很大的扩展。<br />
+[root@python log]# cat dmesg | audit2allow -m local > local.te<br />
+2）checkmodule -m -o local.mod local.te<br />
+编译模块<br />
+[root@python log]# checkmodule -m -o local.mod local.te<br />
+checkmodule: loading policy configuration from local.te<br />
+checkmodule: policy configuration loaded<br />
+checkmodule: writing binary representation (version 5） to local.mod<br />
+3）semodule_package<br />
+创建新的模块<br />
+[root@python log]# semodule_package -o local.pp -m local.mod<br />
+4）semodule<br />
+可以显示，加载，删除 模块<br />
+加载的例子：<br />
+[root@python log]# semodule -i local.pp</p>
+<p>参考：<br />
+http://baike.baidu.com/view/487687.htm</p>

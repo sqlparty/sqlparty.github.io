@@ -1,0 +1,101 @@
+---
+layout: post
+status: publish
+published: true
+title: Cacti监控memcached
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "<strong>前提</strong>\r\n1.Cacti系统\r\n2.需要监控的memcached系统\r\n3.Cacti主机上安装有Python\r\n4.Cacti主机上安装有Python
+  memcached Client API\r\n\r\n<strong>当前</strong>\r\n已满足前提1,2,3。接下来记录配置监控memcached的操作。\r\n各版本：\r\nCacti:
+  0.8.7g\r\nPython: 2.7.3\r\n\r\n"
+wordpress_id: 54
+wordpress_url: http://www.sqlparty.com/?p=54
+date: '2013-07-25 22:29:03 +0800'
+date_gmt: '2013-07-25 14:29:03 +0800'
+categories:
+- 系统
+tags:
+- 系统
+- 监控
+- Cacti
+- memcached
+---
+<p><strong>前提</strong><br />
+1.Cacti系统<br />
+2.需要监控的memcached系统<br />
+3.Cacti主机上安装有Python<br />
+4.Cacti主机上安装有Python memcached Client API</p>
+<p><strong>当前</strong><br />
+已满足前提1,2,3。接下来记录配置监控memcached的操作。<br />
+各版本：<br />
+Cacti: 0.8.7g<br />
+Python: 2.7.3</p>
+<p><!--more--></p>
+<p><strong>操作</strong><br />
+<strong>1.下载</strong><br />
+下载地址：<br />
+http://s1.dlnws.com/dealnews/developers/cacti-memcached-1.0.tar.gz<br />
+下载文件 cacti-memcached-1.0.tar.gz<br />
+并上传到Cacti主机的/db/soft目录。</p>
+<p><strong>2.安装</strong></p>
+<p>[shell]<br />
+shell> tar -xzvf cacti-memcached-1.0.tar.gz<br />
+cacti-memcached-1.0/<br />
+cacti-memcached-1.0/cacti_memcached_host_template.xml<br />
+cacti-memcached-1.0/INSTALL<br />
+cacti-memcached-1.0/memcached.py<br />
+cacti-memcached-1.0/README<br />
+[/shell]</p>
+<p>拷贝memcached.py至cacti的脚本目录</p>
+<p>[shell]<br />
+shell> cp cacti-memcached-1.0/memcached.py /var/www/html/cacti/scripts/<br />
+[/shell]</p>
+<p>验证memcached.py能否正常运行，memcached主机为：192.168.10.182:11211<br />
+如果报错如下：<br />
+<span style="color: #0000ff;">Traceback (most recent call last):</span><br />
+<span style="color: #0000ff;"> File "/var/www/html/cacti/scripts/memcached.py", line 4, in <module></span><br />
+<span style="color: #0000ff;"> import memcache</span><br />
+<span style="color: #0000ff;"> ImportError: No module named memcache</span><br />
+显然memcache模块，那么安装之。<br />
+下载：<br />
+https://pypi.python.org/pypi/python-memcached/<br />
+下载了 python-memcached-1.51.tar.gz，同样上传到/db/soft下。</p>
+<p>[shell]<br />
+shell> tar -xzvf python-memcached-1.51.tar.gz<br />
+shell> cd python-memcached-1.51<br />
+shell> python setup.py install<br />
+[/shell]</p>
+<p>如果该命令不生效，可以直接拷贝，如</p>
+<p>[shell]<br />
+shell> cp memcache.py /usr/local/lib/python2.7/<br />
+[/shell]</p>
+<p>再次验证：</p>
+<p>[shell]<br />
+shell> python /var/www/html/cacti/scripts/memcached.py 192.168.10.182<br />
+total_items:2697604 get_hits:2387111 uptime:3385763 cmd_get:4393454 time:1367928374 bytes:134749953 curr_connections:22 connection_structures:28 bytes_written:1559953441 limit_maxbytes:8489271296 cmd_set:2697605 curr_items:1008185 rusage_user:176.662143 get_misses:2006343 rusage_system:319.811381 bytes_read:1744798506 total_connections:115<br />
+[/shell]</p>
+<p>说明安装正常。</p>
+<p>测试无误后，登录Cacti Web端，导入Cacti模板<br />
+console-》Import Templates-》Import Template from Local File，选择cacti_memcached_host_template.xml导入。<br />
+成功导入后界面：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti_memcache.png"><img class="alignnone size-medium wp-image-55" alt="cacti_memcache" src="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti_memcache-270x300.png" width="270" height="300" /></a></p>
+<p><strong>3.配置与使用</strong><br />
+1）添加新device，选择Memcached Server<br />
+2）创建关联的所有Graph<br />
+3）在Graph Trees中创建展示的分支，关联这些Graph即可。<br />
+最终可以看到效果如：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti_memcache2.png"><img class="alignnone size-medium wp-image-56" alt="cacti_memcache2" src="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti_memcache2-300x155.png" width="300" height="155" /></a></p>
+<p><strong>ps:</strong><br />
+如果memcached安装时使用了非默认的11211，可以操作如下：<br />
+1）登录Cacti Web<br />
+2）选择console->Data Input Methods，编辑Memcached - Statistics，在Input String中添加-p
+<port>，如果python的路径不是默认的/usr/bin/python，也可以在这里修改。<br />
+不过以上方法修改端口只能是统一修改，如果有多实例，使用不同端口依然无法操作。可以修改使用<br />
+<a href="http://tag1consulting.com/blog/cacti-memcache-multi-port-templates" target="_blank">http://tag1consulting.com/blog/cacti-memcache-multi-port-templates</a> 提供的多端口的模板，安装方法与上类似，只是需要为每个Graph指定端口。</p>
+<p>参考：<br />
+<a href="http://dealnews.com/developers/cacti/memcached.html" target="_blank">http://dealnews.com/developers/cacti/memcached.html</a></p>

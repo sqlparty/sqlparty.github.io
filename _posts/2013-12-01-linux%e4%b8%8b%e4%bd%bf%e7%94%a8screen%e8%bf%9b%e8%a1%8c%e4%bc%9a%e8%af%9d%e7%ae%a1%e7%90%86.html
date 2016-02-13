@@ -1,0 +1,84 @@
+---
+layout: post
+status: publish
+published: true
+title: Linux下使用screen进行会话管理
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "经常用ssh远程登录到Linux服务器，常常需要打开多个会话连接到同一台服务器，反复登录、切换很繁琐。同事介绍使用screen，学习了下。\r\n\r\nScreen是一个窗口管理器，它可以将多个进程多路复用同一个物理终端。典型场景就是我们日常工作中，多个shell可以通过一个终端进行操作，感觉上就是命令行环境下的&ldquo;多视窗&rdquo;系统，可以自由前后台切换，前后台的进程都照常运行，哪怕原始登录session退出了。"
+wordpress_id: 789
+wordpress_url: http://www.sqlparty.com/?p=789
+date: '2013-12-01 22:22:56 +0800'
+date_gmt: '2013-12-01 14:22:56 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- screen
+---
+<p>经常用ssh远程登录到Linux服务器，常常需要打开多个会话连接到同一台服务器，反复登录、切换很繁琐。同事介绍使用screen，学习了下。</p>
+<p>Screen是一个窗口管理器，它可以将多个进程多路复用同一个物理终端。典型场景就是我们日常工作中，多个shell可以通过一个终端进行操作，感觉上就是命令行环境下的&ldquo;多视窗&rdquo;系统，可以自由前后台切换，前后台的进程都照常运行，哪怕原始登录session退出了。<!--more--></p>
+<h2>创建Screen环境</h2></p>
+<h3>1.直接输入screen</h3><br />
+<span style="color: #0000ff;">shell> screen</span><br />
+Screen将创建一个shell窗口，与单独的终端看上去一样，可以任意执行shell程序。exit命令退出该窗口。如果screen中只有这一个会话，那么会退出screen环境，否则切换到screen环境中的前一个窗口。</p>
+<h3>2.screen后命令</h3><br />
+<span style="color: #0000ff;">shell> screen vi test.c</span><br />
+会创建一个vi test.c的单窗口会话，退出vi将退出screen环境。</p>
+<h2>在screen环境中创建新窗口</h2><br />
+在screen窗口键入Ctrl+a(即同时按下Ctrl和a，然后可以都松开)，再按下c，screen生成新窗口并切换该窗口。重复，可以生成多个新窗口。从终端左上角可以看到窗口的编号。</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/12/screen_new.png"><img class="alignnone size-full wp-image-790" alt="screen_new" src="http://www.sqlparty.com/wp-content/uploads/2013/12/screen_new.png" width="491" height="225" /></a></p>
+<h2>切换screen环境与外部Shell</h2><br />
+我们可以不中断screen环境中的程序的运行而对其进行前后台切换：执行Crtl+a，再按下d。</p>
+<p>这样讲整个screen环境（可以包括多个窗口）切至后台：</p>
+<p><span style="color: #0000ff;">shell> screen</span><br />
+<span style="color: #0000ff;">[detached]</span><br />
+<span style="color: #0000ff;">shell></span><br />
+这是回到了Screen外的shell环境，要想回到某个screen环境，可以先查看：<br />
+<span style="color: #0000ff;">shell> screen -ls</span><br />
+<span style="color: #0000ff;">There are screens on:</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6022.pts-0.shihx&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (Detached)</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6282.pts-0.shihx&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (Detached)</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6339.pts-0.shihx&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (Detached)</span><br />
+<span style="color: #0000ff;">3 Sockets in /var/run/screen/S-root.</span><br />
+注意：这里列表中的每一项都是一个Screen环境，内部又可以包含多个窗口。<br />
+切换回某个Screen环境：<br />
+<span style="color: #0000ff;">shell> screen -r 6282</span></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/12/screen_attach.png"><img class="alignnone size-full wp-image-791" alt="screen_attach" src="http://www.sqlparty.com/wp-content/uploads/2013/12/screen_attach.png" width="563" height="289" /></a></p>
+<h2>在Screen内部切换窗口</h2></p>
+<ul>
+<li>窗口由0开始编号，可以指定0-9切换到指定窗口：Ctrl+a 0..9</li>
+<li>切换到下一个编号的窗口：Ctrl+a n</li>
+<li>切换到上一个编号的窗口：Ctrl+a p</li>
+<li>切换到之前一个窗口：Ctrl+a Ctrl+a</li><br />
+</ul></p>
+<h2>Screen窗口内常用命令</h2><br />
+Screen窗口内默认使用Ctrl+a作为管理命令的前缀，以区分其他发送到窗口的命令，这种以Ctrl+a开始的命令在Screen中称为键绑定(key binding)，以下列出常用的操作：</p>
+<ul>
+<li>Ctrl+a ? 显示所有命令</li>
+<li>Ctrl+a A&nbsp; 设置本窗口的title，这样可以后续方便地识别出各窗口的用途</li>
+<li>Ctrl+a w 显示所有窗口列表，如下，带*表示当前窗口：<a href="http://www.sqlparty.com/wp-content/uploads/2013/12/screen_w.png"><img class="alignnone size-full wp-image-792" alt="screen_w" src="http://www.sqlparty.com/wp-content/uploads/2013/12/screen_w.png" width="619" height="289" /></a></li>
+<li>Ctrl+a Ctrl+a&nbsp; 切换到之前显示的窗口。</li>
+<li>Ctrl+a c 创建一个新的运行shell的窗口，并切换至该窗口</li>
+<li>Ctrl+a n 切换到下一个窗口</li>
+<li>Ctrl+a p 与n相对，切换到前一个窗口</li>
+<li>Ctrl+a 0..9 切换到0..9号窗口</li>
+<li>Ctrl+a a 发送Ctrl+a到当前窗口</li>
+<li>Ctrl+a d 暂时断开整个screen环境，回到shell中</li>
+<li>Ctrl+a k 杀掉本窗口</li>
+<li>Ctrl+a [&nbsp; 进入拷贝/回滚模式</li><br />
+</ul></p>
+<h2>screen命令常用选项</h2></p>
+<ul>
+<li>-ls 列出所有screen环境</li>
+<li>-r sessionowner 重新连接一个断开的会话。多用户模式下连接到其他用户screen会话需要指定sessionowner，需要setuid-root权限。</li>
+<li>-wipe 同-ls，但删掉那些无法连接的会话</li>
+<li>更多可查看-h</li><br />
+</ul><br />
+参考：<br />
+<a href="http://www.ibm.com/developerworks/cn/linux/l-cn-screen/" target="_blank">http://www.ibm.com/developerworks/cn/linux/l-cn-screen/</a></p>

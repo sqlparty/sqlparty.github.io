@@ -1,0 +1,73 @@
+---
+layout: post
+status: publish
+published: true
+title: Windows上使用VNC Viewer访问Linux
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Linux上启用VNC Server，然后在Windows下配置VNC Viewer就可以实现图形界面的远程连接，这对于某些必须图形界面的软件的安装很有帮助。\r\n\r\n"
+wordpress_id: 394
+wordpress_url: http://www.sqlparty.com/?p=394
+date: '2013-08-10 20:52:10 +0800'
+date_gmt: '2013-08-10 12:52:10 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- Windows
+- VNC
+---
+<p>Linux上启用VNC Server，然后在Windows下配置VNC Viewer就可以实现图形界面的远程连接，这对于某些必须图形界面的软件的安装很有帮助。</p>
+<p><!--more--></p>
+<h2>Linux上VNC Server操作</h2><br />
+<strong>1.检查Linux上是否安装</strong><br />
+<span style="color: #0000ff;">shell>rpm -q | grep vnc</span></p>
+<p>如果没有可以通过系统盘来进行安装<br />
+<span style="color: #0000ff;">shell>rpm -ivh vnc-server-......rpm</span></p>
+<p><strong>2.第一次执行时，需要配置</strong><br />
+<span style="color: #0000ff;">shell>vncserver :1</span> #这里是配置桌面1</p>
+<p>会要求输入远程时需要的密码。<br />
+然后需要<br />
+<span style="color: #0000ff;">shell>cd /root/.vnc</span><br />
+<span style="color: #0000ff;"> shell>vi xstartup</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+<span style="color: #0000ff;"> #twm &amp;</span> #将这行注释掉<br />
+<span style="color: #0000ff;">gnome-session&amp;</span> #新添这一行<br />
+<span style="color: #0000ff;">shell>vi /etc/sysconfig/vncservers</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+<span style="color: #0000ff;"> VNCSERVERS="1:root"</span> ###添加，使用root用户登录</p>
+<p><strong>说明：</strong><br />
+VNC给浏览器的端口是5800+N，给vncviewer的端口是5900+N，N是设置的display号。<br />
+例如，使用vncserver :1启动vnc服务，那么在使用vncviewer连接时，指定的端口号应该是5901，浏览器端口号5801。</p>
+<p><strong>3.停止vnc服务</strong><br />
+<span style="color: #0000ff;">shell>vncserver -kill :1</span></p>
+<p><strong>4.启动vnc服务</strong><br />
+<span style="color: #0000ff;">shell>vncserver</span></p>
+<p><strong>5.修改vnc登录密码</strong><br />
+<span style="color: #0000ff;">shell>vncpasswd</span><br />
+<span style="color: #0000ff;"> Password:</span><br />
+<span style="color: #0000ff;"> Verify:</span></p>
+<p><strong>6.其他vnc常用命令</strong><br />
+<span style="color: #0000ff;">shell>service vncserver status</span> #检查vnc的状态<br />
+<span style="color: #0000ff;">shell>netstat -a | grep 5901</span> #检查端口<br />
+<span style="color: #0000ff;">shell>netstat -a | grep 5801</span></p>
+<p><strong>7.防火墙设置</strong><br />
+如果打开了防火墙，需要将5801和5901端口打开，以便远程连接使用。<br />
+<span style="color: #0000ff;">shell>iptables -I INPUT -p tcp --dport 5801 -j ACCEPT</span><br />
+<span style="color: #0000ff;"> shell>iptables -I INPUT -p tcp --dport 5801 -j ACCEPT</span></p>
+<p>也可以修改防火墙配置文件，但是要求重启防火墙<br />
+<span style="color: #0000ff;">shell>vi /etc/sysconfig/iptables</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+#增加两行配置<br />
+<span style="color: #0000ff;">-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 5801 -j ACCEPT</span><br />
+<span style="color: #0000ff;"> -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 5901 -j ACCEPT</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;"> shell>iptables restart</span> #重启防火墙使配置生效</p>
+<h2>Windows上使用VNC Viewer</h2><br />
+可以直接从浏览器进行访问，假设服务器是 192.168.2.18,开了远程桌面的桌面号为1，则可以访问：<br />
+<span style="color: #0000ff;">​http://192.168.2.18:5801</span></p>

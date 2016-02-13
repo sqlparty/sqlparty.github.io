@@ -1,0 +1,72 @@
+---
+layout: post
+status: publish
+published: true
+title: 表如何与自己关联？
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "根据业务，想实现下表的自关联\r\n\r\n[sql]\r\n+------------+------+--------+\r\n| Country
+  &nbsp; &nbsp;| Rank | &nbsp;Year &nbsp;|\r\n+------------+------+--------+\r\n|France
+  &nbsp; &nbsp; &nbsp;| &nbsp;55 &nbsp;| &nbsp;2000 &nbsp;|\r\n+------------+------+--------+\r\n|Canada
+  &nbsp; &nbsp; &nbsp;| &nbsp;30 &nbsp;| &nbsp;2000 &nbsp;|\r\n+------------+------+--------+\r\n|Liberia
+  &nbsp; &nbsp; | &nbsp;59 &nbsp;| &nbsp;2001 &nbsp;|\r\n+------------+------+--------+\r\n|Turkey
+  &nbsp; &nbsp; &nbsp;| &nbsp;78 &nbsp;| &nbsp;2000 &nbsp;|\r\n+------------+------+--------+\r\n|Japan
+  &nbsp; &nbsp; &nbsp; | &nbsp;65 &nbsp;| &nbsp;2003 &nbsp;|\r\n+------------+------+--------+\r\n|Romania
+  &nbsp; &nbsp; | &nbsp;107 | &nbsp;2001 &nbsp;|\r\n+------------+------+--------+\r\n[/sql]\r\n\r\n期望使用自关联，找出与Turkey具有相同年份的国家，只显示其国家和年份信息。\r\n\r\n我写了如下SQL：\r\n\r\n[sql]\r\nSELECT
+  DISTINCT a.Country, a.Year\r\nFROM table1 AS a, table1 AS b\r\nWHERE a.Year=b.Year\r\n
+  \ and a.Country='Turkey';\r\n[/sql]\r\n\r\n但是只返回了Turkey的信息？以上哪里有问题呢？\r\n\r\n本题来源<a
+  title=\"MySql. How to use Self Join\" href=\"http://stackoverflow.com/questions/16701920/mysql-how-to-use-self-join\"
+  target=\"_blank\">stackoverflow</a>\r\n\r\n"
+wordpress_id: 126
+wordpress_url: http://www.sqlparty.com/?p=126
+date: '2013-07-27 20:51:13 +0800'
+date_gmt: '2013-07-27 12:51:13 +0800'
+categories:
+- 题炼
+tags:
+- 数据库
+- join
+---
+<p>根据业务，想实现下表的自关联</p>
+<p>[sql]<br />
++------------+------+--------+<br />
+| Country &nbsp; &nbsp;| Rank | &nbsp;Year &nbsp;|<br />
++------------+------+--------+<br />
+|France &nbsp; &nbsp; &nbsp;| &nbsp;55 &nbsp;| &nbsp;2000 &nbsp;|<br />
++------------+------+--------+<br />
+|Canada &nbsp; &nbsp; &nbsp;| &nbsp;30 &nbsp;| &nbsp;2000 &nbsp;|<br />
++------------+------+--------+<br />
+|Liberia &nbsp; &nbsp; | &nbsp;59 &nbsp;| &nbsp;2001 &nbsp;|<br />
++------------+------+--------+<br />
+|Turkey &nbsp; &nbsp; &nbsp;| &nbsp;78 &nbsp;| &nbsp;2000 &nbsp;|<br />
++------------+------+--------+<br />
+|Japan &nbsp; &nbsp; &nbsp; | &nbsp;65 &nbsp;| &nbsp;2003 &nbsp;|<br />
++------------+------+--------+<br />
+|Romania &nbsp; &nbsp; | &nbsp;107 | &nbsp;2001 &nbsp;|<br />
++------------+------+--------+<br />
+[/sql]</p>
+<p>期望使用自关联，找出与Turkey具有相同年份的国家，只显示其国家和年份信息。</p>
+<p>我写了如下SQL：</p>
+<p>[sql]<br />
+SELECT DISTINCT a.Country, a.Year<br />
+FROM table1 AS a, table1 AS b<br />
+WHERE a.Year=b.Year<br />
+  and a.Country='Turkey';<br />
+[/sql]</p>
+<p>但是只返回了Turkey的信息？以上哪里有问题呢？</p>
+<p>本题来源<a title="MySql. How to use Self Join" href="http://stackoverflow.com/questions/16701920/mysql-how-to-use-self-join" target="_blank">stackoverflow</a></p>
+<p><!--more--></p>
+<div class="dailyanswer">
+<p>分析上述需求，使用自身进行关联，分别取别名a，b。a的作用是找出Turkey的年份，而b的作用才是用于关联出要找的国家信息。所以select的内容应该是b表的字段才对。具体如下：</p>
+<p>[sql]<br />
+SELECT DISTINCT b.Country, b.Year<br />
+FROM table1 AS a, table1 AS b<br />
+WHERE a.Year=b.Year<br />
+  AND a.Country='Turkey';<br />
+[/sql]</p>
+<p></div></p>

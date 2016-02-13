@@ -1,0 +1,71 @@
+---
+layout: post
+status: publish
+published: true
+title: 如何使用yum只下载RPM包而不安装
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "在内部环境下，多数机器不连接外网，而有些软件的安装最方便的方式是yum安装，这样就不要考虑其依赖包是否缺失等问题。那么考虑针对这些的软件搭建内部使用的Yum服务器，而首先需要考虑的是获取其相应的RPM包，基于此，想到的是，如何使用yum只下载RPM包而不安装？\r\n\r\n我们的环境使用的是RedHat
+  6.2，软件包以Puppet的RPM包下载为例。这个需求可以使用yum-downloadonly插件实现。\r\n\r\n"
+wordpress_id: 694
+wordpress_url: http://www.sqlparty.com/?p=694
+date: '2013-09-18 22:36:45 +0800'
+date_gmt: '2013-09-18 14:36:45 +0800'
+categories:
+- 系统
+tags:
+- yum
+- Puppet
+- rpm
+---
+<p>在内部环境下，多数机器不连接外网，而有些软件的安装最方便的方式是yum安装，这样就不要考虑其依赖包是否缺失等问题。那么考虑针对这些的软件搭建内部使用的Yum服务器，而首先需要考虑的是获取其相应的RPM包，基于此，想到的是，如何使用yum只下载RPM包而不安装？</p>
+<p>我们的环境使用的是RedHat 6.2，软件包以Puppet的RPM包下载为例。这个需求可以使用yum-downloadonly插件实现。</p>
+<p><!--more--></p>
+<h2>1.安装yum插件</h2><br />
+yum插件yum-downloadonly安装后，可以添加--downloadonly选项到yum命令，这样就只会下载指定包以及其所有的依赖，而不会进行安装或更新。</p>
+<p>这个插件的安装方式：<br />
+<span style="color: #0000ff;">shell> yum install yum-downloadonly</span></p>
+<p>如果没有配OS的yum源，则可以从光盘中拷出rpm包直接安装<br />
+<span style="color: #0000ff;">shell> rpm -ivh yum-plugin-downloadonly-1.1.30-10.el6.noarch.rpm</span></p>
+<p>这个插件支持的选项：</p>
+<ol>
+<li>--downloadonly: 指定只下载不安装</li>
+<li>--downloaddir=/path/to/dir: 指定RPM下载后保存目录</li><br />
+</ol></p>
+<h2>2.配置Puppet RPM包下载</h2><br />
+<span style="color: #0000ff;">shell> rpm -ivh http://yum.puppetlabs.com/el/6/products/x86_64/puppetlabs-release-6-7.noarch.rpm</span><br />
+上述命令只是安装了yum源信息，这样这台主机（要求可以连接外网）就可以下载相应的RPM包了。</p>
+<p><span style="color: #0000ff;">shell>yum install puppet-server -y --downloadonly --downloaddir=/tmp/download</span><br />
+这样就将安装puppet-server所需的RPM包都下载到/tmp/download目录，该目录如果不存在会自行创建。</p>
+<p>由于是作为YUM源，再将puppet agent所需的包也下载下来<br />
+<span style="color: #0000ff;">shell>yum install puppet -y --downloadonly --downloaddir=/tmp/download</span></p>
+<p>然后，将/tmp/download下的所有RPM包拷贝到指定目录下作为RPM源，具体搭建YUM源的方法见<a title="创建cdh4本地Yum仓库" href="http://www.sqlparty.com/%e5%88%9b%e5%bb%bacdh4%e6%9c%ac%e5%9c%b0yum%e4%bb%93%e5%ba%93/" target="_blank">创建cdh4本地Yum仓库</a>。<br />
+核心是在相应目录下执行createrepo .。配置连接该YUM的源：<br />
+<span style="color: #0000ff;">shell> vi /etc/yum.repo.d/puppet.repo</span><br />
+<span style="color: #0000ff;"> [puppet]</span><br />
+<span style="color: #0000ff;"> name=Puppet</span><br />
+<span style="color: #0000ff;"> baseurl=http://<yum server>/puppet/</span><br />
+<span style="color: #0000ff;"> gpgcheck = 0</span></p>
+<p>在Puppet RPM包install过程中，可能会遇到如所依赖的libselinux以及rubygems包没有安装的窘境。有时安装盘中都也找不到相应RPM包，只能Google之，然后下载。这里安装、更新了如下的RPM包：</p>
+<ul>
+<li>libselinux-ruby-2.0.94-5.3.el6_4.1.x86_64</li>
+<li>ruby-libs-1.8.7.352-10.el6_4.x86_64</li>
+<li>ruby-irb-1.8.7.352-10.el6_4.x86_64</li>
+<li>ruby-1.8.7.352-10.el6_4.x86_64</li>
+<li>ruby-rdoc-1.8.7.352-10.el6_4.x86_64</li>
+<li>rubygems-1.3.7-1.el6.noarch</li><br />
+</ul><br />
+安装RPM： rpm -ivh xxx.rpm<br />
+升级RPM： rpm -Uvh xxx.rpm<br />
+如果报依赖关系，则可以一次安装多个rpm包。</p>
+<p><strong>附：</strong><br />
+还有另外一个方法只下载RPM包。yum-utils.noarch包囊括了很多yum包管理工具。其中包括yumdownloader，可以从Yum仓库中下载指定包。如<br />
+<span style="color: #0000ff;">shell> yum -y install yum-utils.noarch</span><br />
+<span style="color: #0000ff;"> shell> yumdownloader httpd</span> #安装httpd包。</p>
+<p>参考：<br />
+<a href="http://www.cyberciti.biz/faq/yum-downloadonly-plugin/" target="_blank">http://www.cyberciti.biz/faq/yum-downloadonly-plugin/</a></p>

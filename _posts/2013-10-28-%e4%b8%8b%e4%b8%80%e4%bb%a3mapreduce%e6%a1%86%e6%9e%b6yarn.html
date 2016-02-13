@@ -1,0 +1,95 @@
+---
+layout: post
+status: publish
+published: true
+title: 下一代MapReduce框架YARN
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "第一代的MapReduce框架(MRv1)在大规模应用中逐渐显示出一些劣势，包括各个方面：内存消耗、线程模型、集群规模增大时的扩展性、可用性、性能指标等。简单总结主要有如下几个方面：\r\n<ol>\r\n\t<li>JobTracker
+  是 Map-reduce 的集中处理点，存在单点故障。</li>\r\n\t<li>JobTracker 完成了太多的任务，造成了过多的资源消耗，当 map-reduce
+  job 非常多的时候，会造成很大的内存开销，潜在来说，也增加了 JobTracker fail 的风险，这也是业界普遍总结出老 Hadoop 的 Map-Reduce
+  只能支持 4000 节点主机的上限。</li>\r\n\t<li>在 TaskTracker 端，以 map/reduce task 的数目作为资源的表示过于简单，没有考虑到
+  cpu/ 内存的占用情况，如果两个大内存消耗的 task 被调度到了一块，很容易出现内存耗尽(Out of Memory)。</li>\r\n\t<li>在
+  TaskTracker 端，把资源强制划分为 map task slot 和 reduce task slot, 如果当系统中只有 map task 或者只有
+  reduce task 的时候，会造成资源的浪费。</li>\r\n\t<li>源代码层面分析的时候，会发现代码非常的难读，常常因为一个 class 做了太多的事情，代码量达
+  3000 多行，，造成 class 的任务不清晰，增加 bug 修复和版本维护的难度。</li>\r\n\t<li>从操作的角度来看，现在的 Hadoop
+  MapReduce 框架在有任何重要的或者不重要的变化 ( 例如 bug 修复，性能提升和特性化 ) 时，都会强制进行系统级别的升级更新。更糟的是，它不管用户的喜好，强制让分布式集群系统的每一个用户端同时更新。这些更新会让用户为了验证他们之前的应用程序是不是适用新的
+  Hadoop 版本而浪费大量时间。</li>\r\n</ol>\r\n"
+wordpress_id: 748
+wordpress_url: http://www.sqlparty.com/?p=748
+date: '2013-10-28 20:13:10 +0800'
+date_gmt: '2013-10-28 12:13:10 +0800'
+categories:
+- 大数据
+tags:
+- Hadoop
+- yarn
+---
+<p>第一代的MapReduce框架(MRv1)在大规模应用中逐渐显示出一些劣势，包括各个方面：内存消耗、线程模型、集群规模增大时的扩展性、可用性、性能指标等。简单总结主要有如下几个方面：</p>
+<ol>
+<li>JobTracker 是 Map-reduce 的集中处理点，存在单点故障。</li>
+<li>JobTracker 完成了太多的任务，造成了过多的资源消耗，当 map-reduce job 非常多的时候，会造成很大的内存开销，潜在来说，也增加了 JobTracker fail 的风险，这也是业界普遍总结出老 Hadoop 的 Map-Reduce 只能支持 4000 节点主机的上限。</li>
+<li>在 TaskTracker 端，以 map/reduce task 的数目作为资源的表示过于简单，没有考虑到 cpu/ 内存的占用情况，如果两个大内存消耗的 task 被调度到了一块，很容易出现内存耗尽(Out of Memory)。</li>
+<li>在 TaskTracker 端，把资源强制划分为 map task slot 和 reduce task slot, 如果当系统中只有 map task 或者只有 reduce task 的时候，会造成资源的浪费。</li>
+<li>源代码层面分析的时候，会发现代码非常的难读，常常因为一个 class 做了太多的事情，代码量达 3000 多行，，造成 class 的任务不清晰，增加 bug 修复和版本维护的难度。</li>
+<li>从操作的角度来看，现在的 Hadoop MapReduce 框架在有任何重要的或者不重要的变化 ( 例如 bug 修复，性能提升和特性化 ) 时，都会强制进行系统级别的升级更新。更糟的是，它不管用户的喜好，强制让分布式集群系统的每一个用户端同时更新。这些更新会让用户为了验证他们之前的应用程序是不是适用新的 Hadoop 版本而浪费大量时间。</li><br />
+</ol><br />
+<!--more--></p>
+<p>&nbsp;</p>
+<p>基于原框架的小修补变得越来越吃力，从 0.23.0 版本开始，下一代MapReduce框架YARN(Yet Another Resource Negotiator, 或称MRv2 )进入了视野。</p>
+<p><strong>YARN架构图：</strong></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/10/yarn_architecture.gif"><img class="alignnone size-full wp-image-749" alt="yarn_architecture" src="http://www.sqlparty.com/wp-content/uploads/2013/10/yarn_architecture.gif" width="622" height="385" /></a></p>
+<p><strong>YARN框架的基本思想：</strong></p>
+<ol>
+<li>将JobTracker的两大基本功能（资源管理与job调度/监控）拆分成两个独立的服务:一个全局的资源管理ResouceManager(<strong>RM</strong>)和每个应用对应一个应用管理ApplicationMaster(<strong>AM</strong>)。注：这里的应用Application是指传统意义上的MapReduce任务或者一个 DAG( 有向无环图 ) 任务 ！</li>
+<li>系统的资源(包括cpu,memory,disk,network等)，使用Container进行划分和度量。每台机器的资源由节点管理器NodeManager(<strong>NM</strong>)进行管理和分配。</li><br />
+</ol><br />
+<strong>三个核心组件的功能：</strong></p>
+<ol>
+<li>NM, NodeManager&mdash;&mdash;NM是每个节点上的代理，功能比较专一，就是负责资源Container状态的维护，并向 RM 保持心跳。目前的Container只包括内存资源，后续在这样的设计中，可以很方便的将其他资源打包成Container进行分配管理。</li>
+<li>RM, ResouceManager&mdash;&mdash;RM与每个机器的节点管理器NodeManager(<strong>NM</strong>)，组成数据计算框架。RM管理系统中所有应用的资源分配。它做的事情是调度、启动每一个 Job 所属的 ApplicationMaster、另外监控 ApplicationMaster 的存在情况。接收 JobSubmitter 提交的作业，按照作业的上下文 (Context) 信息，以及从 NodeManager 收集来的状态信息，启动调度过程，分配一个 Container 作为 App Mstr。</li>
+<li>AM, ApplicationMaster&mdash;&mdash;每个应用的AM是一个详细的框架库，它结合从 ResourceManager 获得的资源和 NM 协同工作来运行和监控任务。 ApplicationMaster 负责一个 Job 生命周期内的所有工作，类似老的框架中 JobTracker。但注意每一个 Job（不是每一种）都有一个 ApplicationMaster，它可以运行在 ResourceManager 以外的机器上。</li><br />
+</ol><br />
+结合下面的详细流程图可以更清晰的了解一个客户端提交Job以及之后的流程：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/10/yarn_app.png"><img class="alignnone size-full wp-image-750" alt="yarn_app" src="http://www.sqlparty.com/wp-content/uploads/2013/10/yarn_app.png" width="927" height="705" /></a></p>
+<p>每个步骤内容如下：</p>
+<ol>
+<li>客户端调用job相关API运行MapReduce job，这个job运行在独立的JVM中。</li>
+<li>这个job的代码与Resource Manager(RM)进行交互，获取应用(Application)的元数据，如Application ID。</li>
+<li>该job将所有涉及到的资源拷贝到HDFS中，以便后续的任务处理中能够访问到。</li>
+<li>该job提交Application到RM。</li>
+<li>RM选择一个有可用资源的Node Manager(NM)，请求为MRAppMaster(AM)创建一个资源容器container。</li>
+<li>NM为AM分配资源容器，这样AM就可以执行和协调MapReduce job的运行。</li>
+<li>AM从HDFS中获取涉及的资源，例如输入文件的split。这些资源在步骤3中已确保保存到了HDFS中。</li>
+<li>AM向RM请求可用资源，RM为其选择有较多资源的NM。</li>
+<li>被选中的NM创建YARN Child容器，用于运行与协调任务。</li>
+<li>YARN Child从HDFS获取运行Map/Reduce任务所需的相关资源。</li>
+<li>YARN Child执行Map/Reduce任务。</li><br />
+</ol><br />
+<strong>细化:</strong></p>
+<p>从总体上看，RM负责所有资源的分配、应用的AM的调度管理，其内部又将此功能划分为两个组件：</p>
+<ol>
+<li>Scheduler(<strong>S</strong>)&mdash;&mdash;S负责给各应用分配资源，是一个纯粹的调度器，不负责监控或者跟踪应用的状态，另外也不保证重新调度因应用失败或者硬件失败而失败的task。S基于应用的资源需求进行调度，而调度的进行基于一个资源容器（Resource Container），包括整个集群的内存、CPU、磁盘、网络等资源。在YARN v1中Containter中只支持Memory。S的调度策略是插件式的，如CapacityScheduler和FairScheduler，都是插件的例子。每个AM负责与Scheduler交互，跟踪应用的状态，并监控进度。</li>
+<li>ApplicationsManager(<strong>ASM</strong>)&mdash;&mdash;ASM负责接受Job提交的请求，与应用对应的AM进行资源分配的交互，对AM失败容器的重启。</li><br />
+</ol><br />
+<strong>总结：</strong></p>
+<p>Yarn 框架相对于老的 MapReduce 框架什么优势呢？我们可以看到：</p>
+<ol>
+<li>这个设计大大减小了 JobTracker（也就是现在的 ResourceManager）的资源消耗，并且让监测每一个 Job 子任务 (tasks) 状态的程序分布式化了，更安全、更优美。</li>
+<li>在新的 Yarn 中，ApplicationMaster 是一个可变更的部分，用户可以对不同的编程模型写自己的 AppMst，让更多类型的编程模型能够跑在 Hadoop 集群中，可以参考<a href="https://www.ibm.com/developerworks/cn/opensource/os-cn-hadoop-yarn/#_3.1_hadoop_0.23.0" target="_blank"> hadoop Yarn 官方配置模板</a>中的 mapred-site.xml 配置。</li>
+<li>对于资源的表示以内存为单位 ( 在目前版本的 Yarn 中，没有考虑 cpu 的占用 )，比之前以剩余 slot 数目更合理。</li>
+<li>老的框架中，JobTracker 一个很大的负担就是监控 job 下的 tasks 的运行状况，现在，这个部分就扔给 ApplicationMaster 做了，而 ResourceManager 中有一个模块叫做 ApplicationsMasters( 注意不是 ApplicationMaster)，它是监测 ApplicationMaster 的运行状况，如果出问题，会将其在其他机器上重启。</li>
+<li>Container 是 Yarn 为了将来作资源隔离而提出的一个框架。目前仅仅提供 java 虚拟机内存的隔离，应该后续能支持更多的资源调度和控制。这里将资源表示成内存量，那就没有了之前的 map slot/reduce slot 分开造成集群资源闲置的尴尬情况。</li><br />
+</ol><br />
+参考：<br />
+<a href="https://issues.apache.org/jira/secure/attachment/12486023/MapReduce_NextGen_Architecture.pdf" target="_blank">https://issues.apache.org/jira/secure/attachment/12486023/MapReduce_NextGen_Architecture.pdf</a><br />
+<a href="http://archive.cloudera.com/cdh4/cdh/4/hadoop/hadoop-yarn/hadoop-yarn-site/YARN.html" target="_blank">http://archive.cloudera.com/cdh4/cdh/4/hadoop/hadoop-yarn/hadoop-yarn-site/YARN.html</a><br />
+<a href="http://developer.yahoo.com/blogs/hadoop/next-generation-apache-hadoop-mapreduce-scheduler-4141.html" target="_blank">http://developer.yahoo.com/blogs/hadoop/next-generation-apache-hadoop-mapreduce-scheduler-4141.html</a><br />
+<a href="http://www.cnblogs.com/LeftNotEasy/archive/2012/02/18/why-yarn.html" target="_blank">http://www.cnblogs.com/LeftNotEasy/archive/2012/02/18/why-yarn.html</a><br />
+<a href="https://www.ibm.com/developerworks/cn/opensource/os-cn-hadoop-yarn/" target="_blank">https://www.ibm.com/developerworks/cn/opensource/os-cn-hadoop-yarn/</a><br />
+<a href="http://pravinchavan.wordpress.com/2013/04/24/hadoop-next-gen-yarn-architecture/" target="_blank">http://pravinchavan.wordpress.com/2013/04/24/hadoop-next-gen-yarn-architecture/</a></p>

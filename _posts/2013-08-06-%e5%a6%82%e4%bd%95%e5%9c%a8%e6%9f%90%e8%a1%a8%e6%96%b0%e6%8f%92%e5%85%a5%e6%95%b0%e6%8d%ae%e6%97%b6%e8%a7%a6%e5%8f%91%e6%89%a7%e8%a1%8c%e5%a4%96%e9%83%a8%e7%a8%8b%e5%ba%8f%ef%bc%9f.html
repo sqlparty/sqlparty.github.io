@@ -1,0 +1,74 @@
+---
+layout: post
+status: publish
+published: true
+title: 如何在某表新插入数据时触发执行外部程序？
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "有这样的需求，我们期望对表mytable1进行监控，当该表中有任意插入操作时，就将相应信息传递给外部bat程序进行后续处理。这里的数据库系统为SQLServer。\r\n\r\n简单的示例是这样，mytable1表有字段name
+  varchar(200)。当有insert操作时，在服务器上将插入的name值传递给程序C:\\Users\\Administrator\\outerp.bat。而程序outerp.bat的内容如下：\r\n\r\n[powershell]\r\nset
+  name=%1\r\necho insert mytable1:%name% >> c:/tmp.txt\r\n[/powershell]\r\n\r\n当执行如下语句后：\r\n\r\n[sql]insert
+  into mytable1(name) values('sqlparty');[/sql]\r\n\r\nc:/tmp.txt中添加一行&rdquo;insert
+  mysql1:sqlparty\"文本。用SQL如何实现呢？\r\n\r\n"
+wordpress_id: 341
+wordpress_url: http://www.sqlparty.com/?p=341
+date: '2013-08-06 01:21:44 +0800'
+date_gmt: '2013-08-05 17:21:44 +0800'
+categories:
+- 题炼
+tags:
+- SQLServer
+- trigger
+---
+<p>有这样的需求，我们期望对表mytable1进行监控，当该表中有任意插入操作时，就将相应信息传递给外部bat程序进行后续处理。这里的数据库系统为SQLServer。</p>
+<p>简单的示例是这样，mytable1表有字段name varchar(200)。当有insert操作时，在服务器上将插入的name值传递给程序C:\Users\Administrator\outerp.bat。而程序outerp.bat的内容如下：</p>
+<p>[powershell]<br />
+set name=%1<br />
+echo insert mytable1:%name% >> c:/tmp.txt<br />
+[/powershell]</p>
+<p>当执行如下语句后：</p>
+<p>[sql]insert into mytable1(name) values('sqlparty');[/sql]</p>
+<p>c:/tmp.txt中添加一行&rdquo;insert mysql1:sqlparty"文本。用SQL如何实现呢？</p>
+<p><!--more--></p>
+<div class="dailyanswer">这种对表变化的监控，在数据库层面，可以依赖于触发器(Trigger)。触发器是一种特殊的存储过程，它在指定的实践发生时被执行。<br />
+在SQLServer中，DML触发器可以满足我们的需求，而调用外部程序可以使用xp_cmdshell。具体如下：首先，需要启用xp_cmdshell，允许使用该系统存储过程。[sql]<br />
+--设置高级选项可更新<br />
+EXEC sp_configure 'show advanced options', 1;<br />
+--使高级选项设置生效<br />
+RECONFIGURE;<br />
+--设置启用xp_cmdshell<br />
+EXEC sp_configure 'xp_cmdshell', 1;<br />
+--使xp_cmdshell设置生效<br />
+RECONFIGURE<br />
+[/sql]</p>
+<p>接下来，在mytable1上创建after触发器</p>
+<p>[sql]<br />
+create trigger trig_mytable1<br />
+on mytable1<br />
+after insert<br />
+as<br />
+	declare @lname varchar(200)<br />
+	declare @cmd varchar(8000)<br />
+	select @lname = name from inserted<br />
+	select @cmd='c:/users/administrator/outerp.bat '+@lname<br />
+	exec xp_cmdshell @cmd<br />
+;<br />
+[/sql]</p>
+<p>最后，测试</p>
+<p>[sql]<br />
+insert into mytable1(name) values('sqlparty');<br />
+输出：<br />
+[NULL]<br />
+C:\Windows\system32>set name=sqlparty<br />
+[NULL]<br />
+C:\Windows\system32>echo insert mytable1:sqlparty  1>>c:/tmp.txt<br />
+[NULL]<br />
+[/sql]</p>
+<p>查看c:/tmp.txt，末尾添加了一行"insert mytable1:sqlparty"</p>
+<p>上述实现是针对SQLServer，但其他RDBMS下相关问题思路是一致的，不过trigger的实现和调用外部程序的方式有所不同。供参考。</p>
+<p></div></p>

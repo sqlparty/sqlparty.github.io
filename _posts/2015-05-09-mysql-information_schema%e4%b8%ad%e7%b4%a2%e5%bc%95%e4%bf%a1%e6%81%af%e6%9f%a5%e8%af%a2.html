@@ -1,0 +1,37 @@
+---
+layout: post
+status: publish
+published: true
+title: MySQL information_schema中索引信息查询
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+wordpress_id: 854
+wordpress_url: http://www.sqlparty.com/?p=854
+date: '2015-05-09 14:39:29 +0800'
+date_gmt: '2015-05-09 06:39:29 +0800'
+categories:
+- 大数据
+tags:
+- MySQL
+---
+<p>show index无疑可以针对单表查询详细的索引信息，但是批量检查索引使用批处理show index就不太方便了。MySQL也支持从系统表(information_schema)下查询索引信息，但是略显隐晦，记录如下。</p>
+<p>一、通用方式</p>
+<p><a href="https://dev.mysql.com/doc/refman/5.6/en/statistics-table.html">information_schema.STATISTICS</a>表提供了索引相关的信息。</p>
+<p>以下两个命令等价:</p><br />
+<blockquote>
+<p>SELECT * FROM INFORMATION_SCHEMA.STATISTICS<br /> WHERE table_name = 'tbl_name'<br /> AND table_schema = 'db_name'</p>
+<p>SHOW INDEX<br /> FROM tbl_name<br /> FROM db_name</p></blockquote>
+<p>二、Innodb 引擎表</p>
+<p>MySQL 5.6之后，innodb引擎的表，其有独立的内部表，如INNODB_SYS_TABLES, INNODB_SYS_INDEXES, and INNODB_SYS_FIELDS 。</p>
+<p>示例：查询表名、索引名、以及索引列信息，可以：</p><br />
+<blockquote>
+<p>SELECT t.name AS `Table`,<br /> i.name AS `Index`,<br /> GROUP_CONCAT(f.name ORDER BY f.pos) AS `Columns`<br />FROM information_schema.innodb_sys_tables t,<br /> information_schema.innodb_sys_indexes i,<br /> information_schema.innodb_sys_fields f<br />WHERE t.table_id=i.table_id<br /> and i.index_id = f.INDEX_ID<br />GROUP BY 1,2;</p></blockquote>
+<p>&nbsp;</p>
+<p>参考：</p>
+<p>http://blog.9minutesnooze.com/mysql-information-schema-indexes/</p>
+<p>&nbsp;</p></p>

@@ -1,0 +1,11 @@
+# Site settings
+title: SQLParty 
+email: sqlparty@163.com
+description: >
+  A MySQL DBA and More
+baseurl: "" # the subpath of your site, e.g. /blog/
+url: "http://www.sqlparty.com" # the base hostname & protocol for your site
+github_username: sqlparty
+
+# Build settings
+markdown: kramdown

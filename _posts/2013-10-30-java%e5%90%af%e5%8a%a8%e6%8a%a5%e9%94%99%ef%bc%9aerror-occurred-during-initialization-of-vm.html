@@ -1,0 +1,45 @@
+---
+layout: post
+status: publish
+published: true
+title: Java启动报错：Error occurred during initialization of VM
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+wordpress_id: 759
+wordpress_url: http://www.sqlparty.com/?p=759
+date: '2013-10-30 12:43:19 +0800'
+date_gmt: '2013-10-30 04:43:19 +0800'
+categories:
+- 开发
+tags:
+- 问题集
+- java
+---
+<p>一次安装完JDK后，运行java -version，出现如下报错信息：</p>
+<p><em>Error occurred during initialization of VM</em><br />
+<em>java/lang/ClassNotFoundException: error in opening JAR file /usr/java/jdk1.7.0_45/jre/lib/rt.jar</em></p>
+<p>检查了下，/usr/java/jdk1.7.0_45/jre/lib/rt.jar存在。这是什么原因呢，如何处理？</p>
+<p>搜索一番后，有类似的报错信息，有人说是内存不够了，于是<a title="如何清空Linux的文件系统Cache" href="http://www.sqlparty.com/%e5%a6%82%e4%bd%95%e6%b8%85%e7%a9%balinux%e7%9a%84%e6%96%87%e4%bb%b6%e7%b3%bb%e7%bb%9fcache/" target="_blank">清空了一下缓存</a>，发现没有效果，进一步查询，有牛人指出了问题：</p>
+<p>JDK的安装文件有损坏！</p>
+<p>好吧，再次尝试：</p>
+<ol>
+<li>卸载原安装包</li>
+<li>下载最新完整JDK安装包</li>
+<li>安装最新JDK安装包</li><br />
+</ol><br />
+在/etc/profile中加入了JAVA_HOME的配置：</p>
+<p>export JAVA_HOME=/usr/java/jdk1.7.0_45<br />
+export PATH=$JAVA_HOME/bin:$PATH</p>
+<p>这样再尝试下：</p>
+<p>shell> java -version<br />
+java version "1.7.0_45"<br />
+Java(TM) SE Runtime Environment (build 1.7.0_45-b18)<br />
+Java HotSpot(TM) 64-Bit Server VM (build 24.45-b08, mixed mode)</p>
+<p>OK！问题解决！</p>
+<p>参考：<br />
+<a href="http://stackoverflow.com/questions/6717917/java-se-occurred-during-initialization-of-vm" target="_blank">http://stackoverflow.com/questions/6717917/java-se-occurred-during-initialization-of-vm</a></p>

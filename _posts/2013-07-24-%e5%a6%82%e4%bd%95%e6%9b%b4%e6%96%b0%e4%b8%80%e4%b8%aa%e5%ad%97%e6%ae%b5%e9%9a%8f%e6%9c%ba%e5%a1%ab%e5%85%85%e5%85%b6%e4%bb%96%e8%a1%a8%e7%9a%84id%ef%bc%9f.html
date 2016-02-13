@@ -1,0 +1,40 @@
+---
+layout: post
+status: publish
+published: true
+title: 如何更新一个字段随机填充其他表的id？
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "存在网页表page和分类表category，page含category_id字段，表示每个网页可以属于一个分类。\r\n\r\n由于历史原因，page.category_id一直空着，由于前端展现方式的修改，现在想为每个page随机的分配一个category_id，即对应到category表的id字段。用SQL应该如何实现？\r\n\r\n"
+wordpress_id: 38
+wordpress_url: http://www.sqlparty.com/?p=38
+date: '2013-07-24 21:48:55 +0800'
+date_gmt: '2013-07-24 13:48:55 +0800'
+categories:
+- 题炼
+tags:
+- 数据库
+- MySQL
+- update
+- order-by
+- rand
+---
+<p>存在网页表page和分类表category，page含category_id字段，表示每个网页可以属于一个分类。</p>
+<p>由于历史原因，page.category_id一直空着，由于前端展现方式的修改，现在想为每个page随机的分配一个category_id，即对应到category表的id字段。用SQL应该如何实现？</p>
+<p><!--more--></p>
+<div class="dailyanswer">更新操作想到的当然是update操作，而为每条记录随机分配，可以如下方式：MySQL方言：[sql]<br />
+update page<br />
+set category_id = (<br />
+        select id<br />
+        from category<br />
+        order by rand()<br />
+        limit 1<br />
+        )<br />
+;<br />
+[/sql]</p>
+<p></div></p>

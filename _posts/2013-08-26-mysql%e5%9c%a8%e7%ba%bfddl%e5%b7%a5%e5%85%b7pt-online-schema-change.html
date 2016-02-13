@@ -1,0 +1,160 @@
+---
+layout: post
+status: publish
+published: true
+title: MySQL在线DDL工具pt-online-schema-change
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "随着表的增大，表结构的变更变得越来越耗时，因为表结构变更时会禁止更新操作，而这会影响到了在线业务的处理。\r\n\r\n虽然在双主复制机制下，可以通过更新备库->切换主备->同步主库的方式进行升级，但是使用支持在线DDL的工具才更方便可靠。\r\n\r\n本文探讨和测试Percona工具集中pt-online-schema-change的原理与用法。\r\n\r\n<span
+  style=\"color: #0000ff;\">前提：由于pt-online-schema-change会更新数据，为避免意外，使用前最好先备份数据哦~</span>\r\n\r\n"
+wordpress_id: 491
+wordpress_url: http://www.sqlparty.com/?p=491
+date: '2013-08-26 12:07:10 +0800'
+date_gmt: '2013-08-26 04:07:10 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+- Percona
+- DDL
+- OSC
+---
+<p>随着表的增大，表结构的变更变得越来越耗时，因为表结构变更时会禁止更新操作，而这会影响到了在线业务的处理。</p>
+<p>虽然在双主复制机制下，可以通过更新备库->切换主备->同步主库的方式进行升级，但是使用支持在线DDL的工具才更方便可靠。</p>
+<p>本文探讨和测试Percona工具集中pt-online-schema-change的原理与用法。</p>
+<p><span style="color: #0000ff;">前提：由于pt-online-schema-change会更新数据，为避免意外，使用前最好先备份数据哦~</span></p>
+<p><!--more--><br />
+pt-online-schema-change的作用：在不锁表的情况下安全快速地更新表结构。</p>
+<h2>用法</h2><br />
+pt-online-schema-change [OPTIONS] DSN</p>
+<h2>原理</h2><br />
+pt-online-schema-change模拟了MySQL内部alter table的方式，但是其操作所更新的是复制表，所以原表不会被锁住。其原理我们通过示例进行解读：</p>
+<p>shell> <span style="color: #0000ff;">pt-online-schema-change --nocheck-replication-filters --recursion-method=none --alter "add newcol int" h=192.168.10.118,P=3306,u=sup,p=xxxx,D=dbteamdb,t=user --alter-foreign-keys-method rebuild_constraints --print --statistics --execute</span><br />
+Operation, tries, wait:<br />
+copy_rows, 10, 0.25<br />
+create_triggers, 10, 1<br />
+drop_triggers, 10, 1<br />
+swap_tables, 10, 1<br />
+update_foreign_keys, 10, 1<br />
+Child tables:<br />
+`dbteamdb`.`user_privs` (approx. 1 rows)<br />
+Will use the rebuild_constraints method to update foreign keys.<br />
+Altering `dbteamdb`.`user`...<br />
+Creating new table...<br />
+<span style="color: #0000ff;">#<strong>步骤1，创建空表，其命名规则是_+原表名+_new</strong></span><br />
+<span style="color: #0000ff;">CREATE TABLE `dbteamdb`.`_user_new` (</span><br />
+<span style="color: #0000ff;">&nbsp; `id` int(10) unsigned NOT NULL AUTO_INCREMENT,</span><br />
+<span style="color: #0000ff;">&nbsp; `host` varchar(20) COLLATE utf8_bin NOT NULL,</span><br />
+<span style="color: #0000ff;">&nbsp; `eng_name` varchar(20) COLLATE utf8_bin NOT NULL,</span><br />
+<span style="color: #0000ff;">&nbsp; `chn_name` varchar(20) COLLATE utf8_bin NOT NULL,</span><br />
+<span style="color: #0000ff;">&nbsp; `create_time` datetime NOT NULL,</span><br />
+<span style="color: #0000ff;">&nbsp; `update_time` datetime NOT NULL,</span><br />
+<span style="color: #0000ff;">&nbsp; `status` tinyint(3) unsigned NOT NULL,</span><br />
+<span style="color: #0000ff;">&nbsp; PRIMARY KEY (`id`),</span><br />
+<span style="color: #0000ff;">&nbsp; UNIQUE KEY `uk_user__host` (`host`)</span><br />
+<span style="color: #0000ff;">) ENGINE=InnoDB AUTO_INCREMENT=48 DEFAULT CHARSET=utf8 COLLATE=utf8_bin</span><br />
+Created new table dbteamdb._user_new OK.<br />
+Altering new table...<br />
+<span style="color: #0000ff;">#<strong>步骤2，根据语句更新新表结构</strong></span><br />
+<span style="color: #0000ff;">ALTER TABLE `dbteamdb`.`_user_new` add newcol int</span><br />
+Altered `dbteamdb`.`_user_new` OK.<br />
+Creating triggers...<br />
+<span style="color: #0000ff;">#<strong>步骤3，在原表上创建触发器，以便后续原表上的操作同步到新表</strong></span><br />
+<span style="color: #0000ff;">CREATE TRIGGER `pt_osc_dbteamdb_user_del` AFTER DELETE ON `dbteamdb`.`user` FOR EACH ROW DELETE IGNORE FROM `dbteamdb`.`_user_new` WHERE `dbteamdb`.`_user_new`.`id` <=> OLD.`id`</span><br />
+<span style="color: #0000ff;">CREATE TRIGGER `pt_osc_dbteamdb_user_upd` AFTER UPDATE ON `dbteamdb`.`user` FOR EACH ROW REPLACE INTO `dbteamdb`.`_user_new` (`id`, `host`, `eng_name`, `chn_name`, `create_time`, `update_time`, `status`) VALUES (NEW.`id`, NEW.`host`, NEW.`eng_name`, NEW.`chn_name`, NEW.`create_time`, NEW.`update_time`, NEW.`status`)</span><br />
+<span style="color: #0000ff;">CREATE TRIGGER `pt_osc_dbteamdb_user_ins` AFTER INSERT ON `dbteamdb`.`user` FOR EACH ROW REPLACE INTO `dbteamdb`.`_user_new` (`id`, `host`, `eng_name`, `chn_name`, `create_time`, `update_time`, `status`) VALUES (NEW.`id`, NEW.`host`, NEW.`eng_name`, NEW.`chn_name`, NEW.`create_time`, NEW.`update_time`, NEW.`status`)</span><br />
+Created triggers OK.<br />
+Copying approximately 44 rows...<br />
+<span style="color: #0000ff;">#<strong>步骤4，拷贝原表数据到新表，数据量大时会根据主键进行分段chunk插入</strong></span><br />
+<span style="color: #0000ff;">INSERT LOW_PRIORITY IGNORE INTO `dbteamdb`.`_user_new` (`id`, `host`, `eng_name`, `chn_name`, `create_time`, `update_time`, `status`) SELECT `id`, `host`, `eng_name`, `chn_name`, `create_time`, `update_time`, `status` FROM `dbteamdb`.`user` LOCK IN SHARE MODE</span> /*pt-online-schema-change 9378 copy table*/<br />
+Copied rows OK.<br />
+Swapping tables...<br />
+<span style="color: #0000ff;">#<strong>步骤5，拷贝完成后，移走原表，用新表代替(RENAME TABLE)。其通过一个RENAME TABLE同时处理两个表，实现原子操作。</strong></span><br />
+<span style="color: #0000ff;">RENAME TABLE `dbteamdb`.`user` TO `dbteamdb`.`_user_old`, `dbteamdb`.`_user_new` TO `dbteamdb`.`user`</span><br />
+Swapped original and new tables OK.<br />
+Rebuilding foreign key constraints...<br />
+<span style="color: #0000ff;">#<strong>如果更新的表是被子表外键引用的父表，那么需要相应的更新子表的外键指向。具体见下文"外键的影响"。</strong></span><br />
+<span style="color: #0000ff;">ALTER TABLE `dbteamdb`.`user_privs` DROP FOREIGN KEY `fk_user_privs__user_id`, ADD CONSTRAINT `_fk_user_privs__user_id` FOREIGN KEY (`user_id`) REFERENCES `dbteamdb`.`user` (`id`)</span><br />
+Rebuilt foreign key constraints OK.<br />
+<span style="color: #0000ff;">#<strong>最后清除临时生成的表、触发器。默认情况下会删除原表（此时是已经重命名过的_user_old）。</strong></span><br />
+Dropping old table...<br />
+<span style="color: #0000ff;">DROP TABLE IF EXISTS `dbteamdb`.`_user_old`</span><br />
+Dropped old table `dbteamdb`.`_user_old` OK.<br />
+Dropping triggers...<br />
+<span style="color: #0000ff;">DROP TRIGGER IF EXISTS `dbteamdb`.`pt_osc_dbteamdb_user_del`;</span><br />
+<span style="color: #0000ff;">DROP TRIGGER IF EXISTS `dbteamdb`.`pt_osc_dbteamdb_user_upd`;</span><br />
+<span style="color: #0000ff;">DROP TRIGGER IF EXISTS `dbteamdb`.`pt_osc_dbteamdb_user_ins`;</span><br />
+Dropped triggers OK.<br />
+# Event&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Count<br />
+# ================== =====<br />
+# INSERT&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1<br />
+# rebuilt_constraint&nbsp;&nbsp;&nbsp;&nbsp; 1<br />
+Successfully altered `dbteamdb`.`user`.</p>
+<p><em><span style="color: #0000ff;">注意：如果原表上已经有触发器，那么将无法使用本工具！</span></em></p>
+<h2>性能</h2><br />
+数据的拷贝是基于小块(根据chunk-time参数指定)进行的，而且根据主键或者索引进行选择，所以对整体服务器性能影响较小。</p>
+<p>相关选项：</p>
+<ul>
+<li>--chunk-time <float> 默认0.5。根据每秒拷贝的记录数，动态调整每次chunk size，以便压力变化时能够开始适应，使得每次拷贝消耗这里的指定长时间。</li><br />
+</ul><br />
+而且，如果检测到服务器压力大，则会暂停或者退出，详见--max-load和--critical-load选项。</p>
+<h2>安全</h2><br />
+有诸多措施来保障安全使用该工具：</p>
+<ol>
+<li>只有指定了--execute才会真正执行</li>
+<li>如果工具检测到服务器选项中有任何复制相关的筛选，如指定binlog_ignore_db和replicate_do_db此类。发现有这样的筛选，工具会报错且退出。其原因是，如果更新的表Master上存在，而Slave上不存在，会导致复制的失败。使用--no-check-replication-filters选项来禁用该检查。</li>
+<li>如果复制环境中，有延迟，会暂停数据拷贝动作，详见--max-laq选项。</li>
+<li>默认设置了--lock-wait-timeout为1秒，这样如果有锁等待，尽量自己先退出，不干扰其他事务。详见--lock-wait-timeout</li>
+<li>如果被外键引用，工具不会执行操作，除非指定--alter-foreign-keys-method选项。</li><br />
+</ol></p>
+<h2>外键的影响(外键相关基本只涉及到InnoDB引擎)</h2><br />
+外键使得以上操作变得更加复杂，如果有外键引用到要变更的表，那么就无法自动RENAME，因为外键还是引用到老表。工具必须更新外键引用到新表。其提供两种方式来实现这个功能(--alter-foreign-keys-method)。</p>
+<p>相关选项：</p>
+<ul>
+<li>--alter-foreign-keys-method "<string>"&nbsp; 设定该表被外键引用时该如何处理。因为涉及到RENAME，而引用它的表会跟随它，而不会自动切换到新表，所以需要将外键切到新表。可选值：
+<ul>
+<li>rebuild_constraints 使用ALTER TABLE将删除重建引用到更新表的子表的相应外键。但是如果子表很大的话，就不合适了。</li>
+<li>drop_swap 禁用外键检测(foreign_key_checks=0)，然后在新表替代旧表前，直接drop掉新表，这与默认的方式不同。默认情况下，使用RENAME TABLE操作两张表，是原子操作，对于客户端来说是透明的；而启用这个选项，是先DROP老表，然后RENAME TABLE将新表重命名为老表，这种情况下，由于不是原子操作，在两个操作的间隙表就不存在了，会导致针对该表的操作错误！而且，如果RENAME操作失败，那么也无法回滚！</li>
+<li>auto 自动选择。其倾向于使用rebuild_constraints，如果预估子表的更新时间小于--chunk-time则选择rebuild_constraints，反之则选drop_swap。</li>
+<li>none 会对原表RENAME成_TAB_old，然后set foreign_key_checks=0，再drop _TAB_old。这样就会导致子表依赖的父表被删除！这样后续需要DBA参与处理。</li><br />
+</ul><br />
+</li><br />
+</ul><br />
+外键还有一个问题，就是新建表的外键名称和旧表的外键名称重复，工具保证最终表与原表有同样的外键和索引，但是名称可能会稍有不同，会添加前缀下划线。</p>
+<h2>输出</h2><br />
+本工具会活动信息输出到标准输出STDOUT。在数据拷贝阶段，会打印--progress报告到STDERR。指定--print可以得到额外的信息。如果指定--statistics，会进一步打印出内部事件的数目。</p>
+<h2>其他选项说明</h2></p>
+<ul>
+<li>--max-laq <time> 默认为1s。每个chunk拷贝完成后，这个工具会查看所有复制Slave的延迟情况。其方式是连接到Slave，检查其Seconds_Behind_Master。如果有一个Slave延迟超过max-lag，则工具会睡眠--check-interval秒然后再检查。至于如何查询所有Slave，则根据--recursion-method（默认通过show processlist，可以指定none来不检查Slave）。</li>
+<li>--max-load <array> 默认为Threads_running=25。每个chunk拷贝完后，会检查SHOW GLOBAL STATUS的内容，检查指标是否超过了指定的阈值。如果超过，则先暂停。这里可以用逗号分隔，指定多个条件，每个条件格式： status指标=MAX_VALUE或者status指标:MAX_VALUE。如果不指定MAX_VALUE，那么工具会这只其为当前值的120%。</li>
+<li>--critical-load&nbsp; <array> 默认为Threads_running=50。用法基本与--max-load类似，如果不指定MAX_VALUE，那么工具会这只其为当前值的200%。如果超过指定值，则工具直接退出，而不是暂停。</li>
+<li>--lock-wait-timeout <整型> 默认为1，即会话innodb_lock_wait_timeout的值为1秒。这个选项只针对InnoDB引擎。</li>
+<li>--alter <string> 结构变更语句，不需要alter table关键字。可以指定多个更改，用逗号分隔。如下场景，需要注意：
+<ul>
+<li>不能用RENAME来重命名表。&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp; * 列不能通过先删除，再添加的方式进行重命名，不会将数据拷贝到新列。</li>
+<li>如果加入的列非空而且没有默认值，则工具会失败。即其不会为你设置一个默认值，必须显示指定。</li>
+<li>删除外键(drop foreign key constrain_name)时，需要指定名称_constraint_name，而不是原始的constraint_name。</li><br />
+</ul><br />
+</li></p>
+<li>--dry-run 并不真正执行，可以看到生成的执行语句，了解其执行步骤与细节</li>
+<li>--execute 真正执行。--dry-run与--execute必须指定一个</li>
+<li>--[no]drop-old-table &nbsp;&nbsp;删除RENAME后的原表。默认是yes。</li><br />
+</ul></p>
+<h2>典型用法</h2><br />
+1）添加一列，并不真正执行<br />
+<span style="color: #0000ff;">pt-online-schema-change --alter "add column c1 int" D=mydb,t=mytable --dry-run</span></p>
+<p>2）更新存储引擎为InnoDB，不删除原表<br />
+<span style="color: #0000ff;">pt-online-schema-change --alter "ENGINE=InnoDB" --no-drop-old-table --print --statistics --execute D=mydb,t=mytable --execute</span></p>
+<p>3）复制环境下，忽略日志筛选和Slave复制延迟，删除表字段<br />
+<span style="color: #0000ff;">pt-online-schema-change --no-check-replication-filters --recursion-method=none --alter "drop company_type,drop channel_code" h=192.168.10.14,P=3370,u=user1,p=pass1,D=db1,t=table1 --print --statistics --execute</span></p>
+<p>4）更新被子表引用到的父表<br />
+<span style="color: #0000ff;">pt-online-schema-change --alter "add newcol int" h=192.168.10.14,P=3370,u=user1,p=pass1,D=db1,t=table1 --alter-foreign-keys-method auto --print --statistics --execute</span></p>
+<p>5）在我们的双主复制环境中，设定了忽略mysql库的复制，不是很在乎复制的延迟，有时有外键影响，希望尽量保留原表数据，必要时自行删除。<br />
+<span style="color: #0000ff;">pt-online-schema-change --no-check-replication-filters --recursion-method=none --alter "drop newcol" h=192.168.10.14,P=3370,u=user1,p=pass1,D=db1,t=table1 --alter-foreign-keys-method auto --no-drop-old-table --print --statistics --execute</span></p>
+<p>参考：<br />
+<a href="http://www.percona.com/doc/percona-toolkit/2.1/pt-online-schema-change.html" target="_blank">http://www.percona.com/doc/percona-toolkit/2.1/pt-online-schema-change.html</a></p>

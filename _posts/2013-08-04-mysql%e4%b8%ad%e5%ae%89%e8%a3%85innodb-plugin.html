@@ -1,0 +1,104 @@
+---
+layout: post
+status: publish
+published: true
+title: MySQL中安装InnoDB Plugin
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "MySQL 5.1版本开始，启用了可插入式存储引擎结构。本文描述在Linux下如何将InnoDB作为共享库安装到MySQL服务器中。MySQL自身包含了内置InnoDB引擎。MySQL
+  5.5中将其作为内置InnoDB，就没有InnoDB Plugin了。\r\n当前服务器版本：5.1.68，运行在Linux下。\r\n\r\n"
+wordpress_id: 279
+wordpress_url: http://www.sqlparty.com/?p=279
+date: '2013-08-04 15:47:35 +0800'
+date_gmt: '2013-08-04 07:47:35 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+- InnoDB
+---
+<p>MySQL 5.1版本开始，启用了可插入式存储引擎结构。本文描述在Linux下如何将InnoDB作为共享库安装到MySQL服务器中。MySQL自身包含了内置InnoDB引擎。MySQL 5.5中将其作为内置InnoDB，就没有InnoDB Plugin了。<br />
+当前服务器版本：5.1.68，运行在Linux下。</p>
+<p><!--more--></p>
+<h2>1.检查服务器是否支持InnoDB Plugin</h2><br />
+<span style="color: #0000ff;">mysql>show global variables like 'have_dynamic_loading';</span><br />
+<span style="color: #0000ff;"> +----------------------+-------+</span><br />
+<span style="color: #0000ff;"> | Variable_name | Value |</span><br />
+<span style="color: #0000ff;"> +----------------------+-------+</span><br />
+<span style="color: #0000ff;"> | have_dynamic_loading | YES |</span><br />
+<span style="color: #0000ff;"> +----------------------+-------+</span><br />
+<span style="color: #0000ff;"> 1 row in set (0.00 sec)</span><br />
+yes表示支持动态载入动态链接库。如果是NO，则比较麻烦，因为have_dynamic_loading是只读变量，而且无法通过配置项的配置进行修改。如果是通过源码编译方式安装的mysql，则不能指定&ndash;with-mysqld-ldflags=all-static。</p>
+<h2>2.下载</h2><br />
+MySQL 5.1.68中已包含插件内容，不做额外下载。服务器的basedir为/usr/local/mysql。<br />
+<span style="color: #0000ff;">shell>cd /usr/local/mysql</span><br />
+<span style="color: #0000ff;"> shell>ls -lrt bin/plugin/*innodb*</span><br />
+<span style="color: #0000ff;"> -rwxr-xr-x 1 7155 wheel 6589879 Jan 8 23:38 ha_innodb_plugin.so.0.0.0</span><br />
+<span style="color: #0000ff;"> -rwxr-xr-x 1 7155 wheel 1054 Jan 8 23:38 ha_innodb_plugin.la</span><br />
+<span style="color: #0000ff;"> -rw-r--r-- 1 7155 wheel 12104750 Jan 8 23:38 ha_innodb_plugin.a</span><br />
+<span style="color: #0000ff;"> lrwxrwxrwx 1 7155 wheel 25 Mar 12 19:04 ha_innodb_plugin.so.0 -> ha_innodb_plugin.so.0.0.0</span><br />
+<span style="color: #0000ff;"> lrwxrwxrwx 1 7155 wheel 25 Mar 12 19:04 ha_innodb_plugin.so -> ha_innodb_plugin.so.0.0.0</span></p>
+<h2>3.确保服务器不在运行</h2><br />
+如果正在运行，则<br />
+<span style="color: #0000ff;">mysql>set global innodb_fast_shutdown=0;</span><br />
+<span style="color: #0000ff;"> shell>mysqladmin shutdown</span><br />
+这样会在关闭前确保做好完整的缓存保存等工作。如果该库较大且繁忙，那么可能花费较长时间。</p>
+<h2>4.修改对应my.cnf，安装InnoDB Plugin。</h2><br />
+添加如下</p>
+<p><span style="color: #0000ff;"> ignore_builtin_innodb</span><br />
+<span style="color: #0000ff;"> #plugin-load should be in the same line</span><br />
+<span style="color: #0000ff;"> plugin-load=innodb=ha_innodb_plugin.so;innodb_trx=ha_innodb_plugin.so;innodb_locks=ha_innodb_plugin.so;innodb_lock_waits=ha_innodb_plugin.so;innodb_cmp=ha_innodb_plugin.so;innodb_cmp_reset=ha_innodb_plugin.so;innodb_cmpmem=ha_innodb_plugin.so;innodb_cmpmem_reset=ha_innodb_plugin.so</span><br />
+虽然也可以在mysqld启动时作为启动选项，不建议，放到配置文件中便于管理和查询。<br />
+还可以在运行时执行：<br />
+<span style="color: #0000ff;">mysql>INSTALL PLUGIN INNODB SONAME 'ha_innodb_plugin.so';</span><br />
+<span style="color: #0000ff;"> mysql>INSTALL PLUGIN INNODB_TRX SONAME 'ha_innodb_plugin.so';</span><br />
+<span style="color: #0000ff;"> mysql>INSTALL PLUGIN INNODB_LOCKS SONAME 'ha_innodb_plugin.so';</span><br />
+<span style="color: #0000ff;"> mysql>INSTALL PLUGIN INNODB_LOCK_WAITS SONAME 'ha_innodb_plugin.so';</span><br />
+<span style="color: #0000ff;"> mysql>INSTALL PLUGIN INNODB_CMP SONAME 'ha_innodb_plugin.so';</span><br />
+<span style="color: #0000ff;"> mysql>INSTALL PLUGIN INNODB_CMP_RESET SONAME 'ha_innodb_plugin.so';</span><br />
+<span style="color: #0000ff;"> mysql>INSTALL PLUGIN INNODB_CMPMEM SONAME 'ha_innodb_plugin.so';</span><br />
+<span style="color: #0000ff;"> mysql>INSTALL PLUGIN INNODB_CMPMEM_RESET SONAME 'ha_innodb_plugin.so';</span><br />
+通过INSTALL方式，要求在mysqld启动时，预先对innodb选项有如下前缀loose_如用loose_innodb_file_per_table代替innodb_file_per_table，或者预先设置ignore_builtin_innodb和default_storage_engine=MyISAM</p>
+<h2>5.继续修改my.cnf，配置InnoDB Plugin所需内容</h2><br />
+<span style="color: #0000ff;">default-storage-engine=InnoDB</span><br />
+<span style="color: #0000ff;"> innodb_file_per_table=1</span><br />
+<span style="color: #0000ff;"> innodb_file_format=barracuda</span><br />
+<span style="color: #0000ff;"> innodb_strict_mode=1</span></p>
+<h2>6.启动mysqld后，检查</h2><br />
+<span style="color: #0000ff;">mysql> show plugins;</span><br />
+<span style="color: #0000ff;"> +---------------------+----------+--------------------+---------------------+---------+</span><br />
+<span style="color: #0000ff;"> | Name | Status | Type | Library | License |</span><br />
+<span style="color: #0000ff;"> +---------------------+----------+--------------------+---------------------+---------+</span><br />
+<span style="color: #0000ff;"> | binlog | ACTIVE | STORAGE ENGINE | NULL | GPL |</span><br />
+<span style="color: #0000ff;"> | partition | ACTIVE | STORAGE ENGINE | NULL | GPL |</span><br />
+<span style="color: #0000ff;"> | ARCHIVE | ACTIVE | STORAGE ENGINE | NULL | GPL |</span><br />
+<span style="color: #0000ff;"> | BLACKHOLE | ACTIVE | STORAGE ENGINE | NULL | GPL |</span><br />
+<span style="color: #0000ff;"> | CSV | ACTIVE | STORAGE ENGINE | NULL | GPL |</span><br />
+<span style="color: #0000ff;"> | FEDERATED | DISABLED | STORAGE ENGINE | NULL | GPL |</span><br />
+<span style="color: #0000ff;"> | MEMORY | ACTIVE | STORAGE ENGINE | NULL | GPL |</span><br />
+<span style="color: #0000ff;"> | MyISAM | ACTIVE | STORAGE ENGINE | NULL | GPL |</span><br />
+<span style="color: #0000ff;"> | MRG_MYISAM | ACTIVE | STORAGE ENGINE | NULL | GPL |</span><br />
+<span style="color: #0000ff;"> | InnoDB | ACTIVE | STORAGE ENGINE | ha_innodb_plugin.so | GPL |</span><br />
+<span style="color: #0000ff;"> | INNODB_TRX | ACTIVE | INFORMATION SCHEMA | ha_innodb_plugin.so | GPL |</span><br />
+<span style="color: #0000ff;"> | INNODB_LOCKS | ACTIVE | INFORMATION SCHEMA | ha_innodb_plugin.so | GPL |</span><br />
+<span style="color: #0000ff;"> | INNODB_LOCK_WAITS | ACTIVE | INFORMATION SCHEMA | ha_innodb_plugin.so | GPL |</span><br />
+<span style="color: #0000ff;"> | INNODB_CMP | ACTIVE | INFORMATION SCHEMA | ha_innodb_plugin.so | GPL |</span><br />
+<span style="color: #0000ff;"> | INNODB_CMP_RESET | ACTIVE | INFORMATION SCHEMA | ha_innodb_plugin.so | GPL |</span><br />
+<span style="color: #0000ff;"> | INNODB_CMPMEM | ACTIVE | INFORMATION SCHEMA | ha_innodb_plugin.so | GPL |</span><br />
+<span style="color: #0000ff;"> | INNODB_CMPMEM_RESET | ACTIVE | INFORMATION SCHEMA | ha_innodb_plugin.so | GPL |</span><br />
+<span style="color: #0000ff;"> +---------------------+----------+--------------------+---------------------+---------+</span><br />
+<span style="color: #0000ff;"> 17 rows in set (0.00 sec)</span></p>
+<p><span style="color: #0000ff;">mysql> select @@innodb_version;</span><br />
+<span style="color: #0000ff;"> +------------------+</span><br />
+<span style="color: #0000ff;"> | @@innodb_version |</span><br />
+<span style="color: #0000ff;"> +------------------+</span><br />
+<span style="color: #0000ff;"> | 5.1.68 |</span><br />
+<span style="color: #0000ff;"> +------------------+</span><br />
+<span style="color: #0000ff;"> 1 row in set (0.00 sec)</span></p>
+<p>参考：<br />
+<a href="http://blog.csdn.net/tenfyguo/article/details/7706534" target="_blank">http://blog.csdn.net/tenfyguo/article/details/7706534</a></p>

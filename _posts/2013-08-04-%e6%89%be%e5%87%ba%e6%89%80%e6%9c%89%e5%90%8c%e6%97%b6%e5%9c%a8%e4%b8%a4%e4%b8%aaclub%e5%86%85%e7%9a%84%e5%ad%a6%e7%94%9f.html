@@ -1,0 +1,87 @@
+---
+layout: post
+status: publish
+published: true
+title: 找出所有同时在两个club内的学生
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "我有这样的三张表：\r\n<pre>student {\r\n    id\r\n    name\r\n}\r\nclub {\r\n    id\r\n
+  \   name\r\n}\r\nstudent_club {\r\n    student_id\r\n    club_id\r\n}</pre>\r\n我想找出所有同时参加了篮球俱乐部(30)和棒球俱乐部(50)的学生，我尝试了如下的查询语句，但是不奏效：\r\n\r\n[sql]\r\nSELECT
+  student.*\r\nFROM   student\r\nINNER  JOIN student_club sc\r\n  ON student.id =
+  sc.student_id\r\nLEFT   JOIN club c\r\n  ON c.id = sc.club_id\r\nWHERE  c.id = 30
+  AND c.id = 50\r\n[/sql]\r\n\r\n上述需求应该怎样用SQL实现呢？\r\n本题来源<a title=\"How to filter
+  SQL results in a has-many-through relation\" href=\"http://stackoverflow.com/questions/7364969/how-to-filter-sql-results-in-a-has-many-through-relation\"
+  target=\"_blank\">stackoverflow</a>\r\n\r\n"
+wordpress_id: 259
+wordpress_url: http://www.sqlparty.com/?p=259
+date: '2013-08-04 02:22:52 +0800'
+date_gmt: '2013-08-03 18:22:52 +0800'
+categories:
+- 题炼
+tags:
+- 数据库
+- group-by
+---
+<p>我有这样的三张表：</p>
+<pre>student {<br />
+    id<br />
+    name<br />
+}<br />
+club {<br />
+    id<br />
+    name<br />
+}<br />
+student_club {<br />
+    student_id<br />
+    club_id<br />
+}</pre><br />
+我想找出所有同时参加了篮球俱乐部(30)和棒球俱乐部(50)的学生，我尝试了如下的查询语句，但是不奏效：</p>
+<p>[sql]<br />
+SELECT student.*<br />
+FROM   student<br />
+INNER  JOIN student_club sc<br />
+  ON student.id = sc.student_id<br />
+LEFT   JOIN club c<br />
+  ON c.id = sc.club_id<br />
+WHERE  c.id = 30 AND c.id = 50<br />
+[/sql]</p>
+<p>上述需求应该怎样用SQL实现呢？<br />
+本题来源<a title="How to filter SQL results in a has-many-through relation" href="http://stackoverflow.com/questions/7364969/how-to-filter-sql-results-in-a-has-many-through-relation" target="_blank">stackoverflow</a></p>
+<p><!--more--></p>
+<div class="dailyanswer">本题重点是SQL判断同时在两个club，可以是所有学生分组后数数参加的club数量，也可以每个学生一个一个的判断。分别写法如下：</div></p>
+<div class="dailyanswer">1.分组的方式[sql]<br />
+select s.*<br />
+from  student s,<br />
+     (<br />
+             select student_id<br />
+             from student_club sc<br />
+             where club_id in (30,50)<br />
+             group by student_id<br />
+             having count(*) > 1<br />
+      ) sid<br />
+where s.id = sid.student_id<br />
+[/sql]</p>
+<p>2.逐条记录判断的方式</p>
+<p>[sql]<br />
+select *<br />
+from student<br />
+where id in<br />
+    (<br />
+    select student_id<br />
+    from student_club<br />
+    where club_id = 30<br />
+    )<br />
+and id in<br />
+    (<br />
+    select student_id<br />
+    from student_club<br />
+    where club_id = 50<br />
+    )<br />
+[/sql]</p>
+<p>数据库的能力更多体现在对结果集的整体处理上，推荐方法一。</p>
+<p></div></p>

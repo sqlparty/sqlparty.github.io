@@ -1,0 +1,120 @@
+---
+layout: post
+status: publish
+published: true
+title: Hive读取Flume正在写入的HDFS临时文件所遇到的问题
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "实际工作遇到如下场景：应用服务器收集到的日志信息，通过Flume写入到HDFS指定目录，而Hive将其映射到表，进行离线统计。\r\n<h2>计划</h2>\r\n计划方式处理：\r\n\r\nHive的表创建为外部分区表，例如：\r\n\r\n<span
+  style=\"color: #0000ff;\">USE mydb;</span>\r\n<span style=\"color: #0000ff;\">CREATE
+  EXTERNAL TABLE mytable</span>\r\n<span style=\"color: #0000ff;\">( </span>\r\n<span
+  style=\"color: #0000ff;\">&nbsp; c1 String,</span>\r\n<span style=\"color: #0000ff;\">&nbsp;
+  c2 INT,</span>\r\n<span style=\"color: #0000ff;\">&nbsp; c3 INT,</span>\r\n<span
+  style=\"color: #0000ff;\">&nbsp; create_time String</span>\r\n<span style=\"color:
+  #0000ff;\">)</span>\r\n<span style=\"color: #0000ff;\">PARTITIONED BY (dt STRING);</span>\r\n\r\n然后创建分区，如：\r\n\r\n<span
+  style=\"color: #0000ff;\">ALTER TABLE mytable ADD PARTITION (dt = '2013-09-25')
+  LOCATION '/data/mytable/2013-09-25/';</span>\r\n<span style=\"color:
+  #0000ff;\">ALTER TABLE mytable ADD PARTITION (dt = '2013-09-26') LOCATION '/data/mytable/2013-09-26/';</span>\r\n<span
+  style=\"color: #0000ff;\">ALTER TABLE mytable ADD PARTITION (dt = '2013-09-27')
+  LOCATION '/data/mytable/2013-09-27/';</span>\r\n\r\n即Hive的表按天进行分区。指定到相应目录。\r\n\r\n而Flume中配置将数据保存到HDFS中,即HDFS
+  sink。计划每天一个文件，进行日切。如2013-09-25对应的文件就保存在：\r\n\r\n<span style=\"color: #0000ff;\">hdfs://<hive.metastore.warehouse.dir>/data/mytable/2013-09-25/FlumeData.xxx</span>\r\n\r\n这样，只要文件生成，就能直接通过操作Hive的mytable表来对文件进行统计了。\r\n\r\n"
+wordpress_id: 719
+wordpress_url: http://www.sqlparty.com/?p=719
+date: '2013-09-25 23:21:45 +0800'
+date_gmt: '2013-09-25 15:21:45 +0800'
+categories:
+- 大数据
+tags:
+- hive
+- flume
+- hdfs
+---
+<p>实际工作遇到如下场景：应用服务器收集到的日志信息，通过Flume写入到HDFS指定目录，而Hive将其映射到表，进行离线统计。</p>
+<h2>计划</h2><br />
+计划方式处理：</p>
+<p>Hive的表创建为外部分区表，例如：</p>
+<p><span style="color: #0000ff;">USE mydb;</span><br />
+<span style="color: #0000ff;">CREATE EXTERNAL TABLE mytable</span><br />
+<span style="color: #0000ff;">( </span><br />
+<span style="color: #0000ff;">&nbsp; c1 String,</span><br />
+<span style="color: #0000ff;">&nbsp; c2 INT,</span><br />
+<span style="color: #0000ff;">&nbsp; c3 INT,</span><br />
+<span style="color: #0000ff;">&nbsp; create_time String</span><br />
+<span style="color: #0000ff;">)</span><br />
+<span style="color: #0000ff;">PARTITIONED BY (dt STRING);</span></p>
+<p>然后创建分区，如：</p>
+<p><span style="color: #0000ff;">ALTER TABLE mytable ADD PARTITION (dt = '2013-09-25') LOCATION '/data/mytable/2013-09-25/';</span><br />
+<span style="color: #0000ff;">ALTER TABLE mytable ADD PARTITION (dt = '2013-09-26') LOCATION '/data/mytable/2013-09-26/';</span><br />
+<span style="color: #0000ff;">ALTER TABLE mytable ADD PARTITION (dt = '2013-09-27') LOCATION '/data/mytable/2013-09-27/';</span></p>
+<p>即Hive的表按天进行分区。指定到相应目录。</p>
+<p>而Flume中配置将数据保存到HDFS中,即HDFS sink。计划每天一个文件，进行日切。如2013-09-25对应的文件就保存在：</p>
+<p><span style="color: #0000ff;">hdfs://<hive.metastore.warehouse.dir>/data/mytable/2013-09-25/FlumeData.xxx</span></p>
+<p>这样，只要文件生成，就能直接通过操作Hive的mytable表来对文件进行统计了。</p>
+<p><!--more--></p>
+<p>业务上要求统计工作是按照小时进行，考虑到按照小时进行分区过于细化，而且会导致过多的文件给NameNode造成内存压力，所以如上Hive层面按天进行划分。</p>
+<p>统计执行时首先指定天分区，然后根据create_time（mm:hh:ss）指定统计时间段，如：</p>
+<p><span style="color: #0000ff;">SELECT c1,</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; SUM(c2),</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; SUM(c3)</span><br />
+<span style="color: #0000ff;">FROM mytable</span><br />
+<span style="color: #0000ff;">WHERE dt = '2013-09-25'</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp; AND create_time BETWEEN '22:00:00' AND '22:59:59'</span><br />
+<span style="color: #0000ff;">GROUP BY c1</span><br />
+<span style="color: #0000ff;">;</span></p>
+<h2>但是，但是，计划始终赶不到遇到的变化！</h2><br />
+在实践的过程中遇到如下两个问题：</p>
+<p><strong>1.对于正在写入的文件，通过hadoop fs -ls 命令查看，其大小始终是0，即使通过hadoop fs -cat可以看到实际已经有内容存在！通过hive处理的话也看不到其中的数据。</strong></p>
+<p><strong>2.Flume正在写入的文件，默认会有.tmp后缀。如果Hive在执行过程中，Flume切换文件，即将xxx.tmp重命名为xxx，这时Hive会报错如file not found xxx.tmp。</strong></p>
+<p>了解一番后大致知道了缘由，记录如下：</p>
+<p><strong>针对问题1</strong></p>
+<p>首先了解HDFS的特点：</p>
+<p>HDFS中所有文件都是由块BLOCK组成，默认块大小为64MB。在我们的测试中由于数据量小，始终在写入文件的第一个BLOCK。而HDFS与一般的POSIX要求的文件系统不太一样，其文件数据的可见性是这样的：</p>
+<ol>
+<li>如果创建了文件，这个文件可以立即可见；</li>
+<li>写入文件的数据则不被保证可见了，哪怕是执行了刷新操作(flush/sync)。只有数据量大于1个BLOCK时，第一个BLOCK的数据才会被看到，后续的BLOCK也同样的特性。正在写入的BLOCK始终不会被其他用户看到！</li>
+<li>HDFS中的sync()保证数据持久化到了datanode上，然后可以被其他用户看到。</li><br />
+</ol><br />
+针对HDFS的特点，可以解释问题1中的现象，正在写入无法查看。但是使用Hive统计时Flume还在写入那个BLOCK(数据量小的时候)，那岂不是统计不到信息？</p>
+<p><strong>解决方案：</strong></p>
+<p><strong></strong>每天再按小时切分文件&mdash;&mdash;这样虽然每天文件较多，但是能够保证统计时数据可见！Flume上的配置项为<strong>hdfs.rollInterval</strong>。</p>
+<p>如果文件数多，那么还可以考虑对以前的每天的小时文件合并为每天一个文件！</p>
+<p><strong>针对问题2</strong></p>
+<p>原因比较明显，Hive处理前获取了对应分区下的所有文件信息，其中包含xxx.tmp文件，而传递给MapReduce处理时，由于Flume进行了切换，导致原来的xxx.tmp变成了xxx，新的.tmp名称又变成了yyy.tmp，这样自然找不到xxx.tmp了。</p>
+<p><strong>解决方案：</strong></p>
+<p>解决这个问题想法之一是想控制Hive的处理时机，但是显然不是那么好控制。</p>
+<p>进一步了解到HDFS的Java API读取HDFS文件时，会忽略以"."和"_"开头的文件！类似于Linux中默认.xx是隐藏的一样，应用程序读取HDFS文件时默认也不读取.xxx和_xxx这样名称的文件！</p>
+<p>这样就产生了针对问题2的<strong>处理方案一）</strong>配置Flume，针对正在写入的文件，以.号开头。涉及Flume配置项<strong>hdfs.inUsePrefix</strong>。</p>
+<p>也有网友给出了<strong>处理方案二）</strong>:让应用程序也看不到.tmp结尾的文件！方法是继承PathFilter自定义自己的文件筛选类，然后在Hive中设置使用这个类。具体如下（转自<a href="http://grokbase.com/t/cloudera/cdh-user/12b9htpqyw/flume-hive-realtime-problem-with-temporary-files" target="_blank">此文</a>）</p>
+<p><span style="color: #0000ff;">package com.twitter.util;</span></p>
+<p><span style="color: #0000ff;">import java.io.IOException;</span><br />
+<span style="color: #0000ff;">import java.util.ArrayList;</span><br />
+<span style="color: #0000ff;">import java.util.List;</span><br />
+<span style="color: #0000ff;">import org.apache.hadoop.fs.Path;</span><br />
+<span style="color: #0000ff;">import org.apache.hadoop.fs.PathFilter;</span></p>
+<p><span style="color: #0000ff;">public class FileFilterExcludeTmpFiles implements PathFilter {</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; public boolean accept(Path p) {</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; String name = p.getName();</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return !name.startsWith("_") &amp;&amp; !name.startsWith(".") &amp;&amp; !name.endsWith(".tmp");</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; }</span><br />
+<span style="color: #0000ff;">}</span></p>
+<p>然后在hive-site.xml中加入：</p>
+<p><span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <name>hive.aux.jars.path</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <value>file:///usr/lib/hadoop/hive-serdes-1.0-SNAPSHOT.jar,file:///usr/lib/hadoop/TwitterUtil.jar</value></span><br />
+<span style="color: #0000ff;"></property></span><br />
+<span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <name>mapred.input.pathFilter.class</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <value>com.twitter.util.FileFilterExcludeTmpFiles</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p>Done!</p>
+<p>参考：<br />
+<a href="http://grokbase.com/t/cloudera/cdh-user/12b9htpqyw/flume-hive-realtime-problem-with-temporary-files" target="_blank">http://grokbase.com/t/cloudera/cdh-user/12b9htpqyw/flume-hive-realtime-problem-with-temporary-files</a><br />
+<a href="http://flume.apache.org/FlumeUserGuide.html#hdfs-sink" target="_blank">http://flume.apache.org/FlumeUserGuide.html#hdfs-sink</a><br />
+《Hadoop权威指南》</p>

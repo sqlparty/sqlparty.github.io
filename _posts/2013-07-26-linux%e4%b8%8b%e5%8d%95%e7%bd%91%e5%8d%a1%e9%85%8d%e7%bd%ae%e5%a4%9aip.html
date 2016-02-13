@@ -1,0 +1,142 @@
+---
+layout: post
+status: publish
+published: true
+title: Linux下单网卡配置多IP
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Linux下单网卡上可以配置多个IP，以便实现特定的需求，例如临时的故障转移，避免应用的IP重新配置。\r\n\r\n这里演示将192.168.10.124，192.168.10.125，192.168.10.123绑定到同一块网卡设备eth0上。\r\n\r\n"
+wordpress_id: 79
+wordpress_url: http://www.sqlparty.com/?p=79
+date: '2013-07-26 20:34:21 +0800'
+date_gmt: '2013-07-26 12:34:21 +0800'
+categories:
+- 系统
+tags:
+- 系统
+- Linux
+- 网络
+---
+<p>Linux下单网卡上可以配置多个IP，以便实现特定的需求，例如临时的故障转移，避免应用的IP重新配置。</p>
+<p>这里演示将192.168.10.124，192.168.10.125，192.168.10.123绑定到同一块网卡设备eth0上。</p>
+<p><!--more--></p>
+<p><strong>1.查看网络配置</strong></p>
+<p>[shell]<br />
+shell>cd /etc/sysconfig/network-scripts/<br />
+shell>ls<br />
+ifcfg-eth0 ifdown-ippp ifdown-sl ifup-ipv6 ifup-sit<br />
+ifcfg-eth1 ifdown-ipsec ifdown-tunnel ifup-ipx ifup-sl<br />
+ifcfg-eth2 ifdown-ipv6 ifup ifup-isdn ifup-tunnel<br />
+ifcfg-eth3 ifdown-isdn ifup-aliases ifup-plip ifup-wireless<br />
+ifcfg-lo ifdown-post ifup-bnep ifup-plusb init.ipv6-global<br />
+ifdown ifdown-ppp ifup-eth ifup-post net.hotplug<br />
+ifdown-bnep ifdown-routes ifup-ippp ifup-ppp network-functions<br />
+ifdown-eth ifdown-sit ifup-ipsec ifup-routes network-functions-ipv6<br />
+shell>ifconfig eth0<br />
+eth0 Link encap:Ethernet HWaddr 78:45:C4:ED:23:24<br />
+ inet addr:192.168.10.124 Bcast:192.168.10.255 Mask:255.255.255.0<br />
+ inet6 addr: fe80::7a45:c4ff:feed:2324/64 Scope:Link<br />
+ UP BROADCAST RUNNING MULTICAST MTU:1500 Metric:1<br />
+ RX packets:5205226 errors:0 dropped:0 overruns:0 frame:0<br />
+ TX packets:2190897 errors:0 dropped:0 overruns:0 carrier:0<br />
+ collisions:0 txqueuelen:1000<br />
+ RX bytes:4608202758 (4.2 GiB) TX bytes:272386670 (259.7 MiB)<br />
+ Interrupt:90 Memory:d6000000-d6012800<br />
+shell>cat ifcfg-eth0<br />
+# Broadcom Corporation NetXtreme II BCM5709 Gigabit Ethernet<br />
+DEVICE=eth0<br />
+BOOTPROTO=static<br />
+BROADCAST=192.168.10.255<br />
+HWADDR=78:45:C4:ED:23:24<br />
+IPADDR=192.168.10.124<br />
+IPV6INIT=yes<br />
+IPV6_AUTOCONF=yes<br />
+NETMASK=255.255.255.0<br />
+NETWORK=192.168.10.0<br />
+ONBOOT=yes<br />
+[/shell]</p>
+<p><strong>2.规划，配置IP别名</strong></p>
+<table class="table">
+<tbody>
+<tr>
+<th>Adapter</th></p>
+<th>IP Address</th></p>
+<th>Type</th><br />
+</tr></p>
+<tr>
+<td>eth0</td></p>
+<td>192.168.10.124</td></p>
+<td>Primary</td><br />
+</tr></p>
+<tr>
+<td>eth0:0</td></p>
+<td>192.168.10.125</td></p>
+<td>Alias 1</td><br />
+</tr></p>
+<tr>
+<td>eth0:1</td></p>
+<td>192.168.10.123</td></p>
+<td>Alias 2</td><br />
+</tr><br />
+</tbody><br />
+</table><br />
+其中:X，X是接口编号。</p>
+<p><strong>3.创建对应脚本</strong></p>
+<p>[shell]<br />
+shell>cp ifcfg-eth0 ifcfg-eth0:0<br />
+shell>cp ifcfg-eth0 ifcfg-eth0:1<br />
+[/shell]</p>
+<p>只需要更新DEVICE和IPADDR部分即可。</p>
+<p>[shell]<br />
+shell>vi ifcfg-eth0:0<br />
+...<br />
+DEVICE=eth0:0<br />
+...<br />
+IPADDR=192.168.10.125<br />
+...<br />
+shell>vi ifcfg-eth0:1<br />
+...<br />
+DEVICE=eth0:1<br />
+...<br />
+IPADDR=192.168.10.123<br />
+...<br />
+[/shell]</p>
+<p><strong>4.重启网络服务</strong></p>
+<p>[shell]<br />
+shell>service network restart<br />
+[/shell]</p>
+<p><strong>5.查看网络</strong></p>
+<p>[shell]<br />
+shell>ifconfig<br />
+eth0      Link encap:Ethernet  HWaddr 78:45:C4:ED:23:24<br />
+          inet addr:192.168.10.124  Bcast:192.168.10.255  Mask:255.255.255.0<br />
+          inet6 addr: fe80::7a45:c4ff:feed:2324/64 Scope:Link<br />
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1<br />
+          RX packets:1196 errors:0 dropped:0 overruns:0 frame:0<br />
+          TX packets:226 errors:0 dropped:0 overruns:0 carrier:0<br />
+          collisions:0 txqueuelen:1000<br />
+          RX bytes:119326 (116.5 KiB)  TX bytes:56842 (55.5 KiB)<br />
+          Interrupt:90 Memory:d6000000-d6012800</p>
+<p>eth0:0    Link encap:Ethernet  HWaddr 78:45:C4:ED:23:24<br />
+          inet addr:192.168.10.125  Bcast:192.168.10.255  Mask:255.255.255.0<br />
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1<br />
+          Interrupt:90 Memory:d6000000-d6012800</p>
+<p>eth0:1    Link encap:Ethernet  HWaddr 78:45:C4:ED:23:24<br />
+          inet addr:192.168.10.123  Bcast:192.168.10.255  Mask:255.255.255.0<br />
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1<br />
+          Interrupt:90 Memory:d6000000-d6012800</p>
+<p>lo        Link encap:Local Loopback<br />
+          inet addr:127.0.0.1  Mask:255.0.0.0<br />
+          inet6 addr: ::1/128 Scope:Host<br />
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1<br />
+          RX packets:2362552 errors:0 dropped:0 overruns:0 frame:0<br />
+          TX packets:2362552 errors:0 dropped:0 overruns:0 carrier:0<br />
+          collisions:0 txqueuelen:0<br />
+          RX bytes:314187945 (299.6 MiB)  TX bytes:314187945 (299.6 MiB)<br />
+[/shell]</p>
+<p>由此完成配置。</p>

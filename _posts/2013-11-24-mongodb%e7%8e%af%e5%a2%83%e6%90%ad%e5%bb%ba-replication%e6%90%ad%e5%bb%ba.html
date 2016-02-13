@@ -1,0 +1,127 @@
+---
+layout: post
+status: publish
+published: true
+title: MongoDB环境搭建-Replication搭建
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "单机模式的MongoDB更多用在开发测试环境，而生产环境对数据的可用性要求很高，那么推荐使用Replication搭建，中文貌似称其为副本集。\r\n<h2>1.原理</h2>\r\n一个Replication
+  Set是指一组mongod服务，这些服务保存了相同的数据集。Replication Set通过冗余、故障切换机制来提供高可用性。\r\n\r\nReplication环境中的mongod有三种类似：\r\n<ul>\r\n\t<li>Primary(主)&mdash;&mdash;一个，所有的写入操作必须在Primary节点上进行。</li>\r\n\t<li>Secondary(从)&mdash;&mdash;可以多个。获取Primary的所有变更日志并执行。\r\n<ul>\r\n\t<li>Secondary与Primary的数据保持一致。</li>\r\n\t<li>Secondary与Primary的数据更新是异步进行的，即Secondary的数据可能相对Primary有延迟。</li>\r\n\t<li>Secondary不支持从Client的写入操作，默认也不支持Client的读取，但是可以配置成支持读，这样就可以分担Primary的读压力。</li>\r\n\t<li>当Primary宕机(集群中其他节点有超过10s都没有收到Primary的信息，认为其宕机)后，多个Secondary会通过选举得到一个新的Primary。</li>\r\n</ul>\r\n</li>\r\n\t<li>Arbiter(仲裁)
+  【可选】一个。不保存数据，只用于Primary宕机后的选举，不需要专用的机器。如果你的Replication环境中有偶数个成员，则应添加一个Arbiter形成奇数个选举成员，来满足Primary选举中对&ldquo;大多数&rdquo;选票的要求。</li>\r\n</ul>\r\n这三种mongod的转换关系：Arbiter始终是Arbiter，Primary可以降级为Secondary，而Secondary通过选举升级为Primary。\r\n\r\n正常三个数据存储节点：\r\n\r\n<a
+  href=\"http://www.sqlparty.com/wp-content/uploads/2013/11/Replication_3_node.png\"><img
+  class=\"alignnone size-full wp-image-784\" alt=\"Replication_3_node\" src=\"http://www.sqlparty.com/wp-content/uploads/2013/11/Replication_3_node.png\"
+  width=\"768\" height=\"584\" /></a>\r\n\r\n"
+wordpress_id: 783
+wordpress_url: http://www.sqlparty.com/?p=783
+date: '2013-11-24 16:44:09 +0800'
+date_gmt: '2013-11-24 08:44:09 +0800'
+categories:
+- 大数据
+tags:
+- mongoDB
+---
+<p>单机模式的MongoDB更多用在开发测试环境，而生产环境对数据的可用性要求很高，那么推荐使用Replication搭建，中文貌似称其为副本集。</p>
+<h2>1.原理</h2><br />
+一个Replication Set是指一组mongod服务，这些服务保存了相同的数据集。Replication Set通过冗余、故障切换机制来提供高可用性。</p>
+<p>Replication环境中的mongod有三种类似：</p>
+<ul>
+<li>Primary(主)&mdash;&mdash;一个，所有的写入操作必须在Primary节点上进行。</li>
+<li>Secondary(从)&mdash;&mdash;可以多个。获取Primary的所有变更日志并执行。
+<ul>
+<li>Secondary与Primary的数据保持一致。</li>
+<li>Secondary与Primary的数据更新是异步进行的，即Secondary的数据可能相对Primary有延迟。</li>
+<li>Secondary不支持从Client的写入操作，默认也不支持Client的读取，但是可以配置成支持读，这样就可以分担Primary的读压力。</li>
+<li>当Primary宕机(集群中其他节点有超过10s都没有收到Primary的信息，认为其宕机)后，多个Secondary会通过选举得到一个新的Primary。</li><br />
+</ul><br />
+</li></p>
+<li>Arbiter(仲裁) 【可选】一个。不保存数据，只用于Primary宕机后的选举，不需要专用的机器。如果你的Replication环境中有偶数个成员，则应添加一个Arbiter形成奇数个选举成员，来满足Primary选举中对&ldquo;大多数&rdquo;选票的要求。</li><br />
+</ul><br />
+这三种mongod的转换关系：Arbiter始终是Arbiter，Primary可以降级为Secondary，而Secondary通过选举升级为Primary。</p>
+<p>正常三个数据存储节点：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/11/Replication_3_node.png"><img class="alignnone size-full wp-image-784" alt="Replication_3_node" src="http://www.sqlparty.com/wp-content/uploads/2013/11/Replication_3_node.png" width="768" height="584" /></a></p>
+<p><!--more--><br />
+两个数据节点+1个仲裁节点：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/11/Replication_2_node_1_Arb.png"><img class="alignnone size-full wp-image-785" alt="Replication_2_node_1_Arb" src="http://www.sqlparty.com/wp-content/uploads/2013/11/Replication_2_node_1_Arb.png" width="783" height="310" /></a></p>
+<h2>2.规划</h2><br />
+配置三台主机:CHBM220,CHBM221,CHBM222,形成集群，端口统一使用默认的27017。</p>
+<h2>3.Replication Set搭建</h2></p>
+<h3>3.1.添加/etc/hosts</h3><br />
+在三台主机的/etc/hosts中添加集群主机中所有节点：</p>
+<p><span style="color: #0000ff;">shell> vi /etc/hosts</span><br />
+<span style="color: #0000ff;"> 192.168.10.220 CHBM220</span><br />
+<span style="color: #0000ff;"> 192.168.10.221 CHBM221</span><br />
+<span style="color: #0000ff;"> 192.168.10.222 CHBM222</span></p>
+<h3>3.2.安装软件</h3><br />
+在三台主机上安装MongoDB，方法同&ldquo;<a title="MongoDB环境搭建-单机版" href="http://www.sqlparty.com/mongodb%e7%8e%af%e5%a2%83%e6%90%ad%e5%bb%ba-%e5%8d%95%e6%9c%ba%e7%89%88/">单机模式搭建</a>&rdquo;。</p>
+<h3>3.3.配置</h3><br />
+在每一台主机的/etc/mongod.conf中确认如下配置，其他保持不变：</p>
+<p><span style="color: #0000ff;">shell> vi /etc/mongod.conf</span><br />
+<span style="color: #0000ff;"> port = 27017</span><br />
+<span style="color: #0000ff;"> dbpath=/data/mongo/</span><br />
+<span style="color: #0000ff;"> fork=true</span><br />
+<span style="color: #0000ff;"> replSet=rs0</span></p>
+<h3>3.4.创建数据存储目录</h3><br />
+<span style="color: #0000ff;">shell> mkdir -p /data/mongo</span><br />
+<span style="color: #0000ff;"> shell> chown mongod.mongod /data/mongo</span></p>
+<h3>3.5.启动集群</h3><br />
+在所有节点上执行：<br />
+<span style="color: #0000ff;">shell> service mongod start</span></p>
+<h3>3.6.集群初始化</h3><br />
+选一台主机，连接上任意mongod服务：</p>
+<p><span style="color: #0000ff;">shell> mongo --host 192.168.10.221 --port 27017</span></p>
+<p>使用rs.initiate()来初始化一个Replication集群，目前只包括当前mongod，使用默认的配置：</p>
+<p><span style="color: #0000ff;">> rs.initiate()</span><br />
+<span style="color: #0000ff;"> {</span><br />
+<span style="color: #0000ff;"> "info2" : "no configuration explicitly specified -- making one",</span><br />
+<span style="color: #0000ff;"> "me" : "CHBM221:27017",</span><br />
+<span style="color: #0000ff;"> "info" : "Config now saved locally. Should come online in about a minute.",</span><br />
+<span style="color: #0000ff;"> "ok" : 1</span><br />
+<span style="color: #0000ff;"> }</span><br />
+<span style="color: #0000ff;"> > rs.conf()</span><br />
+<span style="color: #0000ff;"> {</span><br />
+<span style="color: #0000ff;"> "_id" : "rs0",</span><br />
+<span style="color: #0000ff;"> "version" : 1,</span><br />
+<span style="color: #0000ff;"> "members" : [</span><br />
+<span style="color: #0000ff;"> {</span><br />
+<span style="color: #0000ff;"> "_id" : 0,</span><br />
+<span style="color: #0000ff;"> "host" : "CHBM221:27017"</span><br />
+<span style="color: #0000ff;"> }</span><br />
+<span style="color: #0000ff;"> ]</span><br />
+<span style="color: #0000ff;"> }</span><br />
+<span style="color: #0000ff;"> rs0:PRIMARY></span></p>
+<p>添加Replication环境的其他节点</p>
+<p><span style="color: #0000ff;">rs0:PRIMARY> rs.add("CHBM220:27017")</span><br />
+<span style="color: #0000ff;"> { "ok" : 1 }</span><br />
+<span style="color: #0000ff;"> rs0:PRIMARY> rs.add("CHBM222:27017")</span><br />
+<span style="color: #0000ff;"> { "ok" : 1 }</span></p>
+<p>如果要添加仲裁节点，前面的步骤都一样，这里修改为：</p>
+<p><span style="color: #0000ff;">> rs.addArb("host:port")</span></p>
+<h3>3.7.测试</h3><br />
+<span style="color: #0000ff;">CHBM221 shell> mongo</span><br />
+<span style="color: #0000ff;"> rs0:PRIMARY> db.tbl1.insert({"key1":"v1"})</span><br />
+<span style="color: #0000ff;"> rs0:PRIMARY> db.tbl1.find()</span><br />
+<span style="color: #0000ff;"> { "_id" : ObjectId("5291a0739b69b54c41d86e80"), "key1" : "v1" }</span></p>
+<p><span style="color: #0000ff;">CHBM220/CHBM221 shell> mongo</span><br />
+<span style="color: #0000ff;"> rs0:SECONDARY> db.tbl1.find()</span> //默认Secondary不支持读服务，需要手动设置。<br />
+<span style="color: #0000ff;">error: { "$err" : "not master and slaveOk=false", "code" : 13435 }</span><br />
+<span style="color: #0000ff;"> rs0:SECONDARY> rs.slaveOk()</span> //设置后可以进行读操作，但是仅仅是本次连接内有效。<br />
+<span style="color: #0000ff;">rs0:SECONDARY> db.tbl1.find()</span><br />
+<span style="color: #0000ff;"> { "_id" : ObjectId("5291a0739b69b54c41d86e80"), "key1" : "v1" }</span></p>
+<p>如果Primary宕机<br />
+<span style="color: #0000ff;">CHBM221 shell> service mongod stop</span></p>
+<p><span style="color: #0000ff;">CHBM220 shell> mongo</span><br />
+<span style="color: #0000ff;"> rs0:PRIMARY> db.tbl1.find()</span><br />
+<span style="color: #0000ff;"> { "_id" : ObjectId("5291a0739b69b54c41d86e80"), "key1" : "v1" }</span></p>
+<p><span style="color: #0000ff;">CHBM222 shell>mongo</span><br />
+<span style="color: #0000ff;"> rs0:SECONDARY> db.tbl1.find()</span><br />
+<span style="color: #0000ff;"> error: { "$err" : "not master and slaveOk=false", "code" : 13435 }</span><br />
+<span style="color: #0000ff;"> rs0:SECONDARY> rs.slaveOk()</span><br />
+<span style="color: #0000ff;"> rs0:SECONDARY> db.tbl1.find()</span><br />
+<span style="color: #0000ff;"> { "_id" : ObjectId("5291a0739b69b54c41d86e80"), "key1" : "v1" }</span><br />
+可以看到，经过新的选举，CHBM220成为了Primary。</p>
+<p>Done!</p>

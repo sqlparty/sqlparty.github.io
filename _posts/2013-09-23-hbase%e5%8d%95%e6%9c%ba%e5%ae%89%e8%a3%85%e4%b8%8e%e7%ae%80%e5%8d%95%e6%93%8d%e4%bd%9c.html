@@ -1,0 +1,114 @@
+---
+layout: post
+status: publish
+published: true
+title: HBase单机安装与简单操作
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "HBase &ndash; Hadoop Database，是一个高可靠性、高性能、面向列、可伸缩的分布式存储系统，利用HBase技术可在廉价PC
+  Server上搭建起大规模结构化存储集群。\r\n\r\nHBase的基本特点是提供随机的数据读写，保存结构化、半结构化、非结构化数据。其不关注数据类型，允许动态、灵活的数据模型。\r\n\r\n本文介绍HBase的单机安装以及一些简单操作。\r\n\r\n"
+wordpress_id: 709
+wordpress_url: http://www.sqlparty.com/?p=709
+date: '2013-09-23 21:57:40 +0800'
+date_gmt: '2013-09-23 13:57:40 +0800'
+categories:
+- 大数据
+tags:
+- HBase
+---
+<p>HBase &ndash; Hadoop Database，是一个高可靠性、高性能、面向列、可伸缩的分布式存储系统，利用HBase技术可在廉价PC Server上搭建起大规模结构化存储集群。</p>
+<p>HBase的基本特点是提供随机的数据读写，保存结构化、半结构化、非结构化数据。其不关注数据类型，允许动态、灵活的数据模型。</p>
+<p>本文介绍HBase的单机安装以及一些简单操作。</p>
+<p><!--more--></p>
+<h2>1.安装和配置JDK</h2><br />
+HBase依赖于JRE环境，推荐使用Oracle的Java环境作为生产系统，那么如果没有JRE，我们首先安装之。为了后续开发等，我们直接安装JDK，其包含了JRE。</p>
+<p>下载： <a href="http://www.oracle.com/technetwork/java/javase/downloads/jdk6downloads-1902814.html" target="_blank">http://www.oracle.com/technetwork/java/javase/downloads/jdk6downloads-1902814.html</a></p>
+<p>下载后上传至服务器/db/soft目录</p>
+<p><span style="color: #0000ff;">shell>chmod u+x jdk-6u43-linux-x64-rpm.bin</span><br />
+<span style="color: #0000ff;">shell>./jdk-6u43-linux-x64-rpm.bin</span></p>
+<p>正常结束就完成JDK安装。接下来配置JAVA_HOME。</p>
+<p><span style="color: #0000ff;">shell>vi /etc/profile</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">export JAVA_HOME=/usr/java/jdk1.6.0_43</span><br />
+<span style="color: #0000ff;">export JAVA_BIN=$JAVA_HOME/bin</span><br />
+<span style="color: #0000ff;">export CLASSPATH=.:$JAVA_HOME/lib/dt.jar</span><br />
+<span style="color: #0000ff;">export PATH=$JAVA_BIN:$PATH</span><br />
+<span style="color: #0000ff;">shell>. /etc/profile</span>&nbsp; #使本连接生效<br />
+<span style="color: #0000ff;">shell>java -version</span><br />
+<span style="color: #0000ff;">java version "1.6.0_43"</span><br />
+<span style="color: #0000ff;">Java(TM) SE Runtime Environment (build 1.6.0_43-b01)</span><br />
+<span style="color: #0000ff;">Java HotSpot(TM) 64-Bit Server VM (build 20.14-b01, mixed mode)</span></p>
+<p>说明配置成功。</p>
+<h2>2.下载HBase</h2><br />
+从官网下载，这里下载链接为：<a href="http://mirror.bjtu.edu.cn/apache/hbase/hbase-0.92.2/hbase-0.92.2.tar.gz" target="_blank">http://mirror.bjtu.edu.cn/apache/hbase/hbase-0.92.2/hbase-0.92.2.tar.gz</a></p>
+<p>下载后上传至服务器/db/soft目录</p>
+<h2>3.安装HBase</h2><br />
+<span style="color: #0000ff;">shell>tar -xzvf hbase-0.92.2.tar.gz</span></p>
+<p>#为便于后面调用命令，也加入到PATH中</p>
+<p><span style="color: #0000ff;">shell>vi /etc/profile</span><br />
+<span style="color: #0000ff;">..</span><br />
+<span style="color: #0000ff;">export PATH=/db/soft/hbase-0.92.2/bin:$PATH</span><br />
+<span style="color: #0000ff;">shell>. /etc/profile</span><br />
+<span style="color: #0000ff;">shell>start-hbase.sh</span><br />
+<span style="color: #0000ff;">starting master, logging to /db/soft/hbase-0.92.2/bin/../logs/hbase-root-master-AR18.out</span></p>
+<p>这样，单机上就完成了安装。</p>
+<p>可以通过浏览器访问其管理界面进行检查，网址：http://localhost:60010/</p>
+<p>出现如下界面，则基本安装成功。</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/09/hbase_single.png"><img class="alignnone size-full wp-image-710" alt="hbase_single" src="http://www.sqlparty.com/wp-content/uploads/2013/09/hbase_single.png" width="639" height="376" /></a></p>
+<p>注：该web界面只是提供基本的监控和管理，大部分的管理操作并非在此进行。</p>
+<h2><span style="color: #000000;">4.配置HBase</span></h2><br />
+HBase主要的配置文件为安装目录(/db/soft/hbase-0.92.2)的conf目录下的hbase-env.sh和hbase-site.xml。</p>
+<p>单机模式下，HBase默认写文件到/tmp目录下，这个并不合适，因为可能被系统清理掉。可以如下配置hbase-site.xml：<br />
+<span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp; <name>hbase.rootdir</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp; <value>file:///db/hbase/</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<h2>5.使用HBase shell</h2><br />
+HBase shell提供了与HBase进行交互的命令行，方式分为交互式和批处理式。(注：HBase shell是包装在Java client API上的JRuby应用程序)</p>
+<p>进入HBase shell的交互模式：</p>
+<p><span style="color: #0000ff;">shell>hbase shell</span><br />
+<span style="color: #0000ff;">HBase Shell; enter 'help<RETURN>' for list of supported commands.</span><br />
+<span style="color: #0000ff;">Type "exit<RETURN>" to leave the HBase Shell</span><br />
+<span style="color: #0000ff;">Version 0.92.2, r1379292, Fri Aug 31 13:13:53 UTC 2012</span></p>
+<p><span style="color: #0000ff;">hbase(main):001:0> list</span>&nbsp;&nbsp;&nbsp; #列出所有已注册的表。此过程就完成了客户端与服务端通信并返回信息的过程。<br />
+<span style="color: #0000ff;">TABLE</span><br />
+<span style="color: #0000ff;">0 row(s) in 0.6190 seconds</span></p>
+<h3>5.1建表</h3><br />
+HBase使用表作为数据存储的顶层结构。<br />
+<span style="color: #0000ff;">hbase(main):002:0> create 'mytable', 'cf'&nbsp;</span> #创建mytable表和列集(column family)名cf。<br />
+<span style="color: #0000ff;">0 row(s) in 0.1020 seconds</span></p>
+<p><span style="color: #0000ff;">hbase(main):003:0> list</span><br />
+<span style="color: #0000ff;">TABLE</span><br />
+<span style="color: #0000ff;">mytable</span><br />
+<span style="color: #0000ff;">1 row(s) in 0.0130 seconds</span></p>
+<h3>5.2写数据</h3><br />
+添加"hello HBase"到表中。按照HBase中说法，添加字节内容"hello HBase"到mytable表的first row、cf:message column.<br />
+<span style="color: #0000ff;">hbase(main):004:0> put 'mytable', 'first', 'cf:message', 'hello HBase'</span><br />
+<span style="color: #0000ff;">0 row(s) in 0.1100 seconds</span><br />
+类似的，可以插入数字、字符串等<br />
+<span style="color: #0000ff;">hbase(main):005:0> put 'mytable', 'second', 'cf:foo', 0x0</span><br />
+<span style="color: #0000ff;">0 row(s) in 0.0050 seconds</span></p>
+<p><span style="color: #0000ff;">hbase(main):006:0> put 'mytable', 'third', 'cf:bar', 3.14159</span><br />
+<span style="color: #0000ff;">0 row(s) in 0.0050 seconds</span><br />
+这样，我们的表有了三行带3个单元。注意，我们在使用前并未定义列而是直接使用，我们也没有定义插入数据的类型。</p>
+<h3><span style="color: #000000;">5.3读数据</span></h3><br />
+HBase中支持通过get和scan两种方式进行读取。get一次获取一行，scan可以获取多行。<br />
+<span style="color: #0000ff;">hbase(main):001:0> get 'mytable', 'first'</span><br />
+<span style="color: #0000ff;">COLUMN&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CELL</span><br />
+<span style="color: #0000ff;">cf:message&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; timestamp=1369362357687, value=hello HBase</span><br />
+<span style="color: #0000ff;">1 row(s) in 0.6370 seconds</span><br />
+如上，显示了该行的所有cell内容。HBase可以保存每个cell的多个版本。默认保存3个版本，可配置。读取时默认读取最新版本，除非指定。<br />
+scan使用时应注意：如果不指定，它会返回所有记录。<br />
+<span style="color: #0000ff;">hbase(main):005:0> scan 'mytable'</span><br />
+<span style="color: #0000ff;">ROW&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; COLUMN+CELL</span><br />
+<span style="color: #0000ff;">first&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; column=cf:message, timestamp=1369362357687, value=hello HBase</span><br />
+<span style="color: #0000ff;">second&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; column=cf:foo, timestamp=1369362726501, value=0</span><br />
+<span style="color: #0000ff;">third&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; column=cf:bar, timestamp=1369362742212, value=3.14159</span><br />
+<span style="color: #0000ff;">3 row(s) in 0.0200 seconds</span><br />
+HBase安装行名称顺序返回记录，行名称(这里为first、second、third)被称为rowkey。</p>

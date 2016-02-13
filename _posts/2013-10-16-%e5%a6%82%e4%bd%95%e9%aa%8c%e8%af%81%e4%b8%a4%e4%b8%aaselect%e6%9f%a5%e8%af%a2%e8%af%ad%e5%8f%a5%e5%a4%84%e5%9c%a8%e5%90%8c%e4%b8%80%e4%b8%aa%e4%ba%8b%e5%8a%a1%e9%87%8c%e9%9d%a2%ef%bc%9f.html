@@ -1,0 +1,79 @@
+---
+layout: post
+status: publish
+published: true
+title: 如何验证两个SELECT查询语句处在同一个事务里面？
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "有同学在使用Hibernate进行开发时存在如下疑惑，一个函数中有前后两个SELECT，如：\r\n\r\nSELECT * FROM table1;\r\n...\r\nSELECT
+  * FROM table1;\r\n\r\n在两个SQL语句运行中间，可能存在另一个连接执行UPDATE table1操作，那么两次SELECT的结果集会否有变化呢？\r\n\r\n该同学测试后结论是两次SELECT的结果不受其他连接的UPDATE操作影响！但是由于对Hibernate的使用不甚熟悉，他想进一步理清楚，在MySQL后台，这两个SELECT是否是在同一个事务中呢？数据库连接的隔离级别是可重复读。使用的是InnoDB引擎。MySQL版本5.5。\r\n\r\n"
+wordpress_id: 737
+wordpress_url: http://www.sqlparty.com/?p=737
+date: '2013-10-16 22:29:21 +0800'
+date_gmt: '2013-10-16 14:29:21 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+---
+<p>有同学在使用Hibernate进行开发时存在如下疑惑，一个函数中有前后两个SELECT，如：</p>
+<p>SELECT * FROM table1;<br />
+...<br />
+SELECT * FROM table1;</p>
+<p>在两个SQL语句运行中间，可能存在另一个连接执行UPDATE table1操作，那么两次SELECT的结果集会否有变化呢？</p>
+<p>该同学测试后结论是两次SELECT的结果不受其他连接的UPDATE操作影响！但是由于对Hibernate的使用不甚熟悉，他想进一步理清楚，在MySQL后台，这两个SELECT是否是在同一个事务中呢？数据库连接的隔离级别是可重复读。使用的是InnoDB引擎。MySQL版本5.5。</p>
+<p><!--more--></p>
+<p>首先确定的是，如果两个SELECT分别在不同事务中，那么后一个查询的结果肯定会被其他连接的UPDATE影响到，否则这数据库就无法使用了。。。</p>
+<p>接下来其实是要解释下，为什么两次SELECT的结果一样，不受其他连接的UPDATE语句影响，而且其他连接的UPDATE连接还不会被阻塞？</p>
+<p>这个就涉及到MySQL的锁机制。一般理解下，可重复读隔离级别下SELECT会对扫描过的记录加锁，这样其他事务的UPDATE就会被阻塞了，但是这里却没有，为什么呢？ 涉及到MySQL的一个特性：<a href="http://dev.mysql.com/doc/refman/5.5/en/innodb-consistent-read.html" target="_blank">一致性读</a>。在已提交读和可重复读隔离级别下，同一事务内的查询会确保一致，哪怕事务过程中部分数据被其他事务更新掉。这种机制的实现是基于InnoDB的multi-versioning，在事务开始时就将当时数据的一个快照保存下来，这样后面的查询就基于快照数据，其他事务对其更新通过增加数据的版本来实现。这样显然可以提高数据库的并发能力。更多详细信息，参见<a href="http://dev.mysql.com/doc/refman/5.5/en/innodb-consistent-read.html" target="_blank">文档</a>。</p>
+<p>但是理论上是这么说，对于这位开发同学，能否以更直观的方式来证明两个SELECT查询是在同一个事务中呢？</p>
+<p><strong>方法一、借助information_schema.inno_trx</strong></p>
+<p>首先想到的是每个事务在执行时，有没有TRANSACTION_ID这样的东西，实际在Innodb内部是存在的。在information_schema.inno_trx中我们可以看到当前未完成的事务，其中TRX_ID就是事务的一个内在表示（注意： MySQL 5.6 中针对只读的，无锁的事务，不会生成TRX_ID，详见<a href="http://dev.mysql.com/doc/refman/5.6/en/innodb-performance.html#innodb-performance-ro-txn" target="_blank">Optimizations for Read-Only Transactions</a>，这里不存在这个问题）。</p>
+<p><span style="color: #0000ff;">SELECT * FROM table1;</span><br />
+<span style="color: #0000ff;"> select trx_id from information_schema.INNODB_TRX where trx_mysql_thread_id = connection_id();</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+<span style="color: #0000ff;"> SELECT * FROM table1;</span><br />
+<span style="color: #0000ff;"> select trx_id from information_schema.INNODB_TRX where trx_mysql_thread_id = connection_id();</span><br />
+<span style="color: #0000ff;"> ...</span></p>
+<p>只要判断前后两次获取到的trx_id是否一致即可，结论当然是一致的。</p>
+<p><strong>方法二：添加更新语句，借助binlog判断</strong></p>
+<p>考虑利用binlog，在select前后添加两条insert到无关紧要的表，然后在binlog中查看两个insert是否在同一事务中即可。</p>
+<p>查看当前二进制日志位置，获取当前文件ch18_1db-bin.000034，位置2154</p>
+<p><span style="color: #0000ff;">show binary logs;</span></p>
+<p>执行原来的函数：</p>
+<p><span style="color: #0000ff;">begin;</span><br />
+<span style="color: #0000ff;"> insert into t1 values( 16) ;</span><br />
+<span style="color: #0000ff;"> SELECT * FROM table1;</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+<span style="color: #0000ff;"> SELECT * FROM table1;</span><br />
+<span style="color: #0000ff;"> insert into t1 values( 17) ;</span><br />
+<span style="color: #0000ff;"> commit;</span></p>
+<p>查看binlog：</p>
+<p><span style="color: #0000ff;">show binlog events in 'ch18_1db-bin.000034' from 2154;</span></p>
+<p>或者直接查看binlog(使用mysqlbinlog)：<br />
+<span style="color: #0000ff;"># at 1808</span><br />
+<span style="color: #0000ff;"> #131016 11:44:46 server id 1 end_log_pos 1877 Query thread_id=189585 exec_time=0 error_code=0</span><br />
+<span style="color: #0000ff;"> SET TIMESTAMP=1381895086/*!*/;</span><br />
+<span style="color: #0000ff;"> BEGIN</span><br />
+<span style="color: #0000ff;"> /*!*/;</span><br />
+<span style="color: #0000ff;"> # at 1877</span><br />
+<span style="color: #0000ff;"> #131016 11:44:31 server id 1 end_log_pos 2002 Query thread_id=189585 exec_time=0 error_code=0</span><br />
+<span style="color: #0000ff;"> SET TIMESTAMP=1381895071/*!*/;</span><br />
+<span style="color: #0000ff;"> insert into t1 values(16)</span><br />
+<span style="color: #0000ff;"> /*!*/;</span><br />
+<span style="color: #0000ff;"> # at 2002</span><br />
+<span style="color: #0000ff;"> #131016 11:44:42 server id 1 end_log_pos 2127 Query thread_id=189585 exec_time=0 error_code=0</span><br />
+<span style="color: #0000ff;"> SET TIMESTAMP=1381895082/*!*/;</span><br />
+<span style="color: #0000ff;"> insert into t1 values(17)</span><br />
+<span style="color: #0000ff;"> /*!*/;</span><br />
+<span style="color: #0000ff;"> # at 2127</span><br />
+<span style="color: #0000ff;"> #131016 11:44:46 server id 1 end_log_pos 2154 Xid = 3789611</span><br />
+<span style="color: #0000ff;"> COMMIT/*!*/;</span></p>
+<p>可以看到BEGIN ... COMMIT括起来，确实是在一个事务中。</p>
+<p>当然以上的语句也是抽象出来的，实际要验证可以嵌入到该同学的Java代码中。</p>
+<p>Done！</p>

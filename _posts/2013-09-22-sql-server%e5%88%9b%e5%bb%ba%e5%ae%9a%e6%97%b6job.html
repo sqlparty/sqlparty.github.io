@@ -1,0 +1,62 @@
+---
+layout: post
+status: publish
+published: true
+title: SQL Server创建定时job
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "SQL Server中内置了定时任务的功能，这样可以不依赖于其他应用实现定时任务处理。\r\n\r\n创建定时job的前提：\r\n<ol>\r\n\t<li>服务器启动了SQL
+  Server Agent服务。</li>\r\n\t<li>用户具有所需的权限。</li>\r\n</ol>\r\n需要的权限，涉及命令的具体参数，可查询<a
+  href=\"http://msdn.microsoft.com/zh-cn/library/ms182079%28v=sql.90%29.aspx\"
+  target=\"_blank\">手册</a>\r\n\r\n这里演示创建定时任务的简单示例如下：\r\n\r\n"
+wordpress_id: 703
+wordpress_url: http://www.sqlparty.com/?p=703
+date: '2013-09-22 22:38:13 +0800'
+date_gmt: '2013-09-22 14:38:13 +0800'
+categories:
+- 数据库
+tags:
+- SQLServer
+---
+<p>SQL Server中内置了定时任务的功能，这样可以不依赖于其他应用实现定时任务处理。</p>
+<p>创建定时job的前提：</p>
+<ol>
+<li>服务器启动了SQL Server Agent服务。</li>
+<li>用户具有所需的权限。</li><br />
+</ol><br />
+需要的权限，涉及命令的具体参数，可查询<a href="http://msdn.microsoft.com/zh-cn/library/ms182079%28v=sql.90%29.aspx" target="_blank">手册</a></p>
+<p>这里演示创建定时任务的简单示例如下：</p>
+<p><!--more--><span style="color: #0000ff;">USE msdb ;</span></p>
+<p>/*添加由 SQLServerAgent 服务执行的新作业*/<br />
+<span style="color: #0000ff;">EXEC sp_add_job</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; @job_name = N'Job_Carl',</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; @enabled = 1,</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; @description = N'仅仅用于Carl的测试'</span><br />
+<span style="color: #0000ff;">;</span></p>
+<p>/*在作业中添加一个步骤（操作）*/<br />
+<span style="color: #0000ff;">EXEC sp_add_jobstep</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; @job_name = N'Job_Carl',</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; @step_name = N'Jobstep_Carl',</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; @command = N'exec mydb.dbo.update_index'</span><br />
+<span style="color: #0000ff;">;</span></p>
+<p>/*创建作业的一个计划*/<br />
+<span style="color: #0000ff;">EXEC sp_add_jobschedule</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; @name = N'Schedule_Carl' ,</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; @job_name = N'Job_Carl',</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; @freq_type = 4,</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; @freq_interval = 1,</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; @active_start_time = 134810</span><br />
+<span style="color: #0000ff;">;</span></p>
+<p>/*指定作业运行的服务器*/<br />
+<span style="color: #0000ff;">EXEC sp_add_jobserver</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; @job_name = N 'Job_Carl',</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; @server_name = N '(local)'</span><br />
+<span style="color: #0000ff;">;</span></p>
+<p>/*ps:也可以手动运行job进行测试*/<br />
+<span style="color: #0000ff;">EXEC dbo.sp_start_job N'Job_Carl' ;</span></p>
+<p><strong>对于多个jobstep的job，需要设置每步jobstep的属性@on_success_action=3，默认1是表示每一步执行完成即退出了，设为3则表示执行下一步。</strong></p>

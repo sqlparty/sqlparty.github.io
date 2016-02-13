@@ -1,0 +1,100 @@
+---
+layout: post
+status: publish
+published: true
+title: 硬盘安装Linux
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "已有系统：Windows XP\r\n处理器：AMD 64\r\n一块磁盘，已有四个分区:C,D,E,F。\r\n预备安装： CentOS 6.3
+  x86_64\r\n由于没有刻录DVD镜像的设备，也为了保护光驱，决定尝试使用硬盘安装的方式安装CentOS，最终获得成功。记录在此。\r\n\r\n"
+wordpress_id: 236
+wordpress_url: http://www.sqlparty.com/?p=236
+date: '2013-08-01 22:12:47 +0800'
+date_gmt: '2013-08-01 14:12:47 +0800'
+categories:
+- 系统
+tags:
+- 系统
+- Linux
+---
+<p>已有系统：Windows XP<br />
+处理器：AMD 64<br />
+一块磁盘，已有四个分区:C,D,E,F。<br />
+预备安装： CentOS 6.3 x86_64<br />
+由于没有刻录DVD镜像的设备，也为了保护光驱，决定尝试使用硬盘安装的方式安装CentOS，最终获得成功。记录在此。</p>
+<p><!--more--></p>
+<h2>一.准备<&#47;h2><br />
+<strong>1）镜像文件下载<&#47;strong><br />
+下载地址列表如下：<br />
+i386 （32位）</p>
+<p><a title="CentOS-6.3-i386-bin-DVD1.iso" href="http:&#47;&#47;mirrors.ustc.edu.cn&#47;centos&#47;6.3&#47;isos&#47;i386&#47;CentOS-6.3-i386-bin-DVD1.iso" target="_blank">CentOS-6.3-i386-bin-DVD1.iso<&#47;a> 07-Jul-2012 08:46 3713204224<br />
+<a title="CentOS-6.3-i386-bin-DVD2.iso" href="http:&#47;&#47;mirrors.ustc.edu.cn&#47;centos&#47;6.3&#47;isos&#47;i386&#47;CentOS-6.3-i386-bin-DVD2.iso" target="_blank">CentOS-6.3-i386-bin-DVD2.iso<&#47;a> 07-Jul-2012 08:47 1166313472</p>
+<p>x86_64 （64位）</p>
+<p><a title="CentOS-6.3-x86_64-bin-DVD1.iso" href="http:&#47;&#47;mirrors.ustc.edu.cn&#47;centos&#47;6.3&#47;isos&#47;x86_64&#47;CentOS-6.3-x86_64-bin-DVD1.iso" target="_blank">CentOS-6.3-x86_64-bin-DVD1.iso<&#47;a> 06-Jul-2012 10:20 4289386496<br />
+<a title="CentOS-6.3-x86_64-bin-DVD2.iso" href="http:&#47;&#47;mirrors.ustc.edu.cn&#47;centos&#47;6.3&#47;isos&#47;x86_64&#47;CentOS-6.3-x86_64-bin-DVD2.iso" target="_blank">CentOS-6.3-x86_64-bin-DVD2.iso<&#47;a> 06-Jul-2012 10:20 1536634880</p>
+<p>这里下载了CentOS-6.3-x86_64-bin-DVD1.iso和CentOS-6.3-x86_64-bin-DVD2.iso两个文件。<br />
+其中安装只需要<span style="color: #0000ff;">CentOS-6.3-x86_64-bin-DVD1.iso<&#47;span>即可。CentOS-6.3-x86_64-bin-DVD2.iso包含了一些软件包。</p>
+<p><strong>2）安装准备<&#47;strong><br />
+查看现有系统中是否有FAT32文件系统的分区，要求留有5G以上的空间。</p>
+<p>要求FAT32是因为CentOS的安装程序识别不了当前流行的NTFS，无法挂载此文件系统。<br />
+要求5G以上是因为需要拷贝CentOS-6.3-x86_64-bin-DVD1.iso文件到该空间，而这就会占据4G空间，后续还要解压出镜像文件中的isolinux和images两个目录。<br />
+如果没有这样的分区存在，可以使用PartitionMagic分出一块独立分区。</p>
+<p>附加说明：</p>
+<ul>
+<li>isolinux目录的作用是用于引导进安装程序，其实其并不要求在FAT32下。grub4dos能够识别NTFS。<&#47;li>
+<li>images目录作用是Linux安装，在成功引导进安装界面后，会需要指定images目录的路径，而这个路径不能放在NTFS的盘上，因为Linux安装期间无法挂载NTFS文件系统。<&#47;li><br />
+<&#47;ul><br />
+所以，准确地说，CentOS-6.3-x86_64-bin-DVD1.iso和images目录需要放在FAT32的盘上，而isolinux不需要。这里简便处理了，放在一起。</p>
+<p><strong>3）引导工具下载<&#47;strong><br />
+下载：<a title="grub4dos" href="http:&#47;&#47;download.gna.org&#47;grub4dos&#47;grub4dos-0.4.4.zip" target="_blank">grub4dos<&#47;a><br />
+其功能是引导各种操作系统。</p>
+<p>综上，安装需要的准备包括：</p>
+<ol>
+<li>镜像文件：CentOS-6.3-x86_64-bin-DVD1.iso<&#47;li>
+<li>存储空间：FAT32文件系统的分区上有5G以上空间预留。这里使用D盘。<&#47;li>
+<li>工具软件：grub4dos<&#47;li><br />
+<&#47;ol></p>
+<h2>二、操作<&#47;h2><br />
+<strong>1）安装文件<&#47;strong><br />
+将CentOS-6.3-x86_64-bin-DVD1.iso文件拷贝至预留的FAT32分区根目录下，即D盘根目录下。<br />
+解压出CentOS-6.3-x86_64-bin-DVD1.iso中的isolinux和images两个目录到D盘根目录下。</p>
+<p>附加说明：<br />
+FAT32中文件大小最大为4G，而CentOS-6.3-x86_64-bin-DVD1.iso小于4G，满足要求。</p>
+<p><strong>2）grub4dos配置<&#47;strong><br />
+<strong>a<&#47;strong>.解压出grub4dos-0.4.4文件夹，拷贝其中的grldr文件（不是grldr.mbr）至C盘根目录下。<br />
+<strong>b<&#47;strong>.修改C盘根目录下的boot.ini，在最后添加C:\GRLDR="Grub"。其最终如：</p>
+<p><a href="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;boot.png"><img class="alignnone  wp-image-237" alt="boot" src="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;boot.png" width="735" height="108" &#47;><&#47;a><br />
+boot.ini默认是隐藏和只读的，需要显示出来并去掉只读属性。</p>
+<p><a href="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;folder1.png"><img class="alignnone size-medium wp-image-238" alt="folder1" src="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;folder1-249x300.png" width="249" height="300" &#47;><&#47;a></p>
+<p><a href="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;boot21.png"><img class="alignnone size-medium wp-image-240" alt="boot2" src="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;boot21-235x300.png" width="235" height="300" &#47;><&#47;a><br />
+<strong>c<&#47;strong>.C盘根目录下创建目录&#47;boot&#47;grub，拷贝grub4dos-0.4.4文件夹下的menu.lst文件至&#47;boot&#47;grub，修改该文件，在最后添加：<br />
+<span style="color: #0000ff;">title CentOS<&#47;span><br />
+<span style="color: #0000ff;"> kernel (hd0,4)&#47;centos&#47;isolinux&#47;vmlinuz<&#47;span><br />
+<span style="color: #0000ff;"> initrd (hd0,4)&#47;centos&#47;isolinux&#47;initrd.img<&#47;span><br />
+最终如：<br />
+这里(hd0,4)指第一块硬盘，编号4的分区。这里指定D盘&#47;centos&#47;lsolinux目录下的两个文件。<br />
+<em>grub中编号的规则如下：<&#47;em><br />
+<em> hd0,hd1代表系统中的物理硬盘。这里只有一块硬盘，就为hd0。这里与硬盘的类型无关。统一用hdN来表示。<&#47;em><br />
+<em> 分区编号。一个磁盘，最多4个主分区，分别保留编号0,1,2,3。这里主分区为C盘，所以C盘编号为(hd0,0)。<&#47;em><br />
+<em> 主分区以外，即扩展分区，从4开始编号，累加。这里D盘为4，E盘为5，F盘为6。所以这里D盘，表示为(hd0,4)。<&#47;em><br />
+<strong>d<&#47;strong>.grup4dos配置完成。</p>
+<p><strong>3）重启<&#47;strong><br />
+重启后先后经历如下界面，逐步进入到安装过程，按照每一步提示具体操作即可（以下截图仅作参考）：</p>
+<p><a href="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;boota.png"><img alt="boota" src="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;boota-300x98.png" width="300" height="98" &#47;><&#47;a></p>
+<p><a href="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;bootb.png"><img alt="bootb" src="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;bootb-300x33.png" width="300" height="33" &#47;><&#47;a></p>
+<p><a href="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;bootc.png"><img alt="bootc" src="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;bootc-300x59.png" width="300" height="59" &#47;><&#47;a></p>
+<p><a href="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;bootd.png"><img alt="bootd" src="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;bootd-300x88.png" width="300" height="88" &#47;><&#47;a></p>
+<p><a href="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;boote.png"><img alt="boote" src="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;boote-300x132.png" width="300" height="132" &#47;><&#47;a></p>
+<p><a href="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;bootf.png"><img class="alignnone size-medium wp-image-241" alt="bootf" src="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;08&#47;bootf-300x61.png" width="300" height="61" &#47;><&#47;a><br />
+上图中需要选择安装文件对应的磁盘。命名方式与hdN类似。sda1,sda2,sda3,sda4对应四个保留的主分区或者扩展分区。sda5对应到我们存储了安装文件的D盘。<br />
+Directory holding image是image文件保存的路径。如果不填，默认会在&#47;image&#47;install.img。如果不是放在&#47;dev&#47;sda5盘的该路径下，则在这里指定。<br />
+如此进入安装界面进行安装即可。</p>
+<p>参考：<br />
+<a href="http:&#47;&#47;diddy.boot-land.net&#47;grub4dos&#47;files&#47;install_windows.htm" target="_blank">http:&#47;&#47;diddy.boot-land.net&#47;grub4dos&#47;files&#47;install_windows.htm<&#47;a><br />
+<a href="http:&#47;&#47;blog.simophin.net&#47;?p=148&amp;rev=513" target="_blank"> http:&#47;&#47;blog.simophin.net&#47;?p=148&amp;rev=513<&#47;a><br />
+<a href=" http:&#47;&#47;www.dedecms.com&#47;knowledge&#47;servers&#47;linux-bsd&#47;2012&#47;0819&#47;8483.html" target="_blank"> http:&#47;&#47;www.dedecms.com&#47;knowledge&#47;servers&#47;linux-bsd&#47;2012&#47;0819&#47;8483.html<&#47;a></p>

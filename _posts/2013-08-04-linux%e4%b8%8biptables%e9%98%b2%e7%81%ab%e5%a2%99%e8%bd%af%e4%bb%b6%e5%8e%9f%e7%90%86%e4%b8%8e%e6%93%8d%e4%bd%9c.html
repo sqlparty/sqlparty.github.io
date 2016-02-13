@@ -1,0 +1,112 @@
+---
+layout: post
+status: publish
+published: true
+title: Linux下iptables防火墙软件原理与操作
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "防火墙是系统中用于限制某些服务的存取来源的工具，包括软件和硬件两种。iptables是Linux内核自带的软件防火墙，可以设置一些数据包过滤规则设置，以此定义什么数据可以接收、什么数据必须剔除，从而实现保护主机的目的。\r\n<h2>原理</h2>\r\niptables利用的是数据包过滤机制，所以它会分析数据包的表头数据。根据表头数据与定义的规则来决定该数据包是否可以进入主机。\r\n假设有10条防火墙规则，则针对一个数据包的操作步骤如下：\r\n\r\n<a
+  href=\"http://www.sqlparty.com/wp-content/uploads/2013/08/iptables.png\"><img
+  class=\"alignnone size-medium wp-image-283\" alt=\"iptables\" src=\"http://www.sqlparty.com/wp-content/uploads/2013/08/iptables-300x292.png\"
+  width=\"300\" height=\"292\" /></a>\r\n注：引自《鸟哥的Linux私房菜-服务器篇》\r\n\r\n"
+wordpress_id: 282
+wordpress_url: http://www.sqlparty.com/?p=282
+date: '2013-08-04 16:01:01 +0800'
+date_gmt: '2013-08-04 08:01:01 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- iptables
+---
+<p>防火墙是系统中用于限制某些服务的存取来源的工具，包括软件和硬件两种。iptables是Linux内核自带的软件防火墙，可以设置一些数据包过滤规则设置，以此定义什么数据可以接收、什么数据必须剔除，从而实现保护主机的目的。</p>
+<h2>原理</h2><br />
+iptables利用的是数据包过滤机制，所以它会分析数据包的表头数据。根据表头数据与定义的规则来决定该数据包是否可以进入主机。<br />
+假设有10条防火墙规则，则针对一个数据包的操作步骤如下：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/iptables.png"><img class="alignnone size-medium wp-image-283" alt="iptables" src="http://www.sqlparty.com/wp-content/uploads/2013/08/iptables-300x292.png" width="300" height="292" /></a><br />
+注：引自《鸟哥的Linux私房菜-服务器篇》</p>
+<p><!--more--></p>
+<p>对于上述10条规则，按照顺序进行检查，有一项满足即执行该规则，后续规则会被忽略。所以，<strong>规则的顺序非常重要</strong>!</p>
+<p>事实上，上图中规则1到10是作为iptables众多表格中的一个链。在了解什么是链之前，先说说iptables的后台原理。</p>
+<p>iptables，从名称可以看出，该软件内包括多个表格(table)，每个表格都定义出自己默认的策略与规则，且每个表格用途都不同，每个表格内部又由不同链构成。iptables至少有三个表：filter，nat，managle。</p>
+<ul>
+<li>表格Filter：管理本机进出，是默认的table
+<ul>
+<li>链INPUT：主要与数据包想要进入Linux本机有关。</li>
+<li>链OUTPUT：主要与Linux本机所要送出的数据包有关。</li>
+<li>链FORWARD：与Linux本机没有关系，可以将数据包转发到后端的计算机中，与NAT表相关性很高。</li><br />
+</ul><br />
+</li></p>
+<li>表格NAT：管理后端主机（防火墙内部的其他计算机）。主要用于来源地与目的地的IP或port转换，与Linux本无关，主要与Linux主机后的局域网内的计算机相关。
+<ul>
+<li>PREROUTING：在进行路由判断之前执行的规则（DNAT/REDIRECT）</li>
+<li>POSTROUTING：在进行路由判断之后执行的规则（SNAT/MASQUERADE）</li>
+<li>OUTPUT：与发送出去的数据包有关</li><br />
+</ul><br />
+</li></p>
+<li>表格managle：管理特殊标记。一般较少使用。</li>
+<li>自定义表格</li><br />
+</ul><br />
+由于日常应用，是针对iptables针对本机进行操作，局域网对外使用的是额外硬件防火墙，所以基本只需要关注表filter内的INPUT和OUTPUT两条链，以下也只说明针对单台Linux主机上的防火墙的操作。</p>
+<h2>iptables常用参数</h2><br />
+-t：后面接table，如nat或filter，若省略，则使用默认的filter<br />
+-L：列出目前的table的规则<br />
+-n：数字显示ip，不进行IP与HOSTNAME的反查，显示信息会快很多<br />
+-v：列出更详细信息，包括通过该规则的数据包总个数、相关的网络接口等。</p>
+<p>-F：清除所有的已定规则<br />
+-X：除掉所有用户"自定义"的链<br />
+-Z：将所有chain的计数与流量统计都归零</p>
+<p>-P：定义策略（Policy）。</p>
+<p>-A：后跟链名。新增加一条规则，该规则会增加在原规则的最后面。<br />
+-D：后跟链名和num。删除链下的num号的规则。<br />
+-I：插入一条规则，如果没有指定顺序，则是第一个。<br />
+链：有INPUT、OUTPUT、FORWARD等，此链名由于-io有关。<br />
+-i： 数据包所进入的那个网络接口，如eth0，续与INPUT链配合。<br />
+-o：数据包传出的那个网络接口，需要与OUTPUT链配合。<br />
+-p：设置此规则适用于哪种数据包格式，主要的有：tcp、udp、icmp及all<br />
+-s：来源IP/网段。或规则为不许，则加上&ldquo;！&rdquo;即可。<br />
+--sport 端口范围：限制来源的端口号码，如1024:65535<br />
+-d：目的IP/网段。<br />
+--dport 端口范围：限制目的地的端口号码。<br />
+-j：后面接操作，主要有接受(ACCEPT)，丢弃(DROP)以及记录(LOG)。</p>
+<p>-m：一些iptables的模块，常见有state(状态模块)，mac（网卡硬件地址）<br />
+--state：一些数据包的状态，主要有：<br />
+INVALID：无效的数据包<br />
+ESTABLISHED：已经联机成功的联机状态<br />
+NEW：想要新建立联机的数据包状态<br />
+RELATED：最常用，表示数据包与我们主机发送出去的数据包有关。</p>
+<h2>示例</h2><br />
+例1.查询默认table中配置<br />
+shell>iptables -L -n</p>
+<p>例2.清除本机防火墙filter的所有规则<br />
+shell>iptables -F<br />
+shell>iptables -X<br />
+shell>iptables -F</p>
+<p>例3.将本机的INPUT设置为DROP，其他设置为ACCEPT。<br />
+shell>iptables -P INPUT DROP<br />
+shell>iptables -P OUTPUT ACCEPT<br />
+shell>iptables -P FORWARD ACCEPT</p>
+<p>例4.所有来自lo这个接口的数据包，都予以接受<br />
+shell>iptables -A INPUT -i lo -j ACCEPT #没有指定的选项，如-s，-d等，表示该规则完全接受！</p>
+<p>例5.来自192.168.1.0/24可接受，但来自192.168.1.10的丢弃。<br />
+shell>iptables -A INPUT -i eth0 -s 192.168.1.10 -j DROP<br />
+shell>iptables -A INPUT -i eth0 -s 192.168.1.0/24 -j ACCEPT #注意这里命令的顺序！</p>
+<p>例6.想要联机进入本机port21的数据包都阻止掉<br />
+shell>iptables -A INPUT -i eth0 -p tcp --dport 21 -j DROP</p>
+<p>例7.只要是联机成功的数据包或与已发出去请求相关的数据包就予以通过，不合法数据包就丢弃<br />
+shell>iptables -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT<br />
+shell>iptables -A INPUT -m state --state INVALID -j DROP</p>
+<p>例8.删除INPUT链下4号规则<br />
+shell>iptables -D INPUT 4</p>
+<p>iptables日常操作<br />
+shell>service iptables start #开启防火墙<br />
+shell>service iptables stop #关闭防火墙<br />
+shell>service iptables save #保存当前设置，默认存储至/etc/sysconfig/iptables文件中。</p>
+<p>参考：<br />
+《鸟哥的Linux私房菜》<br />
+<a href="http://jar-c.blog.163.com/blog/static/116401250201061541150973/" target="_blank">http://jar-c.blog.163.com/blog/static/116401250201061541150973/</a></p>

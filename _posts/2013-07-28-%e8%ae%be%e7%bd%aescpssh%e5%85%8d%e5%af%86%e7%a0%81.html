@@ -1,0 +1,102 @@
+---
+layout: post
+status: publish
+published: true
+title: 设置scp/ssh免密码
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "多台主机之间通过ssh连接或者通过scp拷贝文件默认每次都需要输入用户名密码，非常繁琐，而且这样很难让日常工作脚本化。可以通过如下设置，使ssh和scp能免密码。\r\n\r\n"
+wordpress_id: 150
+wordpress_url: http://www.sqlparty.com/?p=150
+date: '2013-07-28 12:49:27 +0800'
+date_gmt: '2013-07-28 04:49:27 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- Windows
+- ssh
+---
+<p>多台主机之间通过ssh连接或者通过scp拷贝文件默认每次都需要输入用户名密码，非常繁琐，而且这样很难让日常工作脚本化。可以通过如下设置，使ssh和scp能免密码。</p>
+<p><!--more--></p>
+<p><strong>一.Linux主机之间</strong></p>
+<p>设置主机A免密码登录主机B:<br />
+<strong>1.在主机A生成公钥/私钥对</strong><br />
+<span style="color: #0000ff;">[user1@A]$ssh-keygen -t rsa</span> #由于不指定密码，所以一路enter即可<br />
+<span style="color: #0000ff;">Generating public/private rsa key pair.</span><br />
+<span style="color: #0000ff;"> Enter file in which to save the key (/home/user1/.ssh/id_rsa):</span><br />
+<span style="color: #0000ff;"> Enter passphrase (empty for no passphrase):</span><br />
+<span style="color: #0000ff;"> Enter same passphrase again:</span><br />
+<span style="color: #0000ff;"> Your identification has been saved in /home/user1/.ssh/id_rsa.</span><br />
+<span style="color: #0000ff;"> Your public key has been saved in /home/user1/.ssh/id_rsa.pub.</span><br />
+<span style="color: #0000ff;"> The key fingerprint is:</span><br />
+<span style="color: #0000ff;"> 45:8c:c0:5c:42:2b:f3:4d:7b:4a:bf:df:ba:76:0c:cf user1@A</span><br />
+该命令在home目录下生成.ssh目录(如果不存在)，.ssh下有id_rsa和id_rsa.pub</p>
+<p><strong>2.将主机A上的id_rsa.pub复制到主机B下，在B机的.ssh/authorized_keys文件里，这里通过scp复制。</strong><br />
+<span style="color: #0000ff;">[user1@A]$scp ~/.ssh/id_rsa.pub user2@B:/home/user2/.ssh/aurhorized_keys_A</span><br />
+<span style="color: #0000ff;"> user2@B's password:</span><br />
+<span style="color: #0000ff;"> id_rsa.pub 100% 392 0.4KB/s 00:00</span><br />
+如果出现<span style="color: #0000ff;">Are you sure you want to continue connecting (yes/no)? yes</span>即可。<br />
+由于还没有免密码登录的，所以要输入密码。这里要求对方.ssh目录存在，不存在会报错。aurhorized_keys_A是拷贝过去后对id_rsa.pub的重命名，可以任意指定，旨在尽量不将对方.ssh目录下文件覆盖。</p>
+<p><strong>3.主机B上将从A获取的公钥id_rsa.pub添加到.ssh/authorized_keys文件中</strong><br />
+<span style="color: #0000ff;">[user2@B]$cd ~/.ssh/</span><br />
+<span style="color: #0000ff;"> [user2@B]$cat authorized_keys_A >> authorized_keys</span> #这里采用追加方式，这样authorized_keys可以包含多台主机的公钥，支持多台主机免密码登录到B。<br />
+<span style="color: #0000ff;">[user2@B]$rm -f authorized_keys_A</span><br />
+<span style="color: #0000ff;"> [user2@B]$chmod 600 authorized_key</span>s #在RedHat 6中，还需要设置authorized_keys的访问权限，提高安全性。</p>
+<p><strong>4.测试主机A是否可以免密码登录至B</strong><br />
+<span style="color: #0000ff;">[user1@A]$ssh user2@B</span><br />
+<span style="color: #0000ff;"> Last login: Sun Jan 6 15:14:11 2013 from 192.168.2.2</span><br />
+<span style="color: #0000ff;"> [user2@B]$</span><br />
+如果测试过程中发现问题，检查主机B上.ssh/authorized_keys文件是否至少有600的权限。</p>
+<p><strong>二.Windows访问Linux</strong></p>
+<p><strong>方法一.基于软件SSH Secure Shell Client</strong></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/w1.png"><img class="alignnone size-medium wp-image-151" alt="w1" src="http://www.sqlparty.com/wp-content/uploads/2013/07/w1-300x78.png" width="300" height="78" /></a></p>
+<p>方法与上述类似，在Windows上使用ssh-keygen2.exe生成公钥/私钥对</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/w2.png"><img class="alignnone size-medium wp-image-152" alt="w2" src="http://www.sqlparty.com/wp-content/uploads/2013/07/w2-300x147.png" width="300" height="147" /></a><br />
+使用文本编辑器对id_rsa_2048_c.pub进行编辑，删除换行符，确保内容处在单行中。如原有内容如下：<br />
+<span style="color: #0000ff;">---- BEGIN SSH2 PUBLIC KEY ----</span><br />
+<span style="color: #0000ff;"> Subject: Administrator</span><br />
+<span style="color: #0000ff;"> Comment: "2048-bit rsa, Administrator@MYHOST, Wed Jan 09 2013 08:21:0\</span><br />
+<span style="color: #0000ff;"> 0"</span><br />
+<span style="color: #0000ff;"> AAAAB3NzaC1yc2EAAAADAQABAAABAQDgEc4MSXuwJMBTUE5Hi2yUr3eN4wCZbSZ9lQJG41</span><br />
+<span style="color: #0000ff;"> sqrD0qVUavemqRzlM8aZ3P2Y7zvUuv3RBogdYK6Vkzkp5S319//uYF9qiVX7LIQr/aQRKA</span><br />
+<span style="color: #0000ff;"> gVrU47e/Zv9BkcRBd9e/ci/hc2WL5kl3eXLzcIX+uCkhZCAkHHrBW1ht7V2W85QEo2BQ8z</span><br />
+<span style="color: #0000ff;"> vZbN4e8TGpB11Z99UJO9BkJsFkA5QsW/epGmHNoEp3WV4dcOgdfFUr9is8Yqo6GnUoikkS</span><br />
+<span style="color: #0000ff;"> xl5rFjA/PZsmP9YImIMHv6w7EaXDsgKj9J5PdhsPeMTKFX0VRoeTKC8WpKDSrVPMlHm43i</span><br />
+<span style="color: #0000ff;"> nPftD15M5oR6duv5sUAIlL</span><br />
+<span style="color: #0000ff;"> ---- END SSH2 PUBLIC KEY ----</span><br />
+修改为一行，如:<br />
+<span style="color: #0000ff;">ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDgEc4MSXuwJMBTUE5Hi2yUr3eN4wCZbSZ9lQJG41sqrD0qVUavemqRzlM8aZ3P2Y7zvUuv3RBogdYK6Vkzkp5S319//uYF9qiVX7LIQr/aQRKAgVrU47e/Zv9BkcRBd9e/ci/hc2WL5kl3eXLzcIX+uCkhZCAkHHrBW1ht7V2W85QEo2BQ8zvZbN4e8TGpB11Z99UJO9BkJsFkA5QsW/epGmHNoEp3WV4dcOgdfFUr9is8Yqo6GnUoikkSxl5rFjA/PZsmP9YImIMHv6w7EaXDsgKj9J5PdhsPeMTKFX0VRoeTKC8WpKDSrVPMlHm43inPftD15M5oR6duv5sUAIlL Administrator@MYHOST</span><br />
+将这一行添加到目标主机上目标用户下.ssh/authorized_keys文件的最后。<br />
+这样在Windows命令行下就可以免密码ssh到目录主机上。如下所示</p>
+<p><strong>方法二.使用putty</strong><br />
+putty系列的程序下载地址 <a href="http://www.chiark.greenend.org.uk/~sgtatham/putty/download.html" target="_blank">http://www.chiark.greenend.org.uk/~sgtatham/putty/download.html</a><br />
+这里我们需要：<br />
+puttygen.exe，密钥生成程序，生成公钥和私钥；<br />
+pageant.exe，SSH 认证代理，它可以将解密后的私钥存放在内存中，从而不需要你再输入；<br />
+plink.exe，命令行程序，可以支持ssh，telnet等。<br />
+步骤1：<br />
+选择 SSH2 RSA，2048位，点击Generate，然后在界面区域随便晃动鼠标(来创建一些随机量)，如</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/w3.png"><img class="alignnone size-medium wp-image-153" alt="w3" src="http://www.sqlparty.com/wp-content/uploads/2013/07/w3-300x292.png" width="300" height="292" /></a><br />
+生成完毕后，不输入key passphrase，保存public key和private key。</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/w4.png"><img class="alignnone size-medium wp-image-154" alt="w4" src="http://www.sqlparty.com/wp-content/uploads/2013/07/w4-300x292.png" width="300" height="292" /></a><br />
+这里分别保存public key为文件mypub，private key为文件mypri.ppk。<br />
+此时如果不关闭上图，可以以直接拷贝上图中的public key部分，这样就生成在同一行中。否则就如方法一中所示，编辑文件mypub，获取单行公钥数据。<br />
+这里公钥信息为：<br />
+<span style="color: #0000ff;">ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEAmkCHGkWvSLVRHzyAZmDcPEuIX+vLUVe3kZka8LLaPrD3fOldMlKRzmK4w9XazISjmsMfuP7Q/nxKJHSkkHcAeg8KJLLx8LbO2cr9K25Iprgz1Cif2FFpQ+YKAD7mZtITqfLoQkY91TPk374VkowyOYwOWwdPCIq+8//A9V4LbF3LpSNU2/5DxsXgkSSEy7t9MfeKuXXatdr54+w0Nvxvg4bYcXHyPvmBzZiOG8E6YVo7rb2w91usXTG7se9aY/EnXbQf6GO3FtIK2XtUgRY+l1YkO3d1VRW9EaeZqDRpKr9/naqAPxCcj1mW3ebf2ReOni+hRkDqUhe9Eg9APg6XwQ== rsa-key-20130109</span><br />
+将获取的public key如上面的方法，追加到对方.ssh/authorized_keys下。<br />
+步骤2：<br />
+启动pageant.exe，会最小化到屏幕右下角，导入对应的私钥文件，如：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/w5.png"><img class="alignnone size-medium wp-image-155" alt="w5" src="http://www.sqlparty.com/wp-content/uploads/2013/07/w5-300x217.png" width="300" height="217" /></a><br />
+可以看到，这个SSH 认证代理程序可以支持为多个私钥，来为多个程序提供服务。<br />
+这样Windows命令行下执行plink即可，如：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/w6.png"><img class="alignnone size-medium wp-image-156" alt="w6" src="http://www.sqlparty.com/wp-content/uploads/2013/07/w6-300x34.png" width="300" height="34" /></a></p>
+<p>参考：<br />
+<a href="http://findingjob.blog.sohu.com/6561816.html" target="_blank">http://findingjob.blog.sohu.com/6561816.html</a><br />
+<a href="https://help.launchpad.net/YourAccount/CreatingAnSSHKeyPair" target="_blank">https://help.launchpad.net/YourAccount/CreatingAnSSHKeyPair</a><br />
+<a href="http://blog.pfan.cn/daweizhao/29636.html" target="_blank">http://blog.pfan.cn/daweizhao/29636.html</a></p>

@@ -1,0 +1,217 @@
+---
+layout: post
+status: publish
+published: true
+title: ZooKeeper集群搭建与维护
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "ZooKeeper提供了分布式协作、同步、配置管理等功能，是一个广泛使用的开源分布式服务系统。\r\n\r\n<a href=\"http://www.sqlparty.com/wp-content/uploads/2013/09/zk.png\"><img
+  class=\"alignnone size-full wp-image-684\" alt=\"zk\" src=\"http://www.sqlparty.com/wp-content/uploads/2013/09/zk.png\"
+  width=\"211\" height=\"300\" /></a>\r\n\r\n官网地址：<a href=\"http://zookeeper.apache.org/\"
+  target=\"_blank\">zookeeper</a>\r\n\r\n分布式环境下，无法避免通信的部分失败问题：发送者的消息发出后，不知道是否被正确接收。可能因为主机、网络等原因不能正常完成通信。这种情况下，一般都选择重新连接发送信息。\r\n\r\nZooKeeper本身也无法避免这种分布式环境下的共性问题，但是会提供一些工具来协助分布式应用来安全地处理此类问题。\r\n\r\nZooKeeper有以下特点：\r\n<ol>\r\n\t<li>简单&mdash;&mdash;核心部分类似与一个层次结构的文件系统，有几个简单操作和一些额外抽象，如ordering，notification。</li>\r\n\t<li>表达丰富&mdash;&mdash;ZooKeeper原语非常丰富，可以用来构建各类型的结构和协议。例如：分布式队列、分布式锁和领袖选举。</li>\r\n\t<li>高可用性&mdash;&mdash;分布在不同物理主机，提高了集群的高可用性。</li>\r\n\t<li>促进交互系统间的松耦合&mdash;&mdash;ZooKeeper支持使用者之间不需要直接交互，可以不了解对方的存在。例如提供了集合(rendezvous)机制，这样使用者可以互相发现对方以及交互。甚至交互双方不需要同时在线，一方可以给另一方在ZooKeeper中留言。</li>\r\n\t<li>功能库&mdash;&mdash;ZooKeeper提供一些协调模式、协议的开源方案等，便于用户直接使用。</li>\r\n\t<li>高性能&mdash;&mdash;Yahoo!针对ZooKeeper的测试结果，写入可以达到每秒10000次。而读取为主的应用的话，有高数倍的吞吐。暂未自行测试。</li>\r\n</ol>\r\n<h2>"
+wordpress_id: 683
+wordpress_url: http://www.sqlparty.com/?p=683
+date: '2013-09-15 15:49:23 +0800'
+date_gmt: '2013-09-15 07:49:23 +0800'
+categories:
+- 大数据
+tags:
+- ZooKeeper
+---
+<p>ZooKeeper提供了分布式协作、同步、配置管理等功能，是一个广泛使用的开源分布式服务系统。</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/09/zk.png"><img class="alignnone size-full wp-image-684" alt="zk" src="http://www.sqlparty.com/wp-content/uploads/2013/09/zk.png" width="211" height="300" /></a></p>
+<p>官网地址：<a href="http://zookeeper.apache.org/" target="_blank">zookeeper</a></p>
+<p>分布式环境下，无法避免通信的部分失败问题：发送者的消息发出后，不知道是否被正确接收。可能因为主机、网络等原因不能正常完成通信。这种情况下，一般都选择重新连接发送信息。</p>
+<p>ZooKeeper本身也无法避免这种分布式环境下的共性问题，但是会提供一些工具来协助分布式应用来安全地处理此类问题。</p>
+<p>ZooKeeper有以下特点：</p>
+<ol>
+<li>简单&mdash;&mdash;核心部分类似与一个层次结构的文件系统，有几个简单操作和一些额外抽象，如ordering，notification。</li>
+<li>表达丰富&mdash;&mdash;ZooKeeper原语非常丰富，可以用来构建各类型的结构和协议。例如：分布式队列、分布式锁和领袖选举。</li>
+<li>高可用性&mdash;&mdash;分布在不同物理主机，提高了集群的高可用性。</li>
+<li>促进交互系统间的松耦合&mdash;&mdash;ZooKeeper支持使用者之间不需要直接交互，可以不了解对方的存在。例如提供了集合(rendezvous)机制，这样使用者可以互相发现对方以及交互。甚至交互双方不需要同时在线，一方可以给另一方在ZooKeeper中留言。</li>
+<li>功能库&mdash;&mdash;ZooKeeper提供一些协调模式、协议的开源方案等，便于用户直接使用。</li>
+<li>高性能&mdash;&mdash;Yahoo!针对ZooKeeper的测试结果，写入可以达到每秒10000次。而读取为主的应用的话，有高数倍的吞吐。暂未自行测试。</li><br />
+</ol></p>
+<h2><!--more--></h2></p>
+<h2>1.安装</h2><br />
+ZooKeeper支持两种运行模式：</p>
+<ol>
+<li>单机模式(standalone mode)&mdash;&mdash;单台ZooKeeper服务器，可用于测试，但是不提供高可用性保证。</li>
+<li>复制模式(replicated mode)&mdash;&mdash;多台主机组成集群（称为ensemble）。ZooKeeper通过复制来实现高可用，只要集群中的大部分（超过一半）主机存活就可以对外提供服务。如5台主机的集群，可以宕机2台，而6台主机的集群也只能宕机2台，所以一般取奇数台主机搭建集群。</li><br />
+</ol><br />
+这里以安装复制模式，即安装集群作为示例。基于<a title="创建cdh4本地Yum仓库" href="http://www.sqlparty.com/%e5%88%9b%e5%bb%bacdh4%e6%9c%ac%e5%9c%b0yum%e4%bb%93%e5%ba%93/" target="_blank">CDH4 Yum源</a>的安装就极其简单了<br />
+<span style="color: #0000ff;">shell>yum install zookeeper-server</span><br />
+在各个ZooKeeper集群节点上运行。</p>
+<h2>2.配置</h2></p>
+<h3>2.1服务配置</h3><br />
+启动前需对集群进行配置，这里配置文件位于/etc/zookeeper/conf/zoo.cfg</p>
+<p>示例如下：</p>
+<p><span style="color: #0000ff;">tickTime=2000</span>&nbsp;&nbsp; #ZooKeeper的基本时间单位，以毫秒为单位。其定义了客户端与服务器或者服务器之间维持心跳的时间间隔。<br />
+<span style="color: #0000ff;">dataDir=/var/lib/zookeeper</span>&nbsp; #ZooKeeper存放持久化数据的本地路径。不指定的话，日志文件也会放在这个文件中。<br />
+<span style="color: #0000ff;">clientPort=2181</span>&nbsp;&nbsp;&nbsp; #ZooKeeper监听的端口，客户端通过这个端口来连接ZooKeeper集群</p>
+<p>这是标准的Java 属性文件，而这3项是<strong>单机模式</strong>的ZooKeeper的最小配置项。</p>
+<p>而<strong>集群模式</strong>下，该文件还应列出集群中的所有服务器，集群模式下的示例如下：</p>
+<p><span style="color: #0000ff;">tickTime=2000</span><br />
+<span style="color: #0000ff;">dataDir=/var/lib/zookeeper</span><br />
+<span style="color: #0000ff;">clientPort=2181</span><br />
+<span style="color: #0000ff;">initLimit=5&nbsp;</span>&nbsp;&nbsp;&nbsp;&nbsp; #tick数量（单位tickTime），设置follower与leader初始化连接所能忍受的时间间隔。这里是2000ms*5=10秒。如果超过这个时间leader还没有收到follower反馈信息，则该follower失败。如果大多数的follower在这段时间内没有与leader完成连接，那么重新领袖选举。如果ZooKeeper管理的数据量大，则应调大这个值。<br />
+<span style="color: #0000ff;">syncLimit=2&nbsp;</span>&nbsp;&nbsp; #tick数量（单位tickTime），设置follower与leader的请求与应答时间长度。如果超过这段时间，follower会重启自己，而与之相连接的客户端会去连接其他节点。<br />
+<span style="color: #0000ff;">server.1=CH22:2888:3888&nbsp;</span>&nbsp; #格式：server.x=[hostname]:nnnnn[:nnnnn]&nbsp; 设置集群的组成主机。<br />
+<span style="color: #0000ff;">server.2=CH34:2888:3888</span>&nbsp;&nbsp; #格式中包括两部分nnnnn。第一部分是follower用来连接到leader，只在leader上监听该端口。而第二部分用于leader选举的。后者只在electionAlg是1,2或3(默认)时需要。如果想在单机上测试多实例，可以调整第二个的端口避免冲突。<br />
+<span style="color: #0000ff;">server.3=CH35:2888:3888</span></p>
+<p>ZooKeeper集群的每个节点需要在dataDir（这里为/var/lib/zookeeper/）目录下创建一个myid文件，其内容是数字，范围为1到255，其对应到server.x的x。如server.1上：<br />
+<span style="color: #0000ff;">shell>cat /var/lib/zookeeper/myid</span><br />
+<span style="color: #0000ff;">1</span><br />
+配置参数列表见 <a href="http://archive.cloudera.com/cdh4/cdh/4/zookeeper/zookeeperAdmin.html#sc_configuration" target="_blank">http://archive.cloudera.com/cdh4/cdh/4/zookeeper/zookeeperAdmin.html#sc_configuration</a></p>
+<h3>2.2Java堆大小配置</h3><br />
+ZooKeeper中没有直接参数来设置占用的内存大小，通过设定Java的选项来实现。</p>
+<p>在配置目录下创建java.env，在其中设置环境变量JVMFLAGS，在ZooKeeper启动时会自动读取设置。</p>
+<p>简单例子如下:</p>
+<p><span style="color: #0000ff;">shell>vi /etc/zookeeper/conf/java.env</span><br />
+<span style="color: #0000ff;">#!/bin/sh</span><br />
+<span style="color: #0000ff;">export JVMFLAGS=-Xmx2g</span></p>
+<h2>3.管理命令</h2></p>
+<h3>3.1初始化与启动</h3><br />
+启动之前需要对zookeeper进行初始化：</p>
+<p>初始化：</p>
+<p><span style="color: #0000ff;">shell>service zookeeper-server init --myid=1</span></p>
+<p>这步会进行些初始化操作，包括创建myid文件，内容为1。不同节点上指定不同myid。</p>
+<p>启动：</p>
+<p><span style="color: #0000ff;">shell> service zookeeper-server start</span></p>
+<p>其他例如停止等也可以使用service zookeeper-server命令进行。</p>
+<h3>3.2四字母命令</h3><br />
+ZooKeeper提供不多的四字母管理命令，可以利用ZooKeeper的监听端口，使用telnet或者nc与ZooKeeper进行交互。</p>
+<ul>
+<li>stat:获取服务器与已连接客户端的信息。</li>
+<li>srvr:更多服务器的信息。</li>
+<li>cons:更多已连接客户端的信息。</li>
+<li>conf:打印出服务器的配置信息。</li>
+<li>crst:重置所有连接的统计信息。</li>
+<li>dump:列出会话与短暂节点信息。</li>
+<li>ruok:测试Server是否处于正常状态，即"Are You OK?"，如果回复"I'm OK"(imok)，则表明其正常，但是不能说明该主机成功加入到了集群中。</li>
+<li>srst:重置服务器的统计信息。</li>
+<li>wchs: 列出服务器的watch中的简要信息。</li>
+<li>wchc: 列出服务器的watch中的详细信息，基于会话。根据watch数量不同会对服务器信息有不同影响，所以小心使用。</li>
+<li>wchp: 列出服务器的watch中的详细信息，基于路径。 根据watch数量不同会对服务器信息有不同影响，所以小心使用。</li>
+<li>mntr: 列出所有可以用来监控cluster监控状况的一系列变量</li><br />
+</ul><br />
+示例1：查看指标</p>
+<p><span style="color: #0000ff;">shell> echo "mntr" | nc CH35 2281</span><br />
+<span style="color: #0000ff;">zk_version&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 3.4.5-cdh4.3.0--1, built on 05/28/2013 02:01 GMT</span><br />
+<span style="color: #0000ff;">zk_avg_latency&nbsp; 0</span><br />
+<span style="color: #0000ff;">zk_max_latency&nbsp; 280</span><br />
+<span style="color: #0000ff;">zk_min_latency&nbsp; 0</span><br />
+<span style="color: #0000ff;">zk_packets_received&nbsp;&nbsp;&nbsp;&nbsp; 1631762</span><br />
+<span style="color: #0000ff;">zk_packets_sent 1639162</span><br />
+<span style="color: #0000ff;">zk_num_alive_connections&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 9</span><br />
+<span style="color: #0000ff;">zk_outstanding_requests 0</span><br />
+<span style="color: #0000ff;">zk_server_state leader</span><br />
+<span style="color: #0000ff;">zk_znode_count&nbsp; 128</span><br />
+<span style="color: #0000ff;">zk_watch_count&nbsp; 37</span><br />
+<span style="color: #0000ff;">zk_ephemerals_count&nbsp;&nbsp;&nbsp;&nbsp; 16</span><br />
+<span style="color: #0000ff;">zk_approximate_data_size&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4956</span><br />
+<span style="color: #0000ff;">zk_open_file_descriptor_count&nbsp;&nbsp; 38&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - only available on Unix platforms</span><br />
+<span style="color: #0000ff;">zk_max_file_descriptor_count&nbsp;&nbsp;&nbsp; 1024&nbsp;&nbsp; - only available on Unix platforms</span><br />
+<span style="color: #0000ff;">zk_followers&nbsp;&nbsp;&nbsp; 2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - only exposed by the Leader</span><br />
+<span style="color: #0000ff;">zk_synced_followers&nbsp;&nbsp;&nbsp;&nbsp; 2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - only exposed by the Leader</span><br />
+<span style="color: #0000ff;">zk_pending_syncs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - only exposed by the Leader</span></p>
+<p>示例2：简单监测其活跃性</p>
+<p><span style="color: #0000ff;">shell> echo "ruok" | nc CH34 2281 &nbsp;</span><br />
+<span style="color: #0000ff;">imok</span></p>
+<h3>3.3命令行工具</h3><br />
+ZooKeeper自带了命令行工具zkCli.sh，可以用来与ZooKeeper集群进行交互，类似于文件系统操作。</p>
+<p>用法：zkCli.sh -server host:port cmd args</p>
+<p>其中cmd args选项如下：<br />
+connect host:port<br />
+get path [watch]<br />
+ls path [watch]<br />
+set path data [version]<br />
+rmr path<br />
+delquota [-n|-b] path<br />
+quit<br />
+printwatches on|off<br />
+create [-s] [-e] path data acl<br />
+stat path [watch]<br />
+close<br />
+ls2 path [watch]<br />
+history<br />
+listquota path<br />
+setAcl path acl<br />
+getAcl path<br />
+sync path<br />
+redo cmdno<br />
+addauth scheme auth<br />
+delete path [version]<br />
+setquota -n|-b val path<br />
+如果不指定-server host:port，则默认为-server localhost:2181。</p>
+<p>示例1.查看集群192.168.10.22:2281的/路径下节点<br />
+<span style="color: #0000ff;">shell> /usr/lib/zookeeper/bin/zkCli.sh -server 192.168.10.22:2281 ls /</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">[carltest, hbase, hadoop-ha, zookeeper, g1, hbase18, hbasebm]</span></p>
+<p>也可以直接指定server，不带cmd args。进行交互模式：</p>
+<p><span style="color: #0000ff;">shell> /usr/lib/zookeeper/bin/zkCli.sh -server 192.168.10.22:2281</span><br />
+<span style="color: #0000ff;">[zk: 192.168.10.22:2281(CONNECTED) 0] ls /</span><br />
+<span style="color: #0000ff;">[carltest, hbase, hadoop-ha, zookeeper, g1, hbase18, hbasebm]</span><br />
+<span style="color: #0000ff;">[zk: 192.168.10.22:2281(CONNECTED) 30] set /g1/0.9893179250325247 'abcss'</span><br />
+<span style="color: #0000ff;">cZxid = 0x101dc</span><br />
+<span style="color: #0000ff;">ctime = Mon Sep 09 15:38:29 CST 2013</span><br />
+<span style="color: #0000ff;">mZxid = 0x101eb</span><br />
+<span style="color: #0000ff;">mtime = Mon Sep 09 15:40:08 CST 2013</span><br />
+<span style="color: #0000ff;">pZxid = 0x101dc</span><br />
+<span style="color: #0000ff;">cversion = 0</span><br />
+<span style="color: #0000ff;">dataVersion = 11</span><br />
+<span style="color: #0000ff;">aclVersion = 0</span><br />
+<span style="color: #0000ff;">ephemeralOwner = 0x141009aff600048</span><br />
+<span style="color: #0000ff;">dataLength = 7</span><br />
+<span style="color: #0000ff;">numChildren = 0</span></p>
+<h2>4.数据文件管理</h2><br />
+ZooKeeper默认情况下使用相同的目录保存数据文件与事务日志文件。也可以分别配置两个目录（zoo.cfg中dataDir和 dataLogDir）。各目录保存各自相关的文件。</p>
+<h3>4.1数据目录</h3><br />
+保存两类文件：<br />
+<strong>myid</strong>:如前所述，包含server id信息。当一个ZooKeeper节点启动时，首先读取myid文件，然后根据该id读取zoo.cfg，根据server.<id>的配置，监听指定的端口。<br />
+<strong>snapshot.<zxid></strong>:&nbsp; 这个文件是ZooKeeper在处理了足够的事务后，针对当时的数据树形结构进行的快照。由于快照时可能包含了正在更新的信息的一部分，所以可能是不准确的，但是通过snapshot+快照时间点以后的事务日志，可以恢复到最新状态。这里的zxid指ZooKeeper transaction id，取的是生成快照动作开始时的最近已提交的事务id。</p>
+<h3>4.2日志目录</h3><br />
+保存ZooKeeper的事务日志。在任何更新操作发生前会先写入日志。每次生成快照后生成新日志。日志文件的后缀是第一个写入该日志文件的zxid。</p>
+<h3>4.3文件管理</h3><br />
+ZooKeeper永远不会删除生成的快照和日志文件。其维护通常是在ZooKeeper之外进行的(新版本中加入了管理参数，见下文)，其自身只需要最新的快照+之后的log文件即可。</p>
+<h2>5.集群维护</h2><br />
+ZooKeeper本身并不需要大量的维护，但还是有需要人工参与部分：</p>
+<h3>5.1数据、日志目录清理</h3><br />
+由前文我们已经知道ZooKeeper会产生出快照文件与日志文件，并且不会删除老文件。这部分文件会逐步堆积，需要适时清理。<br />
+<strong>方法1.PurgeTxnLog</strong><br />
+提供了简单的清理快照与日志文件的方法，通常可以使用定时任务运行。<br />
+其用法是：<br />
+PurgeTxnLog <logDir> <snapDir> -n <count><br />
+参数说明：<br />
+<logDir> 包含日志文件的目录<br />
+<snapDir> 包含快照文件的目录<br />
+<count> 保留的快照数目。为防万一，应设置count>=3。<br />
+示例：<br />
+<span style="color: #0000ff;">shell> java -cp /usr/lib/zookeeper/bin/../lib/slf4j-log4j12-1.6.1.jar:/usr/lib/zookeeper/bin/../lib/slf4j-api-1.6.1.jar:/usr/lib/zookeeper/bin/../lib/log4j-1.2.15.jar:/usr/lib/zookeeper/bin/../zookeeper-3.4.5-cdh4.3.0.jar:/etc/zookeeper/conf org.apache.zookeeper.server.PurgeTxnLog /var/lib/zookeeper/ -n 10</span><br />
+<span style="color: #0000ff;">Removing file: Aug 19, 2013 10:08:27 PM /var/lib/zookeeper/version-2/log.a01cef38c</span><br />
+<span style="color: #0000ff;">Removing file: Aug 19, 2013 10:04:04 PM /var/lib/zookeeper/version-2/log.a01cd72cc</span><br />
+<span style="color: #0000ff;">Removing file: Aug 19, 2013 9:57:35 PM&nbsp; /var/lib/zookeeper/version-2/snapshot.a01cd72cc</span><br />
+<span style="color: #0000ff;">Removing file: Aug 19, 2013 10:04:04 PM /var/lib/zookeeper/version-2/snapshot.a01cef38b</span></p>
+<p><strong>方法2.ZooKeeper 3.4.0以后，支持自动删除，需要额外配置</strong><br />
+配置自动删除的话需要涉及两个参数autopurge.snapRetainCount和autopurge.purgeInterval。</p>
+<ul>
+<li>autopurge.snapRetainCount 设置保留的快照的份数。默认值为3，最小值也为3。</li>
+<li>autopurge.purgeInterval&nbsp; 设置purge任务检查的时间间隔，单位是小时。默认为0即关闭检查。设置正整数即启用检查。</li><br />
+</ul></p>
+<h2>6.注意点</h2><br />
+要正确地配置ZooKeeper，应注意如下的常见问题：<br />
+<strong>1）节点列表应一致。</strong><br />
+客户端、集群内配置的节点列表应该一致。如果客户端配置的节点列表是整个节点的子集，那可以正常工作，如果超出范围则会导致奇怪的问题。另外，应保证每个节点上的关于集群的配置一致。<br />
+<strong>2）性能考虑，专有设备存储日志。</strong><br />
+ZooKeeper中最大的性能问题会出现在事务日志的写入上。ZooKeeper要求在响应请求前将事务内容先刷入磁盘。这要求最好有专门的存储设备。<br />
+<strong>3）避免SWAP。</strong><br />
+小心设置Java堆大小。应避免ZooKeeper使用swap空间，这会导致严重性能问题。所以应保守使用系统内存，如果有4G内存，那么不应配置6G或者4G的Java堆大小，可以配置3G，预留部分给操作系统、缓存等。最好的方式是进行压力测试不断调整适合该场景的方案。</p>
+<p>参考：<br />
+<a href="http://zookeeper.apache.org/doc/current/zookeeperAdmin.html" target="_blank">http://zookeeper.apache.org/doc/current/zookeeperAdmin.html</a><br />
+《Hadoop权威指南》<br />
+<a href="http://www.ibm.com/developerworks/cn/opensource/os-cn-zookeeper/" target="_blank">http://www.ibm.com/developerworks/cn/opensource/os-cn-zookeeper/</a></p>

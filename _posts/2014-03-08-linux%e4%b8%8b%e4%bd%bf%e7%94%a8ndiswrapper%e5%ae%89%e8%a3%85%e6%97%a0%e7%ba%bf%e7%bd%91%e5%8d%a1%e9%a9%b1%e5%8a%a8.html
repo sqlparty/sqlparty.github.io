@@ -1,0 +1,94 @@
+---
+layout: post
+status: publish
+published: true
+title: Linux下使用ndiswrapper安装无线网卡驱动
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "这两天在我的老旧的笔记本HP Compaq 6515b上安装上来CentOS 6.3, 64位版本，准备利用它进一步捣鼓Linux。但是发现默认情况下，笔记本的内置无线网卡没有驱动，这让习惯来Wiki环境的我非常不爽，借助万能的互联网，搞定了无线网卡驱动。记录于此，如下的步骤应该适合在各类Linux主机上安装无线网卡驱动。\r\n\r\n主要的思想通过ndiswrapper，利用Windows上的相关驱动在Linux平台上来使用相应的硬件，真是个不错的想法，这是不是可以解决大量硬件不支持Linux环境的问题呢？\r\n\r\n先看看这里安装无线网卡驱动的步骤，如何解决我的烦恼。\r\n\r\n"
+wordpress_id: 820
+wordpress_url: http://www.sqlparty.com/?p=820
+date: '2014-03-08 22:19:47 +0800'
+date_gmt: '2014-03-08 14:19:47 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- 硬件
+- 无线网卡
+- 驱动
+---
+<p>这两天在我的老旧的笔记本HP Compaq 6515b上安装上来CentOS 6.3, 64位版本，准备利用它进一步捣鼓Linux。但是发现默认情况下，笔记本的内置无线网卡没有驱动，这让习惯来Wiki环境的我非常不爽，借助万能的互联网，搞定了无线网卡驱动。记录于此，如下的步骤应该适合在各类Linux主机上安装无线网卡驱动。</p>
+<p>主要的思想通过ndiswrapper，利用Windows上的相关驱动在Linux平台上来使用相应的硬件，真是个不错的想法，这是不是可以解决大量硬件不支持Linux环境的问题呢？</p>
+<p>先看看这里安装无线网卡驱动的步骤，如何解决我的烦恼。</p>
+<p><!--more--></p>
+<h2>1.安装ndiswrapper</h2><br />
+通常这个包系统中不存在，在yum源里也没有，需要编译安装，也很简单。</p>
+<p>下载：<a href="http://sourceforge.net/projects/ndiswrapper/" target="_blank">http://sourceforge.net/projects/ndiswrapper/</a></p>
+<p>这里下载了文件ndiswrapper-1.59.tar.gz</p>
+<p>编译安装，当然前提有相应的开发环境：</p>
+<p><span style="color: #0000ff;"># tar -zxvf ndiswrapper-1.59.tar.gz </span><br />
+<span style="color: #0000ff;"># cd ndiswrapper-1.59</span><br />
+<span style="color: #0000ff;"># make</span><br />
+<span style="color: #0000ff;"># make install</span></p>
+<p>验证是否安装成功：</p>
+<p><span style="color: #0000ff;"># ndiswrapper -v</span><br />
+<span style="color: #0000ff;">utils version: '1.9', utils version needed by module: '1.9'</span><br />
+<span style="color: #0000ff;">module details:</span><br />
+<span style="color: #0000ff;">filename:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /lib/modules/2.6.32-279.el6.x86_64/misc/ndiswrapper.ko</span><br />
+<span style="color: #0000ff;">version:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1.59</span><br />
+<span style="color: #0000ff;">vermagic:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2.6.32-279.el6.x86_64 SMP mod_unload modversions</span></p>
+<h2>2.下载网线网卡的Windows下驱动</h2><br />
+这里下载XP下的驱动<a href="http://h20566.www2.hp.com/portal/site/hpsc/template.PAGE/public/psi/swdHome/?sp4ts.oid=3355651&amp;spf_p.tpst=swdMain&amp;spf_p.prp_swdMain=wsrp-navigationalState%3DswEnvOID%253D1093%257CswLang%253D%257Caction%253DlistDriver&amp;javax.portlet.begCacheTok=com.vignette.cachetoken&amp;javax.portlet.endCacheTok=com.vignette.cachetoken#Driver%20-%20Network" target="_blank">sp41680.exe</a>。</p>
+<h2>3.提取所需驱动文件</h2><br />
+要从exe文件中提取中实际的驱动文件，需要安装cabextract，用来提取Windows程序中文件。默认还是没在yum源中找到，还好在<a href="http://rpmfind.net/linux/rpm2html/search.php?query=cabextract" target="_blank">http://rpmfind.net/linux/rpm2html/search.php?query=cabextract</a>找到了rpm包cabextract-1.3-1.el6.rf.x86_64.rpm。<br />
+<span style="color: #0000ff;"># rpm -ivh cabextract-1.3-1.el6.rf.x86_64.rpm</span></p>
+<p>这样就可以提取相应文件了</p>
+<p><span style="color: #0000ff;"># cabextract sp41680.exe </span><br />
+<span style="color: #0000ff;">sp41680.exe: library not compiled to support large files.</span><br />
+<span style="color: #0000ff;">sp41680.exe: library not compiled to support large files.</span><br />
+<span style="color: #0000ff;">Extracting cabinet: sp41680.exe</span><br />
+<span style="color: #0000ff;">&nbsp; extracting bcm43xx.cat</span><br />
+<span style="color: #0000ff;">&nbsp; extracting bcm43xx64.cat</span><br />
+<span style="color: #0000ff;">&nbsp; extracting bcmwl5.inf</span><br />
+<span style="color: #0000ff;">&nbsp; extracting bcmwl5.sys</span><br />
+<span style="color: #0000ff;">&nbsp; extracting bcmwl564.sys</span><br />
+<span style="color: #0000ff;">&nbsp; extracting bcmwlcoi.dll</span><br />
+<span style="color: #0000ff;">&nbsp; extracting bcmwlcoi64.dll</span><br />
+<span style="color: #0000ff;">&nbsp; extracting Setup.exe</span></p>
+<p><span style="color: #0000ff;">All done, no errors.</span></p>
+<p>这样，所需外部材料就绪了，开始系统层面操作。</p>
+<h2>4.备份(或删除）与ndiswrapper冲突的ssb设备，并重建内核</h2><br />
+<span style="color: #0000ff;">#mv /lib/module/`uname -r`/kernel/drive/ssb /root/ssb_bk</span><br />
+<span style="color: #0000ff;">#depmod -a</span></p>
+<p>重建内核文件，具体你采用的是那个内核文件，可以查看/boot/grub/menu.lst里面，例如我这里有&ldquo;initrd /initramfs-2.6.32-279.el6.x86_64.img&rdquo;</p>
+<p><span style="color: #0000ff;">#mv /boot/initramfs-`uname -r`.img /boot/initramfs-`uname -r`.img_bk</span><br />
+<span style="color: #0000ff;">#mkinitrd /boot/initramfs-`uname -r`.img `uname -r`&nbsp;</span> #这个会稍微花些时间，耐心等</p>
+<h2>5.安装驱动</h2><br />
+在驱动文件所在目录下，运行</p>
+<p><span style="color: #0000ff;"># ndiswrapper -i bcmwl5.inf </span><br />
+<span style="color: #0000ff;">installing bcmwl5 ...</span><br />
+<span style="color: #0000ff;"># ndiswrapper -l</span><br />
+<span style="color: #0000ff;">bcmwl5 : driver installed</span><br />
+<span style="color: #0000ff;"># ndiswrapper -m</span><br />
+<span style="color: #0000ff;">adding "alias wlan0 ndiswrapper" to /etc/modprobe.d/ndiswrapper.conf ...</span><br />
+<span style="color: #0000ff;"># cat /etc/modprobe.d/ndiswrapper.conf</span><br />
+<span style="color: #0000ff;">alias wlan0 ndiswrapper</span><br />
+<span style="color: #0000ff;"># modprobe ndiswrapper</span></p>
+<p>这样驱动应该就安装完成了，如果蓝色灯没有自动亮起，尝试点亮它，应该可用罗</p>
+<h2>6.【可选】根据需要，配置网卡</h2><br />
+<span style="color: #0000ff;"># system-config-network</span></p>
+<p>额外的，通过如下命令现在可以看到无线网卡驱动信息了</p>
+<p><span style="color: #0000ff;"># lspci | grep Network</span><br />
+<span style="color: #0000ff;">30:00.0 Network controller: Broadcom Corporation BCM4311 802.11b/g WLAN (rev 02)</span></p>
+<p>而这在驱动安装之前并看不到。</p>
+<h2>小结</h2><br />
+虽然按照如上的方式完成了我笔记本的无线网卡安装，但是对其实现原理暂时还没有深入理解，而对于ndiswrapper这个工具，其用途据了解也只能在无线网卡这块起一些作用，似乎并没有完美的方案，能够让人在Linux下找不到相应驱动时，直接使用Windows驱动再加一层中间翻译解决。如果有通用的方案，读者千万告诉我，谢谢！</p>
+<p>对于ssb设备, mkinitrd, depmod, modprobe等，需要做进一步了解，本文略过。</p>
+<p>参考：<br />
+<a href="http://www.linuxdiyf.com/bbs/viewthread.php?tid=73022" target="_blank">http://www.linuxdiyf.com/bbs/viewthread.php?tid=73022</a></p>

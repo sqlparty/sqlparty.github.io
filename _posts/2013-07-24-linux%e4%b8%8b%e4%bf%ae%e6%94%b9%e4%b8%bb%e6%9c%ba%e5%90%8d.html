@@ -1,0 +1,45 @@
+---
+layout: post
+status: publish
+published: true
+title: Linux下修改主机名
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Linux下常常需要修改主机名，出于方便记忆、避免误操作、名称解析等目的。在shell中有如下一些操作方式：\r\n<h2>1.临时修改主机名</h2>\r\nshell><span
+  style=\"color: #0000ff;\">hostname <new_hostname></span>\r\n\r\n重新打开一个终端即可看到主机名变化。重启后失效。\r\n\r\n"
+wordpress_id: 35
+wordpress_url: http://www.sqlparty.com/?p=35
+date: '2013-07-24 23:53:24 +0800'
+date_gmt: '2013-07-24 15:53:24 +0800'
+categories:
+- 系统
+tags:
+- 系统
+- Linux
+---
+<p>Linux下常常需要修改主机名，出于方便记忆、避免误操作、名称解析等目的。在shell中有如下一些操作方式：</p>
+<h2>1.临时修改主机名</h2><br />
+shell><span style="color: #0000ff;">hostname <new_hostname></span></p>
+<p>重新打开一个终端即可看到主机名变化。重启后失效。</p>
+<p><!--more--></p>
+<h2>2.永久修改主机名</h2><br />
+shell><span style="color: #0000ff;">vi /etc/sysconfig/network</span><br />
+<span style="color: #0000ff;">NETWORKING=yes</span><br />
+<span style="color: #0000ff;">NETWORKING_IPV6=no</span><br />
+<span style="color: #0000ff;">HOSTNAME=MYHOSTNAME</span> #修改HOSTNAME项。点前面是主机名，点后面是域名。没有点就是主机名。</p>
+<p>这样修改不能立即生效。可以配合使用hostname <new_hostname>使立即生效。</p>
+<h2>3. 其他修改方式</h2><br />
+通过sysctl操作kernel.hostname也可以实现上述效果。<br />
+临时修改：sysctl kernel.hostname=NEWNAME<br />
+永久修改：在/etc/sysctl.conf中添加或者修改kernel.hostname=NEWNAME。<br />
+不过这个方法有点大材小用了，不推荐。</p>
+<h2>4.总结</h2><br />
+要立即永久变更主机名，应该是如下3步：<br />
+1）<span style="color: #0000ff;">shell>hostname <new_hostname></span>&nbsp;&nbsp; #立即生效<br />
+2）<span style="color: #0000ff;">shell>vi /etc/sysconfig/network</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; #修改HOSTNAME，确保重启时依然有效<br />
+3）<span style="color: #0000ff;">shell>vi /etc/hosts</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; #添加127.0.0.1 <new_hostname>，这样对于本机上使用主机名来进行处理的网络服务可以立即产生效果。</p>

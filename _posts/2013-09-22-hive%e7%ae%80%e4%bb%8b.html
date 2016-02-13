@@ -1,0 +1,64 @@
+---
+layout: post
+status: publish
+published: true
+title: Hive简介
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Hive提供了类似SQL语言的方式，操作存储在Hadoop文件系统或者如HBase这样的数据库中的数据。其最适合的是数据仓库应用，而不是在线应用。\r\n\r\nHive提供了便捷的方式，使得原来基于RDBMS的应用可以方便地迁移到使用Hadoop。Hive提供了一种SQL方言，称为Hive
+  QL(HQL)。\r\n\r\nHive不能提供完整的数据库功能，其受到Hadoop和HDFS的设计约束。\r\n\r\n最大的约束是：Hive不提供记录级别的update，insert和delete。我们可以基于查询来创建新表，或者导出到文件。而且，Hadoop是一个倾向于批处理的系统，由于MapReduce
+  job的启动代价较高，Hive的查询会有较高的延迟。而且，Hive不支持事务！\r\n\r\nHive本质上是将HQL转化为后台MapReduce Job处理。其结构图如下：\r\n\r\n<a
+  href=\"http://www.sqlparty.com/wp-content/uploads/2013/09/hive.png\"><img
+  class=\"alignnone size-full wp-image-700\" alt=\"hive\" src=\"http://www.sqlparty.com/wp-content/uploads/2013/09/hive.png\"
+  width=\"766\" height=\"517\" /></a>\r\n\r\n本图取自《Programming Hive》\r\n\r\n"
+wordpress_id: 699
+wordpress_url: http://www.sqlparty.com/?p=699
+date: '2013-09-22 22:13:34 +0800'
+date_gmt: '2013-09-22 14:13:34 +0800'
+categories:
+- 大数据
+tags:
+- hive
+---
+<p>Hive提供了类似SQL语言的方式，操作存储在Hadoop文件系统或者如HBase这样的数据库中的数据。其最适合的是数据仓库应用，而不是在线应用。</p>
+<p>Hive提供了便捷的方式，使得原来基于RDBMS的应用可以方便地迁移到使用Hadoop。Hive提供了一种SQL方言，称为Hive QL(HQL)。</p>
+<p>Hive不能提供完整的数据库功能，其受到Hadoop和HDFS的设计约束。</p>
+<p>最大的约束是：Hive不提供记录级别的update，insert和delete。我们可以基于查询来创建新表，或者导出到文件。而且，Hadoop是一个倾向于批处理的系统，由于MapReduce job的启动代价较高，Hive的查询会有较高的延迟。而且，Hive不支持事务！</p>
+<p>Hive本质上是将HQL转化为后台MapReduce Job处理。其结构图如下：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/09/hive.png"><img class="alignnone size-full wp-image-700" alt="hive" src="http://www.sqlparty.com/wp-content/uploads/2013/09/hive.png" width="766" height="517" /></a></p>
+<p>本图取自《Programming Hive》</p>
+<p><!--more--></p>
+<p>与Hive交互有多种方式：</p>
+<ul>
+<li>CLI 命令行</li>
+<li>简单Web接口(HWI)</li>
+<li>图形化工具，如Hue,Qubole,Karmasphere</li>
+<li>编程接口 JDBC，ODBC，Thrift Serer</li><br />
+</ul><br />
+当需要MapReduce Job时，Hive不是生成Java MapReduce程序，而是使用内置、通用的Mapper、Reducer模块，这些模块由一个XML文件驱动执行，XML文件代表一个job plan。即通用模块是语言解释器，而XML文件是解释器可以识别的语言。</p>
+<p>Hive通过与JobTracker交互来启动MapReduce job，其可以与JobTracker进行远程交互，无需在同一台主机上。</p>
+<p>而Metastore是一个独立的关系型数据库，Hive将表定义以及其他一些系统元数据保存其中。</p>
+<p>一些与Hive不同的其他工具：</p>
+<ul>
+<li><strong>Pig</strong> 一个数据流(data flow)语言，通过写一系列的声明语句，来定义不同数据源之间的关系(relations)。每个relation执行一些新的数据转换。
+<ul>
+<li>Pig根据声明语句，创建一系列的MapReduce job，来执行数据转换，直到得到最终结果。这种数据流形式比复杂查询方式更加直观，所以Pig语言经常被用于ETL。</li>
+<li>Pig的缺点是需要学习全新的语言，然后很多情况下，Hadoop团队会联合使用Hive和Pig。</li><br />
+</ul><br />
+</li><br />
+</ul></p>
+<ul>
+<li><strong>HBase</strong> 一个分布式、可扩展的数据库系统，支持行级别的更新和事务（单行，非多行），以及快速的查询。
+<ul>
+<li>HBase 是基于列存储的key-value数据库，其底层可以使用HDFS进行数据存储。</li>
+<li>Hive现在可以与HBase进行整合。</li><br />
+</ul><br />
+</li><br />
+</ul><br />
+参考：<br />
+《Programming Hive》</p>

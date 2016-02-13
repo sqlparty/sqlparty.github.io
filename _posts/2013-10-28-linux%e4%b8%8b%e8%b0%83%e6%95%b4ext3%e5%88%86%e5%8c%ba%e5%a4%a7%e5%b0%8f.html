@@ -1,0 +1,320 @@
+---
+layout: post
+status: publish
+published: true
+title: Linux下调整ext3分区大小
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "本文讨论如何再不丢失数据的情况下调整已有ext3分区的大小，包括：\r\n<ol>\r\n\t<li>压缩已有分区</li>\r\n\t<li>增大已有分区</li>\r\n\t<li>合并两个ext3分区</li>\r\n</ol>\r\n这在没有使用LVM(逻辑卷管理)，而已有分区规划不能满足要求时，非常有用。\r\n<h2>"
+wordpress_id: 752
+wordpress_url: http://www.sqlparty.com/?p=752
+date: '2013-10-28 20:28:35 +0800'
+date_gmt: '2013-10-28 12:28:35 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- ext3
+---
+<p>本文讨论如何再不丢失数据的情况下调整已有ext3分区的大小，包括：</p>
+<ol>
+<li>压缩已有分区</li>
+<li>增大已有分区</li>
+<li>合并两个ext3分区</li><br />
+</ol><br />
+这在没有使用LVM(逻辑卷管理)，而已有分区规划不能满足要求时，非常有用。</p>
+<h2><!--more-->前提</h2><br />
+1.拥有root权限</p>
+<p>用root登录，或者sudo操作</p>
+<p>2.被操作的分区的文件系统必须已被卸载(umount)</p>
+<p>2.1对于不包含系统重要文件的分区，如/home分区，可以直接umount。<br />
+2.2对于包含系统重要文件的分区，如/分区，往往不可能在使用时umount，则需要借助Live CD。</p>
+<p>如果在生产环境中实施，一定记得备份好你的数据！以防万一因新分区尺寸等问题导致数据意味丢失。</p>
+<p>以下以较复杂情况（使用Live CD）为例，说明调整ext3分区的步骤。</p>
+<h2>案例1：压缩一个ext3分区</h2><br />
+<span style="color: #0000ff;">shell>df -h</span><br />
+<span style="color: #0000ff;">Filesystem&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Size&nbsp; Used Avail Use% Mounted on</span><br />
+<span style="color: #0000ff;">/dev/sda1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 9.5G&nbsp; 4.1G&nbsp; 4.9G&nbsp; 46% /</span><br />
+<span style="color: #0000ff;">varrun&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 94M&nbsp; 132K&nbsp;&nbsp; 94M&nbsp;&nbsp; 1% /var/run</span><br />
+<span style="color: #0000ff;">varlock&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 94M&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp; 94M&nbsp;&nbsp; 0% /var/lock</span><br />
+<span style="color: #0000ff;">udev&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10M&nbsp;&nbsp; 52K&nbsp;&nbsp; 10M&nbsp;&nbsp; 1% /dev</span><br />
+<span style="color: #0000ff;">devshm&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 94M&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp; 94M&nbsp;&nbsp; 0% /dev/shm</span><br />
+<span style="color: #0000ff;">lrm&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 94M&nbsp;&nbsp; 18M&nbsp;&nbsp; 77M&nbsp; 19% /lib/modules/2.6.17-10-generic/volatile</span></p>
+<p>本案例意在压缩分区/dev/sda1。</p>
+<p><span style="color: #0000ff;">shell>fdisk -l</span><br />
+<span style="color: #0000ff;">Disk /dev/sda: 10.7 GB, 10737418240 bytes</span><br />
+<span style="color: #0000ff;">255 heads, 63 sectors/track, 1305 cylinders</span><br />
+<span style="color: #0000ff;">Units = cylinders of 16065 * 512 = 8225280 bytes</span></p>
+<p><span style="color: #0000ff;">&nbsp;&nbsp; Device Boot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Start&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; End&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Blocks&nbsp;&nbsp; Id&nbsp; System</span><br />
+<span style="color: #0000ff;">/dev/sda1&nbsp;&nbsp; *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1247&nbsp;&nbsp;&nbsp; 10016496&nbsp;&nbsp; 83&nbsp; Linux</span><br />
+<span style="color: #0000ff;">/dev/sda2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1248&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1305&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 465885&nbsp;&nbsp;&nbsp; 5&nbsp; Extended</span><br />
+<span style="color: #0000ff;">/dev/sda5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1248&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1305&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 465853+&nbsp; 82&nbsp; Linux swap / Solaris</span><br />
+<span style="color: #0000ff;">shell>fdisk -s /dev/sda1</span><br />
+<span style="color: #0000ff;">10016496</span></p>
+<p>接着，我们重启系统，使用Live CD进入系统（如果你需要修改的分区不包含重要系统文件，则无需此步骤，可以直接操作）。</p>
+<p><span style="color: #0000ff;">shell>shutdown -r now</span></p>
+<p>运行Live CD进入系统后，切换成root，进行后续操作：</p>
+<p><span style="color: #0000ff;">shell>su </span><br />
+<span style="color: #0000ff;">shell>umount /dev/sda1</span> #确保需要调整的分区被umount<br />
+<span style="color: #0000ff;">shell>fsck -n /dev/sda1</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">fsck 1.38 (30-Jun-2005)</span><br />
+<span style="color: #0000ff;">e2fsck 1.38 (30-Jun-2005)</span><br />
+<span style="color: #0000ff;">/dev/sda1: clean, 159037/1254176 files, 1095299/2504124 blocks</span><br />
+<span style="color: #0000ff;">...</span></p>
+<p>接下来我们移除/dev/sda1上的文件系统日志信息，将/dev/sda1分区上的文件系统降为ext2</p>
+<p><span style="color: #0000ff;">shell>tune2fs -O ^has_journal /dev/sda1</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">tune2fs 1.38 (30-Jun-2005)</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">shell>e2fsck -f /dev/sda1</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">e2fsck 1.38 (30-Jun-2005)</span><br />
+<span style="color: #0000ff;">Pass 1: Checking inodes, blocks, and sizes</span><br />
+<span style="color: #0000ff;">Pass 2: Checking directory structure</span><br />
+<span style="color: #0000ff;">Pass 3: Checking directory connectivity</span><br />
+<span style="color: #0000ff;">Pass 4: Checking reference counts</span><br />
+<span style="color: #0000ff;">Pass 5: Checking group summary information</span><br />
+<span style="color: #0000ff;">/dev/sda1: 164178/1254176 files (0.6% non-contiguous), 1051617/2504124 blocks</span><br />
+<span style="color: #0000ff;">...</span></p>
+<p>检查无误后，我们使用resize2fs调整文件系统大小。resize2fs只能调整ext2文件系统，这就是为什么我们之前将/dev/sda1转化成了ext2</p>
+<p><span style="color: #0000ff;">shell>resize2fs /dev/sda1 6000M </span><br />
+<span style="color: #0000ff;">resize2fs 1.38 (30-Jun-2005)</span><br />
+<span style="color: #0000ff;">Resizing the filesystem on /dev/sda1 to 1536000 (4k) blocks.</span><br />
+<span style="color: #0000ff;">The filesystem on /dev/sda1 is now 1536000 blocks long.</span></p>
+<p>需要记录下这里的blocks数目<span style="color: #ff0000;">1536000</span>和他们的大小<span style="color: #ff0000;">4k</span>，我们后面会使用到。<br />
+接下来我们删除/dev/sda1分区（不用担心，不会有数据丢失），且创建一个新的，较小（适合我们调整后的文件系统）的分区。</p>
+<p><span style="color: #0000ff;">shell>fdisk /dev/sda</span>&nbsp;&nbsp; (注意：不是sda1！是针对整个磁盘的操作)<br />
+<span style="color: #0000ff;">The number of cylinders for this disk is set to 1305.</span><br />
+<span style="color: #0000ff;">There is nothing wrong with that, but this is larger than 1024,</span><br />
+<span style="color: #0000ff;">and could in certain setups cause problems with:</span><br />
+<span style="color: #0000ff;">1) software that runs at boot time (e.g., old versions of LILO)</span><br />
+<span style="color: #0000ff;">2) booting and partitioning software from other OSs</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; (e.g., DOS FDISK, OS/2 FDISK)</span><br />
+#看下帮助<br />
+<span style="color: #0000ff;">Command (m for help): m</span><br />
+<span style="color: #0000ff;">Command action</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; a&nbsp;&nbsp; toggle a bootable flag</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; b&nbsp;&nbsp; edit bsd disklabel</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; c&nbsp;&nbsp; toggle the dos compatibility flag</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; d&nbsp;&nbsp; delete a partition</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; l&nbsp;&nbsp; list known partition types</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; m&nbsp;&nbsp; print this menu</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; n&nbsp;&nbsp; add a new partition</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; o&nbsp;&nbsp; create a new empty DOS partition table</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; p&nbsp;&nbsp; print the partition table</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; q&nbsp;&nbsp; quit without saving changes</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; s&nbsp;&nbsp; create a new empty Sun disklabel</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; t&nbsp;&nbsp; change a partition's system id</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; u&nbsp;&nbsp; change display/entry units</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; v&nbsp;&nbsp; verify the partition table</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; w&nbsp;&nbsp; write table to disk and exit</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; x&nbsp;&nbsp; extra functionality (experts only)</span></p>
+<p>#删除分区</p>
+<p><span style="color: #0000ff;">Command (m for help): d</span><br />
+<span style="color: #0000ff;">Partition number (1-5): 1&nbsp;</span>&nbsp;&nbsp; #指定分区号</p>
+<p>#创建新分区/dev/sda1，它之前是主分区，现在依然选择主分区p</p>
+<p><span style="color: #0000ff;">Command (m for help): n</span><br />
+<span style="color: #0000ff;">Command action</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; l&nbsp;&nbsp; logical (5 or over)</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; p&nbsp;&nbsp; primary partition (1-4)</span><br />
+<span style="color: #0000ff;">p</span><br />
+<span style="color: #0000ff;">Partition number (1-4): 1</span></p>
+<p>#接下来是关键的步骤，我们需要指定新分区的大小，第一个柱面是确定的（通过fdisk -l可以查到），最后一个柱面需要计算，我们根据resize2fs的输出进行计算，为了确保分区够大，我们加上%3~5%：1536000 * 4k * 1.03 = 6328320k</p>
+<p><span style="color: #0000ff;">First cylinder (1-1305, default 1): 1</span><br />
+<span style="color: #0000ff;">Last cylinder or +size or +sizeM or +sizeK (1-1247, default 1247): +6328320K</span> #大写K</p>
+<p>我们原有的/dev/sda1有boot标记，即开机启动，新分区也加上：</p>
+<p><span style="color: #0000ff;">Command (m for help): a</span><br />
+<span style="color: #0000ff;">Partition number (1-5): 1</span></p>
+<p>接着我们将之前变更写入分区表，并退出：</p>
+<p><span style="color: #0000ff;">Command (m for help): w</span><br />
+<span style="color: #0000ff;">The partition table has been altered!</span></p>
+<p><span style="color: #0000ff;">Calling ioctl() to re-read partition table.</span></p>
+<p><span style="color: #0000ff;">WARNING: Re-reading the partition table failed with error 16: Device or resource busy.</span><br />
+<span style="color: #0000ff;">The kernel still uses the old table.</span><br />
+<span style="color: #0000ff;">The new table will be used at the next reboot.</span><br />
+<span style="color: #0000ff;">Syncing disks.</span></p>
+<p>重启系统，再次进入Live CD。</p>
+<p><span style="color: #0000ff;">shell>shutdown -r now</span><br />
+<span style="color: #0000ff;">shell>su</span><br />
+<span style="color: #0000ff;">shell>fsck -n /dev/sda1</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">&nbsp;fsck 1.38 (30-Jun-2005)</span><br />
+<span style="color: #0000ff;">e2fsck 1.38 (30-Jun-2005)</span><br />
+<span style="color: #0000ff;">/dev/sda1: clean, 159036/765536 files, 1047239/1536000 blocks</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">shell>tune2fs -j /dev/sda1</span> #为ext2加上日志，转化为ext3<br />
+<span style="color: #0000ff;">tune2fs 1.38 (30-Jun-2005)</span><br />
+<span style="color: #0000ff;">Creating journal inode: done</span><br />
+<span style="color: #0000ff;">This filesystem will be automatically checked every 30 mounts or</span><br />
+<span style="color: #0000ff;">0 days, whichever comes first. Use tune2fs -c or -i to override.</span></p>
+<p>#再次重启，取出Live CD，进入到原系统</p>
+<p><span style="color: #0000ff;">shell>shutdown -r now</span><br />
+<span style="color: #0000ff;">shell>df -h</span><br />
+<span style="color: #0000ff;">Filesystem&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Size&nbsp; Used Avail Use% Mounted on</span><br />
+<span style="color: #0000ff;">/dev/sda1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5.8G&nbsp; 4.1G&nbsp; 1.6G&nbsp; 73% /</span><br />
+<span style="color: #0000ff;">varrun&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 94M&nbsp; 132K&nbsp;&nbsp; 94M&nbsp;&nbsp; 1% /var/run</span><br />
+<span style="color: #0000ff;">varlock&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 94M&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp; 94M&nbsp;&nbsp; 0% /var/lock</span><br />
+<span style="color: #0000ff;">udev&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10M&nbsp;&nbsp; 52K&nbsp;&nbsp; 10M&nbsp;&nbsp; 1% /dev</span><br />
+<span style="color: #0000ff;">devshm&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 94M&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp; 94M&nbsp;&nbsp; 0% /dev/shm</span><br />
+<span style="color: #0000ff;">lrm&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 94M&nbsp;&nbsp; 18M&nbsp;&nbsp; 77M&nbsp; 19% /lib/modules/2.6.17-10-generic/volatile</span><br />
+<span style="color: #0000ff;">shell>fdisk -l</span><br />
+<span style="color: #0000ff;">Disk /dev/sda: 10.7 GB, 10737418240 bytes</span><br />
+<span style="color: #0000ff;">255 heads, 63 sectors/track, 1305 cylinders</span><br />
+<span style="color: #0000ff;">Units = cylinders of 16065 * 512 = 8225280 bytes</span></p>
+<p><span style="color: #0000ff;">&nbsp;&nbsp; Device Boot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Start&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; End&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Blocks&nbsp;&nbsp; Id&nbsp; System</span><br />
+<span style="color: #0000ff;">/dev/sda1&nbsp;&nbsp; *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 789&nbsp;&nbsp;&nbsp;&nbsp; 6337611&nbsp;&nbsp; 83&nbsp; Linux</span><br />
+<span style="color: #0000ff;">/dev/sda2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1248&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1305&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 465885&nbsp;&nbsp;&nbsp; 5&nbsp; Extended</span><br />
+<span style="color: #0000ff;">/dev/sda5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1248&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1305&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 465853+&nbsp; 82&nbsp; Linux swap / Solaris</span><br />
+<span style="color: #0000ff;">shell>fdisk -s /dev/sda1</span><br />
+<span style="color: #0000ff;">6337611</span></p>
+<h2>案例2：扩展一个ext3分区</h2><br />
+经过案例1，我们空出了4G的未使用空间，在分区/dev/sda1之后。这里我们期望将这部分空间添加到我们的/dev/sda1分区上（这只有在未使用空间正好紧邻该分区时才可以实现！）。</p>
+<p>先查看下现有分区信息：</p>
+<p><span style="color: #0000ff;">shell>df -h</span><br />
+<span style="color: #0000ff;">Filesystem&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Size&nbsp; Used Avail Use% Mounted on</span><br />
+<span style="color: #0000ff;">/dev/sda1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5.8G&nbsp; 4.1G&nbsp; 1.6G&nbsp; 73% /</span><br />
+<span style="color: #0000ff;">varrun&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 94M&nbsp; 132K&nbsp;&nbsp; 94M&nbsp;&nbsp; 1% /var/run</span><br />
+<span style="color: #0000ff;">varlock&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 94M&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp; 94M&nbsp;&nbsp; 0% /var/lock</span><br />
+<span style="color: #0000ff;">udev&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10M&nbsp;&nbsp; 52K&nbsp;&nbsp; 10M&nbsp;&nbsp; 1% /dev</span><br />
+<span style="color: #0000ff;">devshm&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 94M&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp; 94M&nbsp;&nbsp; 0% /dev/shm</span><br />
+<span style="color: #0000ff;">lrm&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 94M&nbsp;&nbsp; 18M&nbsp;&nbsp; 77M&nbsp; 19% /lib/modules/2.6.17-10-generic/volatile</span><br />
+<span style="color: #0000ff;">shell>fdisk -l</span><br />
+<span style="color: #0000ff;">Disk /dev/sda: 10.7 GB, 10737418240 bytes</span><br />
+<span style="color: #0000ff;">255 heads, 63 sectors/track, 1305 cylinders</span><br />
+<span style="color: #0000ff;">Units = cylinders of 16065 * 512 = 8225280 bytes</span></p>
+<p><span style="color: #0000ff;">&nbsp;&nbsp; Device Boot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Start&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; End&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Blocks&nbsp;&nbsp; Id&nbsp; System</span><br />
+<span style="color: #0000ff;">/dev/sda1&nbsp;&nbsp; *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 789&nbsp;&nbsp;&nbsp;&nbsp; 6337611&nbsp;&nbsp; 83&nbsp; Linux</span><br />
+<span style="color: #0000ff;">/dev/sda2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1248&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1305&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 465885&nbsp;&nbsp;&nbsp; 5&nbsp; Extended</span><br />
+<span style="color: #0000ff;">/dev/sda5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1248&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1305&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 465853+&nbsp; 82&nbsp; Linux swap / Solaris</span><br />
+<span style="color: #0000ff;">shell>fdisk -s /dev/sda1</span><br />
+<span style="color: #0000ff;">6337611</span></p>
+<p>#增大分区依然要求分区被umount，与案例1类似，重启，使用Live CD，进入后切换为root后执行</p>
+<p><span style="color: #0000ff;">shell>umount /dev/sda1</span><br />
+<span style="color: #0000ff;">shell>fsck -n /dev/sda1</span><br />
+<span style="color: #0000ff;">fsck 1.38 (30-Jun-2005)</span><br />
+<span style="color: #0000ff;">e2fsck 1.38 (30-Jun-2005)</span><br />
+<span style="color: #0000ff;">/dev/sda1: clean, 159036/765536 files, 1080014/1536000 blocks</span><br />
+<span style="color: #0000ff;">shell>tune2fs -O ^has_journal /dev/sda1&nbsp; #转化为ext2文件系统</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">tune2fs 1.38 (30-Jun-2005)</span><br />
+<span style="color: #0000ff;">...</span></p>
+<p>接下来删除分区（数据并不会丢失），并创建较大的新分区（包含要扩展的部分）<br />
+<span style="color: #0000ff;">shell>fdisk /dev/sda</span><br />
+<span style="color: #0000ff;">The number of cylinders for this disk is set to 1305.</span><br />
+<span style="color: #0000ff;">There is nothing wrong with that, but this is larger than 1024,</span><br />
+<span style="color: #0000ff;">and could in certain setups cause problems with:</span><br />
+<span style="color: #0000ff;">1) software that runs at boot time (e.g., old versions of LILO)</span><br />
+<span style="color: #0000ff;">2) booting and partitioning software from other OSs</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; (e.g., DOS FDISK, OS/2 FDISK)</span><br />
+<span style="color: #0000ff;">Command (m for help): m</span><br />
+<span style="color: #0000ff;">Command action</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; a&nbsp;&nbsp; toggle a bootable flag</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; b&nbsp;&nbsp; edit bsd disklabel</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; c&nbsp;&nbsp; toggle the dos compatibility flag</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; d&nbsp;&nbsp; delete a partition</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; l&nbsp;&nbsp; list known partition types</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; m&nbsp;&nbsp; print this menu</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; n&nbsp;&nbsp; add a new partition</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; o&nbsp;&nbsp; create a new empty DOS partition table</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; p&nbsp;&nbsp; print the partition table</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; q&nbsp;&nbsp; quit without saving changes</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; s&nbsp;&nbsp; create a new empty Sun disklabel</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; t&nbsp;&nbsp; change a partition's system id</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; u&nbsp;&nbsp; change display/entry units</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; v&nbsp;&nbsp; verify the partition table</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; w&nbsp;&nbsp; write table to disk and exit</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; x&nbsp;&nbsp; extra functionality (experts only)</span><br />
+<span style="color: #0000ff;">Command (m for help): p</span></p>
+<p><span style="color: #0000ff;">Disk /dev/sda: 10.7 GB, 10737418240 bytes</span><br />
+<span style="color: #0000ff;">255 heads, 63 sectors/track, 1305 cylinders</span><br />
+<span style="color: #0000ff;">Units = cylinders of 16065 * 512 = 8225280 bytes</span></p>
+<p><span style="color: #0000ff;">&nbsp;&nbsp; Device Boot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Start&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; End&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Blocks&nbsp;&nbsp; Id&nbsp; System</span><br />
+<span style="color: #0000ff;">/dev/sda1&nbsp;&nbsp; *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 789&nbsp;&nbsp;&nbsp;&nbsp; 6337611&nbsp;&nbsp; 83&nbsp; Linux</span><br />
+<span style="color: #0000ff;">/dev/sda2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1248&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1305&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 465885&nbsp;&nbsp;&nbsp; 5&nbsp; Extended</span><br />
+<span style="color: #0000ff;">/dev/sda5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1248&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1305&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 465853+&nbsp; 82&nbsp; Linux swap / Solaris</span><br />
+<span style="color: #0000ff;">Command (m for help): d&nbsp;&nbsp;</span> #删除分区<br />
+<span style="color: #0000ff;">Partition number (1-5): 1&nbsp;&nbsp; &nbsp;</span><br />
+<span style="color: #0000ff;">Command (m for help): n&nbsp;&nbsp;</span> #新建分区<br />
+<span style="color: #0000ff;">Command action</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; l&nbsp;&nbsp; logical (5 or over)</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; p&nbsp;&nbsp; primary partition (1-4)</span><br />
+<span style="color: #0000ff;">p&nbsp;&nbsp;</span> #设置为主分区<br />
+<span style="color: #0000ff;">Partition number (1-4): 1</span><br />
+<span style="color: #0000ff;">First cylinder (1-1305, default 1): 1</span><br />
+<span style="color: #0000ff;">Last cylinder or +size or +sizeM or +sizeK (1-1247, default 1247): 1247&nbsp;&nbsp;</span> #这里fdisk检测到能够到达的最大值，使用该值即可<br />
+<span style="color: #0000ff;">Command (m for help): p&nbsp;&nbsp; &nbsp;</span></p>
+<p><span style="color: #0000ff;">Disk /dev/sda: 10.7 GB, 10737418240 bytes</span><br />
+<span style="color: #0000ff;">255 heads, 63 sectors/track, 1305 cylinders</span><br />
+<span style="color: #0000ff;">Units = cylinders of 16065 * 512 = 8225280 bytes</span></p>
+<p><span style="color: #0000ff;">&nbsp;&nbsp; Device Boot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Start&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; End&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Blocks&nbsp;&nbsp; Id&nbsp; System</span><br />
+<span style="color: #0000ff;">/dev/sda1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1247&nbsp;&nbsp;&nbsp; 10016496&nbsp;&nbsp; 83&nbsp; Linux</span><br />
+<span style="color: #0000ff;">/dev/sda2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1248&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1305&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 465885&nbsp;&nbsp;&nbsp; 5&nbsp; Extended</span><br />
+<span style="color: #0000ff;">/dev/sda5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1248&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1305&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 465853+&nbsp; 82&nbsp; Linux swap / Solaris</span><br />
+<span style="color: #0000ff;">Command (m for help): a&nbsp;<span style="color: #000000;"> #</span></span>添加boot标记<br />
+<span style="color: #0000ff;">Command (m for help): w</span><br />
+<span style="color: #0000ff;">The partition table has been altered!</span></p>
+<p><span style="color: #0000ff;">Calling ioctl() to re-read partition table.</span></p>
+<p><span style="color: #0000ff;">WARNING: Re-reading the partition table failed with error 16: Device or resource busy.</span><br />
+<span style="color: #0000ff;">The kernel still uses the old table.</span><br />
+<span style="color: #0000ff;">The new table will be used at the next reboot.</span><br />
+<span style="color: #0000ff;">Syncing disks.</span></p>
+<p>然后我们重启系统，继续进入Live CD，切换为root:</p>
+<p><span style="color: #0000ff;">shell>e2fsck -f /dev/sda1</span><br />
+<span style="color: #0000ff;">shell>resize2fs /dev/sda1&nbsp;</span> #不指定大小，就会最大的可用空间，所以可以不计算<br />
+<span style="color: #0000ff;">resize2fs 1.38 (30-Jun-2005)</span><br />
+<span style="color: #0000ff;">Resizing the filesystem on /dev/sda1 to 2504124 (4k) blocks.</span><br />
+<span style="color: #0000ff;">The filesystem on /dev/sda1 is now 2504124 blocks long.</span><br />
+<span style="color: #0000ff;">shell>fsck -n /dev/sda1</span><br />
+<span style="color: #0000ff;">fsck 1.38 (30-Jun-2005)</span><br />
+<span style="color: #0000ff;">e2fsck 1.38 (30-Jun-2005)</span><br />
+<span style="color: #0000ff;">/dev/sda1: clean, 159036/1254176 files, 1062544/2504124 blocks</span><br />
+<span style="color: #0000ff;">shell>tune2fs -j /dev/sda1&nbsp;</span> #添加日志，再次转化为ext3<br />
+<span style="color: #0000ff;">tune2fs 1.38 (30-Jun-2005)</span><br />
+<span style="color: #0000ff;">Creating journal inode: done</span><br />
+<span style="color: #0000ff;">This filesystem will be automatically checked every 30 mounts or</span><br />
+<span style="color: #0000ff;">0 days, whichever comes first. Use tune2fs -c or -i to override.</span></p>
+<p>之后就可以重启进入原系统，查看新的分区信息</p>
+<p><span style="color: #0000ff;">shell>df -h</span><br />
+<span style="color: #0000ff;">Filesystem&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Size&nbsp; Used Avail Use% Mounted on</span><br />
+<span style="color: #0000ff;">/dev/sda1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 9.5G&nbsp; 4.1G&nbsp; 5.0G&nbsp; 45% /</span><br />
+<span style="color: #0000ff;">varrun&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 94M&nbsp; 132K&nbsp;&nbsp; 94M&nbsp;&nbsp; 1% /var/run</span><br />
+<span style="color: #0000ff;">varlock&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 94M&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp; 94M&nbsp;&nbsp; 0% /var/lock</span><br />
+<span style="color: #0000ff;">udev&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10M&nbsp;&nbsp; 52K&nbsp;&nbsp; 10M&nbsp;&nbsp; 1% /dev</span><br />
+<span style="color: #0000ff;">devshm&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 94M&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp; 94M&nbsp;&nbsp; 0% /dev/shm</span><br />
+<span style="color: #0000ff;">lrm&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 94M&nbsp;&nbsp; 18M&nbsp;&nbsp; 77M&nbsp; 19% /lib/modules/2.6.17-10-generic/volatile</span><br />
+<span style="color: #0000ff;">shell>fdisk -l</span><br />
+<span style="color: #0000ff;">Disk /dev/sda: 10.7 GB, 10737418240 bytes</span><br />
+<span style="color: #0000ff;">255 heads, 63 sectors/track, 1305 cylinders</span><br />
+<span style="color: #0000ff;">Units = cylinders of 16065 * 512 = 8225280 bytes</span></p>
+<p><span style="color: #0000ff;">&nbsp;&nbsp; Device Boot&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Start&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; End&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Blocks&nbsp;&nbsp; Id&nbsp; System</span><br />
+<span style="color: #0000ff;">/dev/sda1&nbsp;&nbsp; *&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1247&nbsp;&nbsp;&nbsp; 10016496&nbsp;&nbsp; 83&nbsp; Linux</span><br />
+<span style="color: #0000ff;">/dev/sda2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1248&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1305&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 465885&nbsp;&nbsp;&nbsp; 5&nbsp; Extended</span><br />
+<span style="color: #0000ff;">/dev/sda5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1248&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1305&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 465853+&nbsp; 82&nbsp; Linux swap / Solaris</span><br />
+<span style="color: #0000ff;">shell>fdisk -s /dev/sda1</span><br />
+<span style="color: #0000ff;">10016496</span></p>
+<h2>小结</h2><br />
+经过上述案例，我们可以了解到调整ext3分区的基本思路：</p>
+<p>步骤1）umount 需要调整的分区</p>
+<p>步骤2）将ext3降为ext2，删除日志功能</p>
+<p>步骤3）牢记，文件系统是建立在分区之上的。所以，如果要缩小分区，先缩小文件系统，再缩小分区；要扩展分区，先扩展分区，再扩展文件系统！</p>
+<p>调整文件系统步骤：先使用tune2f将ext3降为ext2，然后使用resize2fs调整ext2文件系统大小，最终tune2f再将ext2升级为ext3；</p>
+<p>调整分区步骤：删除原分区，创建新分区，注意分区大小的指定，以及是否boot，是否主分区等。</p>
+<h2>案例3：合并两个ext3分区</h2><br />
+有了上述两个案例做铺垫，我们可以延伸操作本案例。首先前提，两个分区是相邻分区才能够进行合并。</p>
+<p>基本思路：</p>
+<ol>
+<li>将后一个分区的文件系统umount，且删除该分区（<span style="color: #ff0000;">因数据会被清除，如果需要保留，提前备份！</span>），这样就有了空闲空间，形成于案例2一样的情况。</li>
+<li>按照案例2的操作步骤依次处理即可。</li><br />
+</ol><br />
+主要注意的是：</p>
+<p>1）如果被删除的分区，在/etc/fstab上有记录，删除之！<br />
+2）被删除分区的数据也会被删除，再次提醒，如果需要，备份！</p>
+<p>具体操作不再详述，参考前两个案例。</p>
+<p>参考：<br />
+<a href="http://www.howtoforge.com/linux_resizing_ext3_partitions" target="_blank">http://www.howtoforge.com/linux_resizing_ext3_partitions</a></p>

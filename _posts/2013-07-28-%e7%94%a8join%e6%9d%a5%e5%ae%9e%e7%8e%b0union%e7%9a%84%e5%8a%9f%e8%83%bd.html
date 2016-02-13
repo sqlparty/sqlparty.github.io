@@ -1,0 +1,74 @@
+---
+layout: post
+status: publish
+published: true
+title: 用JOIN来实现UNION的功能
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "假设我们有这样两张表：A(ID_A, A_NAME)，B(ID_B,B_NAME, ID_A)。\r\n\r\n我执行类似如下语句，\r\n\r\n[sql]\r\nselect
+  A_NAME from A\r\nunion\r\nselect B_NAME from B\r\n[/sql]\r\n\r\n得到结果集类似于\r\n\r\n[sql]\r\n
+  \ A_Name1\r\n  A_Name2\r\n  A_Name3\r\n  B_Name1\r\n  B_Name2\r\n  B_Name3\r\n[/sql]\r\n\r\n这里的问题是：怎样只使用JOIN而不用UNION方式，来实现上述结果，即返回一列，包含所有的A_NAME和B_NAME。\r\n\r\n本题来源<a
+  title=\"Perform a &ldquo;Union&rdquo; of two tables using &ldquo;join&rdquo; operator\"
+  href=\"http://stackoverflow.com/questions/16709867/perform-a-union-of-two-tables-using-join-operator\"
+  target=\"_blank\">stackoverflow</a>\r\n\r\n"
+wordpress_id: 132
+wordpress_url: http://www.sqlparty.com/?p=132
+date: '2013-07-28 08:34:10 +0800'
+date_gmt: '2013-07-28 00:34:10 +0800'
+categories:
+- 题炼
+tags:
+- 数据库
+- join
+- union
+---
+<p>假设我们有这样两张表：A(ID_A, A_NAME)，B(ID_B,B_NAME, ID_A)。</p>
+<p>我执行类似如下语句，</p>
+<p>[sql]<br />
+select A_NAME from A<br />
+union<br />
+select B_NAME from B<br />
+[/sql]</p>
+<p>得到结果集类似于</p>
+<p>[sql]<br />
+  A_Name1<br />
+  A_Name2<br />
+  A_Name3<br />
+  B_Name1<br />
+  B_Name2<br />
+  B_Name3<br />
+[/sql]</p>
+<p>这里的问题是：怎样只使用JOIN而不用UNION方式，来实现上述结果，即返回一列，包含所有的A_NAME和B_NAME。</p>
+<p>本题来源<a title="Perform a &ldquo;Union&rdquo; of two tables using &ldquo;join&rdquo; operator" href="http://stackoverflow.com/questions/16709867/perform-a-union-of-two-tables-using-join-operator" target="_blank">stackoverflow</a></p>
+<p><!--more--></p>
+<div class="dailyanswer">可以使用FULL JOIN来实现。如下：<br />
+[sql]<br />
+SELECT COALESCE(A.A_NAME, B.B_NAME)<br />
+FROM A<br />
+FULL JOIN B<br />
+  ON 1=0<br />
+[/sql]</p>
+<p>上面的1=0其实是为了确保没有行能匹配上。该SQL在A_NAME和B_NAME有重复时不会去除重复，而这点与union有不一致的地方，因为union会主动去重（union all不去重）。考虑到去除重复，完全与原始union结果集一致的话，可以如下：</p>
+<p>[sql]<br />
+SELECT CASE WHEN A.A_NAME IS NULL THEN B.B_NAME<br />
+            ELSE A.A_NAME<br />
+       END AS UNIQUENAME<br />
+FROM A<br />
+FULL JOIN B<br />
+  ON A.A_NAME = B.B_NAME<br />
+[/sql]</p>
+<p>CASE WHEN与COALESCE的效果是一致的。</p>
+<p>注：MySQL 5.5为止还不支持FULL JOIN。可以如下方式变通，前提是存在主键（这里假设ID_A和ID_B分别是各自表的主键）以及两表都不止一条记录。如下方式中使用了笛卡尔积，仅做示例用，正常很少使用完整笛卡尔积而不添加筛选语句on。</p>
+<p>[sql]<br />
+SELECT DISTINCT CASE WHEN A.ID_A = B.ID_B THEN A.A_NAME<br />
+                     ELSE B.B_NAME<br />
+                END AS UNIQUENAME<br />
+FROM A<br />
+INNER JOIN B<br />
+[/sql]</p>
+<p></div></p>

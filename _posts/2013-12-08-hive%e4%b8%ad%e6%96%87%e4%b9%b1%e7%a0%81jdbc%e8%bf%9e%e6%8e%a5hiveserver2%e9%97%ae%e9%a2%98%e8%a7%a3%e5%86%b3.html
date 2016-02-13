@@ -1,0 +1,157 @@
+---
+layout: post
+status: publish
+published: true
+title: Hive中文乱码(JDBC连接HiveServer2)问题解决
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "工作中遇到通过jdbc连接hive服务器(我们是用HiveServer2)，获取的中文是乱码的问题。使用beeline有同样的效果，而用hive命令行却能正常显示中文。而写入，读取的文件，都是用的UTF-8，Java环境也都是UTF-8字符集。这是怎么回事？\r\n<h2>问题重现</h2>\r\n我们可以以如下方式重现：\r\n\r\n<span
+  style=\"color: #0000ff;\">shell> cat upload.txt</span>\r\n<span style=\"color:
+  #0000ff;\">row1</span>\r\n<span style=\"color: #0000ff;\">行2</span>\r\n<span
+  style=\"color: #0000ff;\">行3</span>\r\n<span style=\"color: #0000ff;\">row4</span>\r\n\r\nhive中在default库中创建表str_test(v
+  string)，然后将upload.txt文件上传到该表的存储路径：\r\n\r\n<span style=\"color: #0000ff;\">shell>
+  hadoop fs -put upload.txt /user/hive/warehouse/str_test/</span>\r\n<span
+  style=\"color: #0000ff;\">shell> beeline -d org.apache.hive.jdbc.HiveDriver -u jdbc:hive2://localhost:10000
+  -e \"select * from str_test\"</span>\r\n<span style=\"color: #0000ff;\">...</span>\r\n<span
+  style=\"color: #0000ff;\">+-------+</span>\r\n<span style=\"color: #0000ff;\">|
+  v |</span>\r\n<span style=\"color: #0000ff;\">+-------+</span>\r\n<span
+  style=\"color: #0000ff;\">| row1 |</span>\r\n<span style=\"color: #0000ff;\">|
+  ?2 |</span>\r\n<span style=\"color: #0000ff;\">| ?3 |</span>\r\n<span style=\"color:
+  #0000ff;\">| row4 |</span>\r\n<span style=\"color: #0000ff;\">| |</span>\r\n<span
+  style=\"color: #0000ff;\">+-------+</span>\r\n\r\n<span style=\"color: #0000ff;\">shell>
+  hive -e \"select * from str_test\"</span>\r\n<span style=\"color: #0000ff;\">...</span>\r\n<span
+  style=\"color: #0000ff;\">row1</span>\r\n<span style=\"color: #0000ff;\">行2</span>\r\n<span
+  style=\"color: #0000ff;\">行3</span>\r\n<span style=\"color: #0000ff;\">row4</span>\r\n\r\n出现乱码时，交互方式是：<strong>Client->jdbc->Hive
+  Server2->Hadoop</strong>，而正常显示的Hive命令行的交互是：<strong>Hive CLI->Hadoop</strong>。所以基本可以确定乱码问题在Client->jdbc->Hive
+  Server2这三个部分的其中一个部分上。\r\n\r\n"
+wordpress_id: 798
+wordpress_url: http://www.sqlparty.com/?p=798
+date: '2013-12-08 15:48:09 +0800'
+date_gmt: '2013-12-08 07:48:09 +0800'
+categories:
+- 大数据
+tags:
+- 问题集
+- hive
+- jdbc
+---
+<p>工作中遇到通过jdbc连接hive服务器(我们是用HiveServer2)，获取的中文是乱码的问题。使用beeline有同样的效果，而用hive命令行却能正常显示中文。而写入，读取的文件，都是用的UTF-8，Java环境也都是UTF-8字符集。这是怎么回事？</p>
+<h2>问题重现</h2><br />
+我们可以以如下方式重现：</p>
+<p><span style="color: #0000ff;">shell> cat upload.txt</span><br />
+<span style="color: #0000ff;">row1</span><br />
+<span style="color: #0000ff;">行2</span><br />
+<span style="color: #0000ff;">行3</span><br />
+<span style="color: #0000ff;">row4</span></p>
+<p>hive中在default库中创建表str_test(v string)，然后将upload.txt文件上传到该表的存储路径：</p>
+<p><span style="color: #0000ff;">shell> hadoop fs -put upload.txt /user/hive/warehouse/str_test/</span><br />
+<span style="color: #0000ff;">shell> beeline -d org.apache.hive.jdbc.HiveDriver -u jdbc:hive2://localhost:10000 -e "select * from str_test"</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">+-------+</span><br />
+<span style="color: #0000ff;">| v |</span><br />
+<span style="color: #0000ff;">+-------+</span><br />
+<span style="color: #0000ff;">| row1 |</span><br />
+<span style="color: #0000ff;">| ?2 |</span><br />
+<span style="color: #0000ff;">| ?3 |</span><br />
+<span style="color: #0000ff;">| row4 |</span><br />
+<span style="color: #0000ff;">| |</span><br />
+<span style="color: #0000ff;">+-------+</span></p>
+<p><span style="color: #0000ff;">shell> hive -e "select * from str_test"</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">row1</span><br />
+<span style="color: #0000ff;">行2</span><br />
+<span style="color: #0000ff;">行3</span><br />
+<span style="color: #0000ff;">row4</span></p>
+<p>出现乱码时，交互方式是：<strong>Client->jdbc->Hive Server2->Hadoop</strong>，而正常显示的Hive命令行的交互是：<strong>Hive CLI->Hadoop</strong>。所以基本可以确定乱码问题在Client->jdbc->Hive Server2这三个部分的其中一个部分上。</p>
+<p><!--more--></p>
+<h2>排查1.Client</h2><br />
+Client是我们自行开发的Java应用，经查整个项目一直都是用的UTF-8字符集，排查Client的编码问题。</p>
+<h2>排查2.jdbc</h2><br />
+网上查询一番类似的问题，参考了 文章<a href="http://wocclyl.blog.163.com/blog/static/4622350420134301120474/" target="_blank">1</a>和<a href="https://issues.apache.org/jira/browse/HIVE-2137" target="_blank">2</a>后，我们初步认为，采用网上推荐的方案，更新hive的JDBC驱动程序，将获取的字符强制硬编码使用UTF-8字符集，可以解决我们的问题。</p>
+<p>我们使用的驱动包是hive-jdbc-0.10.0-cdh4.5.0.jar，可以看到里面有两个包：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/12/hive-jdbc.png"><img class="alignnone size-full wp-image-799" alt="hive-jdbc" src="http://www.sqlparty.com/wp-content/uploads/2013/12/hive-jdbc.png" width="300" height="564" /></a></p>
+<p>我们按照网上的说法，更新org.apache.hadoop.hive.jdbc.HiveResultSet，采用如下patch：</p>
+<p style="padding-left: 30px;">Index: jdbc/src/java/org/apache/hadoop/hive/jdbc/HiveQueryResultSet.java<br />
+===================================================================<br />
+&mdash; jdbc/src/java/org/apache/hadoop/hive/jdbc/HiveQueryResultSet.java (revision 1195103)<br />
++++ jdbc/src/java/org/apache/hadoop/hive/jdbc/HiveQueryResultSet.java (working copy)<br />
+@@ -153,7 +153,7 @@<br />
+StructObjectInspector soi = (StructObjectInspector) serde.getObjectInspector();<br />
+List fieldRefs = soi.getAllStructFieldRefs();<br />
+<span style="color: #0000ff;">- Object data = serde.deserialize(new BytesWritable(rowStr.getBytes()));</span><br />
+<span style="color: #0000ff;">+ Object data = serde.deserialize(new BytesWritable(rowStr.getBytes(&ldquo;UTF-8&Prime;)));</span><br />
+assert row.size() == fieldRefs.size() : row.size() + &ldquo;, &rdquo; + fieldRefs.size();<br />
+for (int i = 0; i < fieldRefs.size(); i++) {</p><br />
+这个patch强制将获取的内容强制使用UTF-8编码解码。修改jar的方式是</p>
+<ol>
+<li>获取jdbc/src/java/org/apache/hadoop/hive/jdbc/HiveQueryResultSet.java的源码（通过svn:http://svn.apache.org/repos/asf/hive/trunk或者使用Maven直接download source）</li>
+<li>在依赖满足的情况下编译获取class文件</li>
+<li>用新生成的HiveQueryResultSet.class直接替换掉hive-jdbc jar中org.apache.hadoop.hive.jdbc包下HiveQueryResultSet.class！</li><br />
+</ol><br />
+按照如上方式处理后，发现<strong>依然无效</strong>。不仅如此，我们调整LOG为DEBUG（即打印出大量DEBUG日志），然后尝试各种方法：加入打印语句、修改输出内容、甚至整个删除jar中的org.apache.hadoop.hive.jdbc包等等，最终发现，Java程序调用Hive JDBC时根本没进入<span style="color: #ff9900;">org.apache.hadoop.hive.jdbc</span>中，即使删除org.apache.hadoop.hive.jdbc这个包都没影响，生效的是<span style="color: #ff00ff;">org.apache.hive.jdbc</span>包中的内容！</p>
+<p>在<span style="color: #ff00ff;">org.apache.hive.jdbc</span>包中没有找到相似的serde.deserialize这样的反序列化的语句。看来网上的方案在我们这不适用。那么这两个包是什么用途，什么关系呢？</p>
+<p>从<a href="https://cwiki.apache.org/confluence/display/Hive/HiveServer2+Clients" target="_blank">HiveServer2 Clients</a>中，一段话提醒了我们：</p>
+<p style="padding-left: 30px;">The JDBC connection URL format has the prefix jdbc:hive2:// and the Driver class is <strong>org.apache.hive.jdbc.HiveDriver</strong>. Note that this is different from the old <a href="https://cwiki.apache.org/confluence/display/Hive/HiveServer" target="_blank">HiveServer</a>.</p><br />
+再看第一版本的<a href="https://cwiki.apache.org/confluence/display/Hive/HiveClient" target="_blank">HiveServer Client</a>，使用的是:</p>
+<p>driverName = "<strong>org.apache.hadoop.hive.jdbc.HiveDriver</strong>";</p>
+<p>看到这两个包，在比对我们疑惑的两个包，一切明朗了：</p>
+<ul>
+<li><span style="color: #ff9900;">org.apache.hadoop.hive.jdbc</span> 针对HiveServer1，与我们的场景无关。</li>
+<li><span style="color: #ff00ff;">org.apache.hive.jdbc</span> 针对HiveServer2，我们需要关注。</li>
+<li>如上网络上给出的方案针对HiveServer1，确实不适用我们的场景。</li><br />
+</ul><br />
+细查<span style="color: #ff00ff;">org.apache.hive.jdbc</span>的类，发现这个版本与HiveServer1的处理完全不一样了，不是使用serde，还是直接用了thrift，其中也没找到编码相关的选项。这条路走到头了。</p>
+<h2>排查3.HiveServer2</h2><br />
+剩下就是检查HiveServer2使用的字符集了。</p>
+<p>系统层面：<br />
+<span style="color: #0000ff;">shell> locale </span><br />
+<span style="color: #0000ff;">LANG=zh_CN.UTF-8</span><br />
+<span style="color: #0000ff;">LC_CTYPE="zh_CN.UTF-8"</span><br />
+<span style="color: #0000ff;">LC_NUMERIC="zh_CN.UTF-8"</span><br />
+<span style="color: #0000ff;">LC_TIME="zh_CN.UTF-8"</span><br />
+<span style="color: #0000ff;">LC_COLLATE="zh_CN.UTF-8"</span><br />
+<span style="color: #0000ff;">LC_MONETARY="zh_CN.UTF-8"</span><br />
+<span style="color: #0000ff;">LC_MESSAGES="zh_CN.UTF-8"</span><br />
+<span style="color: #0000ff;">LC_PAPER="zh_CN.UTF-8"</span><br />
+<span style="color: #0000ff;">LC_NAME="zh_CN.UTF-8"</span><br />
+<span style="color: #0000ff;">LC_ADDRESS="zh_CN.UTF-8"</span><br />
+<span style="color: #0000ff;">LC_TELEPHONE="zh_CN.UTF-8"</span><br />
+<span style="color: #0000ff;">LC_MEASUREMENT="zh_CN.UTF-8"</span><br />
+<span style="color: #0000ff;">LC_IDENTIFICATION="zh_CN.UTF-8"</span><br />
+<span style="color: #0000ff;">LC_ALL=</span><br />
+<span style="color: #0000ff;">shell> echo $LANG</span><br />
+<span style="color: #0000ff;">zh_CN.UTF-8</span></p>
+<p>我们是使用CDH4.5中自带的hive-server2启动脚本启动的hiveserver2服务，看看脚本环境中字符集是怎样的。</p>
+<p>/etc/init.d/hive-server2中添加locale命令，重启后却是这样的：</p>
+<p><span style="color: #0000ff;">shell> service hive-server2 restart</span><br />
+<span style="color: #0000ff;">LANG=</span><br />
+<span style="color: #0000ff;">LC_CTYPE="POSIX"</span><br />
+<span style="color: #0000ff;">LC_NUMERIC="POSIX"</span><br />
+<span style="color: #0000ff;">LC_TIME="POSIX"</span><br />
+<span style="color: #0000ff;">LC_COLLATE="POSIX"</span><br />
+<span style="color: #0000ff;">LC_MONETARY="POSIX"</span><br />
+<span style="color: #0000ff;">LC_MESSAGES="POSIX"</span><br />
+<span style="color: #0000ff;">LC_PAPER="POSIX"</span><br />
+<span style="color: #0000ff;">LC_NAME="POSIX"</span><br />
+<span style="color: #0000ff;">LC_ADDRESS="POSIX"</span><br />
+<span style="color: #0000ff;">LC_TELEPHONE="POSIX"</span><br />
+<span style="color: #0000ff;">LC_MEASUREMENT="POSIX"</span><br />
+<span style="color: #0000ff;">LC_IDENTIFICATION="POSIX"</span><br />
+<span style="color: #0000ff;">LC_ALL=</span><br />
+<span style="color: #0000ff;">Starting Hive Server2 (hive-server2): [确定]</span><br />
+<span style="color: #0000ff;">Hive Server2 is running [确定]</span></p>
+<p>看来hive-server2的运行环境并没有沿用系统层面的环境，针对它进行配置：</p>
+<p>在/etc/init.d/hive-server2删除刚添加的locale，然后添加语句：<span style="color: #0000ff;">export LANG=zh_CN.UTF-8</span></p>
+<p>这样确保hive-server2的启动会使用指定字符集。</p>
+<p>当然，如果使用hive --service hiveserver2命令启动，只要保证环境变量LANG=zh_CN.UTF-8即可。</p>
+<p>测试结果，如上设置，重启hive-server2后，乱码问题解决！</p>
+<h2>小结</h2><br />
+最终解决乱码问题只是添加了export LANG=zh_CN.UTF-8，确保hive-server2的运行环境使用的是UTF-8字符集，这样Client，Hive-Server和Hadoop集群都采用了UTF-8，自然不会有乱码存在了。</p>
+<p>Done!</p>
+<p>参考：<br />
+<a href="http://wocclyl.blog.163.com/blog/static/4622350420134301120474/" target="_blank">http://wocclyl.blog.163.com/blog/static/4622350420134301120474/</a></p>

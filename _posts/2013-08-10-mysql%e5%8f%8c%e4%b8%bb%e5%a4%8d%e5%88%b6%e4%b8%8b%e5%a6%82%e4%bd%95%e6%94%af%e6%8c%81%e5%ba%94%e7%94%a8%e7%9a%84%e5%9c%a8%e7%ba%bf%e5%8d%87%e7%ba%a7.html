@@ -1,0 +1,94 @@
+---
+layout: post
+status: publish
+published: true
+title: MySQL双主复制下如何支持应用的在线升级
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "<h2>背景</h2>\r\n<strong>1.数据库环境</strong>：MySQL双主复制，正常是一个Master提供服务，由于主/备分别配置了auto_increment_off=1/2，auto_increment_increment=2，可以使双主都支持读写。使用keepalived配置虚拟IP，实现MySQL高可用。\r\n\r\n以下用A、B、C分别表示各部分的IP地址：\r\n虚拟IP：A\r\n活跃Master真实IP：B\r\nSlave真实IP：C\r\n\r\n注意这里Master和Slave是双主关系，即互为主从，这里的Slave是指正常情况下不对外提供服务的实例。\r\n\r\n<strong>2.应用服务器：</strong>搭建了集群，多个实例，通过nginx进行访问分发，各应用的实例统一访问IP地址A。\r\n\r\n应用需要进行升级，涉及到一部分表结构的变化！期间期望不停止对外服务。数据库应如何处理？\r\n\r\n"
+wordpress_id: 397
+wordpress_url: http://www.sqlparty.com/?p=397
+date: '2013-08-10 21:11:07 +0800'
+date_gmt: '2013-08-10 13:11:07 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+- Replication
+---
+<h2>背景</h2><br />
+<strong>1.数据库环境</strong>：MySQL双主复制，正常是一个Master提供服务，由于主/备分别配置了auto_increment_off=1/2，auto_increment_increment=2，可以使双主都支持读写。使用keepalived配置虚拟IP，实现MySQL高可用。</p>
+<p>以下用A、B、C分别表示各部分的IP地址：<br />
+虚拟IP：A<br />
+活跃Master真实IP：B<br />
+Slave真实IP：C</p>
+<p>注意这里Master和Slave是双主关系，即互为主从，这里的Slave是指正常情况下不对外提供服务的实例。</p>
+<p><strong>2.应用服务器：</strong>搭建了集群，多个实例，通过nginx进行访问分发，各应用的实例统一访问IP地址A。</p>
+<p>应用需要进行升级，涉及到一部分表结构的变化！期间期望不停止对外服务。数据库应如何处理？</p>
+<p><!--more--></p>
+<h2>方案</h2><br />
+<strong>1.确保双主是支持同时读写的</strong></p>
+<p><strong></strong>如果不是，可以动态设置，如下：<br />
+主1：<br />
+<span style="color: #0000ff;">set global auto_increment_offset=1;</span><br />
+<span style="color: #0000ff;"> set global auto_increment_increment=2;</span><br />
+主2：<br />
+<span style="color: #0000ff;">set global auto_increment_offset=2;</span><br />
+<span style="color: #0000ff;"> set global auto_increment_increment=2;</span><br />
+为保证重启有效，在双主的my.cnf中也分别添加<br />
+<span style="color: #0000ff;">auto_increment_offset=1</span><br />
+<span style="color: #0000ff;"> auto_increment_increment=2</span><br />
+和<br />
+<span style="color: #0000ff;">auto_increment_offset=2</span><br />
+<span style="color: #0000ff;"> auto_increment_increment=2</span><br />
+注意：该只对新连接生效，如果必要，可以kill掉现有连接使重新连接，或者干脆重启MySQL服务。</p>
+<p><strong>2.制定方案</strong></p>
+<p>老应用保持连接至活跃Master，变更脚本首先应用到Slave，这样新应用通过ip地址C连接到Slave。新应用的实例逐步替换老应用的实例，通过分发的控制，让对外的服务逐步切换到新应用。待老应用完全被替换后，新应用再逐个实例调整，使新应用通过ip地址A访问数据库，使MySQL的HA依然有效。</p>
+<p><strong>3.具体操作</strong></p>
+<p>以上方案，就数据库层面，一个核心问题是Master和Slave的数据以及结构同步。<br />
+我们所有操作都在Slave上执行。</p>
+<ol>
+<li>在Master上执行stop slave，这样确保Master的数据和结构不受Slave的干扰。</li>
+<li>根据表结构变更脚本的内容，进行划分
+<ol>
+<li><strong>不影响主从同步的脚本</strong>。如新建表，新增字段（可空，或者不可空但是有默认值）的DDL，可以直接执行。<span style="color: #ff0000;">注意：新增字段要不影响bin log同步，则要求应用程序中所有操作都是精确到字段名称的，如果使用select *,insert into tb values这样不指定字段名称的语句，则可能应与新结构不匹配而报错。</span></li>
+<li><strong>影响主从同步的脚本</strong>。如删除表，删除字段，更新字段类型等。这类操作对应的表在变化后将无法接受老应用产生的数据。其中删除表，删除字段通常不会影响新应用，因为新应用用不到这些表和字段（当然，前提是新应用中没有用到select *,insert into tb values这样的语句。<span style="color: #ff0000;">如果要删除的字段是非空，可以先更新为空</span>）</li><br />
+</ol><br />
+</li></p>
+<li>在Slave上执行上述"不影响主从同步的脚本"，这样执行完成后，Slave依然可以同步Master的数据。</li>
+<li>新应用通过IP地址C连接至Slave。由于"影响主从同步的脚本"未执行，会影响到部分功能的使用，但影响时间较短。</li>
+<li>待老应用被全部替换后，即确保Master上无老应用连接后，在Slave上执行"影响主从同步的脚本"。这时由于没有Master上的更新，不会有报错信息。完成后，新应用就被完整支持了。</li>
+<li>在Master上start slave，将Slave上的变更全部同步到Master上。此时Master和Slave就是一致的了。</li>
+<li>将新应用的连接逐步在迁移到Master，通过IP地址A。</li><br />
+</ol><br />
+至此，就完成了应用的升级。</p>
+<p>在升级的过程中，Slave始终连接着Master，新应用的操作也记录到Slave上，所以Slave上始终包含完整数据。</p>
+<p>升级过程中，新应用的部分功能有短暂的不可用。</p>
+<h2>小结</h2><br />
+简言之，针对上述场景，如下操作：<br />
+<strong>升级前：</strong></p>
+<ol>
+<li>确认双主可写</li>
+<li>对升级脚本进行分割，划分开"<em>不影响主从同步的脚本</em>"和"<em>影响主从同步的脚本</em>"。应至少演练一次，确保划分后脚本与原始升级脚本功能一直。</li><br />
+</ol><br />
+<strong> 升级：</strong></p>
+<ol>
+<li>Master上<span style="color: #0000ff;">stop slave</span></li>
+<li>Slave上执行"<em>不影响主从同步的脚本</em>"</li>
+<li>新应用通过Slave的真实IP接入，逐步替换老应用，直到老应用全部关闭（此期间新应用部分涉及原表字段变更的新功能不可用）</li>
+<li>Master上<span style="color: #0000ff;">start slave</span></li>
+<li>Slave上执行"<em>影响主从同步的脚本</em>"</li><br />
+</ol><br />
+<strong> 升级后：</strong></p>
+<p><strong></strong>1.新应用逐步调整为通过虚拟IP地址A来访问数据库，数据库层面无变化。</p>
+<p>这样，最终完成升级。</p>
+<h2>补充说明</h2><br />
+本文主要针对的是表数据量大时，避免MySQL的在线DDL操作期间的锁表无法进行数据插入更新的情况。</p>
+<p>这个办法虽然繁琐笨拙，小心操作也可实施。</p>
+<p>MySQL 5.6之后在线DDL功能有所改进，而且第三方工具如pt-online-schema-change也可以实现在线无阻塞的表结构变更。</p>
+<p>但是注意：在线DDL之后要使新老系统都能够运行，还是需要进行脚本内容的分类，依然需要划分为<em>不影响主从同步的脚本</em>和<em>影响主从同步的脚本</em>分别实施，原理同上。</p>

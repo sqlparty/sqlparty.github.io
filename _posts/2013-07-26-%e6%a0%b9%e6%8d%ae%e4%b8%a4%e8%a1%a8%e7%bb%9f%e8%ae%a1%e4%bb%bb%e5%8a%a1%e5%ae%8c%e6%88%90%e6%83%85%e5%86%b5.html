@@ -1,0 +1,98 @@
+---
+layout: post
+status: publish
+published: true
+title: 根据两表统计任务完成情况
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "存在两个表，任务表worktodo和完成任务表workdone，worktodo记录所有工作人员worker的任务，而workdone记录完成的部分，一条workorder可能分多次记录到workdone中。结构如下：\r\n\r\n[sql]\r\nCREATE
+  TABLE worktodo\r\n(\r\n    workorder VARCHAR(32),\r\n    worker VARCHAR(64),\r\n
+  \   duedate DATETIME,\r\n    PRIMARY KEY workorder\r\n);\r\nCREATE TABLE workdone\r\n(\r\n
+  \   workorder VARCHAR(32),\r\n    donedate DATETIME\r\n);\r\n[/sql]\r\n\r\n示例数据：\r\n\r\n[sql]\r\nworktodo:\r\nworkorder
+  \ worker  duedate\r\n10001      JOE     2012-01-01\r\n10002      JOE     2012-01-02\r\n10003
+  \     FRED    2012-01-03\r\n10004      BILL    2013-12-31\r\n\r\nworkdone:\r\nworkerorder
+  \    donedate\r\n10001      2012-01-31\r\n10002      2011-12-30\r\n10002      2012-01-04\r\n[/sql]\r\n\r\n期望统计每个worker的任务总数以及超期的任务，超期任务指的是donedate
+  > duedate或者没有workdone记录且duedate < 当前时间NOW。\r\n\r\n就以上数据而言，JOE的总数为2,10001超期，10002由于在workdone中有在duedate之前的记录，不算超期；FRED总数为1,10003由于无workdone记录且duedate小于NOW，超期；BILL总数为1,10004的duedate未到，则不算超期。综上，预期结果如下：\r\n\r\n[sql]\r\nDesired:\r\nworker
+  \  num_total_workorders   num_late_workorders\r\nBILL     1                      0\r\nFRED
+  \    1                      1\r\nJOE      2                      1\r\n[/sql]\r\n\r\n如何编写单条SQL实现该功能？\r\n\r\n本题来源<a
+  title=\"join with earliest child record\" href=\"http://stackoverflow.com/questions/16679601/join-with-earliest-child-record\"
+  target=\"_blank\">stackflow</a>\r\n\r\n"
+wordpress_id: 71
+wordpress_url: http://www.sqlparty.com/?p=71
+date: '2013-07-26 12:10:27 +0800'
+date_gmt: '2013-07-26 04:10:27 +0800'
+categories:
+- 题炼
+tags:
+- case-when
+- left-join
+- 行转列
+---
+<p>存在两个表，任务表worktodo和完成任务表workdone，worktodo记录所有工作人员worker的任务，而workdone记录完成的部分，一条workorder可能分多次记录到workdone中。结构如下：</p>
+<p>[sql]<br />
+CREATE TABLE worktodo<br />
+(<br />
+    workorder VARCHAR(32),<br />
+    worker VARCHAR(64),<br />
+    duedate DATETIME,<br />
+    PRIMARY KEY workorder<br />
+);<br />
+CREATE TABLE workdone<br />
+(<br />
+    workorder VARCHAR(32),<br />
+    donedate DATETIME<br />
+);<br />
+[/sql]</p>
+<p>示例数据：</p>
+<p>[sql]<br />
+worktodo:<br />
+workorder  worker  duedate<br />
+10001      JOE     2012-01-01<br />
+10002      JOE     2012-01-02<br />
+10003      FRED    2012-01-03<br />
+10004      BILL    2013-12-31</p>
+<p>workdone:<br />
+workerorder     donedate<br />
+10001      2012-01-31<br />
+10002      2011-12-30<br />
+10002      2012-01-04<br />
+[/sql]</p>
+<p>期望统计每个worker的任务总数以及超期的任务，超期任务指的是donedate > duedate或者没有workdone记录且duedate < 当前时间NOW。</p>
+<p>就以上数据而言，JOE的总数为2,10001超期，10002由于在workdone中有在duedate之前的记录，不算超期；FRED总数为1,10003由于无workdone记录且duedate小于NOW，超期；BILL总数为1,10004的duedate未到，则不算超期。综上，预期结果如下：</p>
+<p>[sql]<br />
+Desired:<br />
+worker   num_total_workorders   num_late_workorders<br />
+BILL     1                      0<br />
+FRED     1                      1<br />
+JOE      2                      1<br />
+[/sql]</p>
+<p>如何编写单条SQL实现该功能？</p>
+<p>本题来源<a title="join with earliest child record" href="http://stackoverflow.com/questions/16679601/join-with-earliest-child-record" target="_blank">stackflow</a></p>
+<p><!--more--></p>
+<div class="dailyanswer">本题是个典型的行转列技巧的应用，这里复杂的一点是：workdone表中同一workorder会有多条记录。我们可以取其最早的一条作为判断依据。具体SQL如下，这里的getdate()属于SQLServer的函数，其余各RDBMS一致。<br />
+[sql]<br />
+select t1.worker,<br />
+	   sum(1) as num_total_workorders,<br />
+	   sum<br />
+	   (<br />
+	    case when t2.donedate is null and t1.duedate < getdate() then 1<br />
+	         when t2.donedate > t1.duedate then 1<br />
+	         else 0<br />
+	    end<br />
+	   ) as num_late_workorders<br />
+from worktodo t1<br />
+left outer join<br />
+	(<br />
+		select workorder,min(donedate) as donedate<br />
+		from workdone<br />
+		group by workorder<br />
+	) t2<br />
+  on t1.workorder = t2.workorder<br />
+group by t1.worker<br />
+[/sql]</p>
+<p></div></p>

@@ -1,0 +1,196 @@
+---
+layout: post
+status: publish
+published: true
+title: Puppet3开源版本安装
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "这里介绍Puppet 3版本安装和基础配置。Puppet Enterprise版本免费情况下最大支持10个节点，这个无法满足我们的要求，所以还是选择OpenSource的版本。\r\n<h2>一.
+  Puppet安装准备工作</h2>\r\n开源版本官网：<a href=\"http://puppetlabs.com/puppet/puppet-open-source\"
+  target=\"_blank\">http://puppetlabs.com/puppet/puppet-open-source</a>\r\n<h3>1.
+  安装源准备</h3>\r\n针对我们的服务器RHEL 6.2，推荐使用yum安装。由于大部分机器处于内网，所以倾向于搭建内部的Yum服务器来提供puppet的安装服务，详见\"<a
+  title=\"如何使用yum只下载RPM包而不安装\" href=\"http://www.sqlparty.com/%e5%a6%82%e4%bd%95%e4%bd%bf%e7%94%a8yum%e5%8f%aa%e4%b8%8b%e8%bd%bdrpm%e5%8c%85%e8%80%8c%e4%b8%8d%e5%ae%89%e8%a3%85/\"
+  target=\"_blank\">如何使用yum只下载RPM包而不安装(以Puppet RPM包下载为例)</a>\"。\r\n\r\n这样，所有需要安装Puppet的主机上，只需要配置Yum源即可，如：\r\n\r\n<span
+  style=\"color: #0000ff;\">shell> vi /etc/yum.repo.d/puppet.repo</span>\r\n<span
+  style=\"color: #0000ff;\">[puppet]</span>\r\n<span style=\"color: #0000ff;\">name=Puppet</span>\r\n<span
+  style=\"color: #0000ff;\">baseurl=http://<YUM server>/puppet/</span>\r\n<span
+  style=\"color: #0000ff;\">gpgcheck = 0</span>\r\n<h3>2. 安装规划</h3>\r\n根据我们的应用场景和规模，Puppet安装使用常规的Agent/Master模式（即C/S模式），即一个Master作为管理节点，其他作为Agent。Master主机也安装有一个Agent。\r\n\r\nMaster相对对内存要求较高，Agent则基本没有特殊要求。\r\n<h3>3.
+  Agent/Master原理</h3>\r\nPuppet的agent/master模式，其交互方式是主动请求的方式(pull-based)，即由客户端从服务端\"拉(Pull)\"取信息，而不是服务端向客户端\"推送(Push)\"的方式，这点需要注意。\r\n\r\n通常情况下，Agent会定期（默认半小时，由runinterval配置项决定）与Master进行交互，获取编目信息(这里称为Catalog)，然后执行编目中所包含的更新。除了定期更新外，还可以手动触发更新。下文会讲到这两种方式。\r\n\r\nAgent/Master之间的通信架构如下：\r\n\r\n<a
+  href=\"http://www.sqlparty.com/wp-content/uploads/2013/09/manifest_to_defined_state_split.png\"><img
+  class=\"alignnone size-full wp-image-707\" alt=\"manifest_to_defined_state_split\"
+  src=\"http://www.sqlparty.com/wp-content/uploads/2013/09/manifest_to_defined_state_split.png\"
+  width=\"508\" height=\"720\" /></a>\r\n\r\n本图引自\"<a href=\"http://docs.puppetlabs.com/learning/agent_master_basic.html\"
+  target=\"_blank\">Learning Puppet &mdash; Basic Agent/Master Puppet</a>\"\r\n\r\n"
+wordpress_id: 706
+wordpress_url: http://www.sqlparty.com/?p=706
+date: '2013-09-23 12:51:43 +0800'
+date_gmt: '2013-09-23 04:51:43 +0800'
+categories:
+- 系统
+tags:
+- Puppet
+---
+<p>这里介绍Puppet 3版本安装和基础配置。Puppet Enterprise版本免费情况下最大支持10个节点，这个无法满足我们的要求，所以还是选择OpenSource的版本。</p>
+<h2>一. Puppet安装准备工作</h2><br />
+开源版本官网：<a href="http://puppetlabs.com/puppet/puppet-open-source" target="_blank">http://puppetlabs.com/puppet/puppet-open-source</a></p>
+<h3>1. 安装源准备</h3><br />
+针对我们的服务器RHEL 6.2，推荐使用yum安装。由于大部分机器处于内网，所以倾向于搭建内部的Yum服务器来提供puppet的安装服务，详见"<a title="如何使用yum只下载RPM包而不安装" href="http://www.sqlparty.com/%e5%a6%82%e4%bd%95%e4%bd%bf%e7%94%a8yum%e5%8f%aa%e4%b8%8b%e8%bd%bdrpm%e5%8c%85%e8%80%8c%e4%b8%8d%e5%ae%89%e8%a3%85/" target="_blank">如何使用yum只下载RPM包而不安装(以Puppet RPM包下载为例)</a>"。</p>
+<p>这样，所有需要安装Puppet的主机上，只需要配置Yum源即可，如：</p>
+<p><span style="color: #0000ff;">shell> vi /etc/yum.repo.d/puppet.repo</span><br />
+<span style="color: #0000ff;">[puppet]</span><br />
+<span style="color: #0000ff;">name=Puppet</span><br />
+<span style="color: #0000ff;">baseurl=http://<YUM server>/puppet/</span><br />
+<span style="color: #0000ff;">gpgcheck = 0</span></p>
+<h3>2. 安装规划</h3><br />
+根据我们的应用场景和规模，Puppet安装使用常规的Agent/Master模式（即C/S模式），即一个Master作为管理节点，其他作为Agent。Master主机也安装有一个Agent。</p>
+<p>Master相对对内存要求较高，Agent则基本没有特殊要求。</p>
+<h3>3. Agent/Master原理</h3><br />
+Puppet的agent/master模式，其交互方式是主动请求的方式(pull-based)，即由客户端从服务端"拉(Pull)"取信息，而不是服务端向客户端"推送(Push)"的方式，这点需要注意。</p>
+<p>通常情况下，Agent会定期（默认半小时，由runinterval配置项决定）与Master进行交互，获取编目信息(这里称为Catalog)，然后执行编目中所包含的更新。除了定期更新外，还可以手动触发更新。下文会讲到这两种方式。</p>
+<p>Agent/Master之间的通信架构如下：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/09/manifest_to_defined_state_split.png"><img class="alignnone size-full wp-image-707" alt="manifest_to_defined_state_split" src="http://www.sqlparty.com/wp-content/uploads/2013/09/manifest_to_defined_state_split.png" width="508" height="720" /></a></p>
+<p>本图引自"<a href="http://docs.puppetlabs.com/learning/agent_master_basic.html" target="_blank">Learning Puppet &mdash; Basic Agent/Master Puppet</a>"</p>
+<p><!--more--></p>
+<h3>4. 主机的主机名配置</h3><br />
+主机名最好是采用hostname.domain的形式，我们这里由于习惯和历史因素，还是只使用一个单词来作为主机名。设置方法见<a title="Linux下修改主机名" href="http://www.sqlparty.com/linux%e4%b8%8b%e4%bf%ae%e6%94%b9%e4%b8%bb%e6%9c%ba%e5%90%8d/" target="_blank">Linux下修改主机名</a>。</p>
+<p>所有相关主机都应设定一个全局唯一的主机名，Puppet使用该主机名作为主机的唯一标识。</p>
+<h3>5. 防火墙设置</h3><br />
+要使Agent与Master正常通信，需要开放Master的相关端口。操作方式参考：&ldquo;<a title="Linux下iptables防火墙软件原理与操作" href="http://www.sqlparty.com/linux%e4%b8%8biptables%e9%98%b2%e7%81%ab%e5%a2%99%e8%bd%af%e4%bb%b6%e5%8e%9f%e7%90%86%e4%b8%8e%e6%93%8d%e4%bd%9c/" target="_blank">Linux下防火墙设置</a>&rdquo;。</p>
+<h2>二、Puppet安装与配置</h2></p>
+<h3>1. 软件安装</h3><br />
+基于Yum源的安装就极简单了。<br />
+Master：<br />
+<span style="color: #0000ff;">shell> yum install puppet-server</span></p>
+<p>Agent:<br />
+<span style="color: #0000ff;">shell> yum install puppet</span></p>
+<h3>2. 配置</h3><br />
+程序安装完成后，要使用还需进行简单配置。配置文件路径：/etc/puppet/puppet.conf。</p>
+<p>安装后的默认配置如下：<br />
+<span style="color: #0000ff;">shell>cat /etc/puppet/puppet.conf</span><br />
+<span style="color: #0000ff;">[main]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; # The Puppet log directory.</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; # The default value is '$vardir/log'.</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; logdir = /var/log/puppet</span></p>
+<p><span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; # Where Puppet PID files are kept.</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; # The default value is '$vardir/run'.</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; rundir = /var/run/puppet</span></p>
+<p><span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; # Where SSL certificates are kept.</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; # The default value is '$confdir/ssl'.</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; ssldir = $vardir/ssl</span></p>
+<p><span style="color: #0000ff;">[agent]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; # The file in which puppetd stores a list of the classes</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; # associated with the retrieved configuratiion.&nbsp; Can be loaded in</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; # the separate ``puppet`` executable using the ``--loadclasses``</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; # option.</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; # The default value is '$confdir/classes.txt'.</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; classfile = $vardir/classes.txt</span></p>
+<p><span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; # Where puppetd caches the local configuration.&nbsp; An</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; # extension indicating the cache format is added automatically.</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; # The default value is '$confdir/localconfig'.</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; localconfig = $vardir/localconfig</span><br />
+<strong></strong></p>
+<p><strong>Agent节点</strong><br />
+在[agent]中添加如下：<br />
+server = ch10&nbsp;&nbsp;&nbsp;&nbsp; #指定puppet master即管理节点的主机名，要正确识别，需要在/etc/hosts中添加<br />
+report = true&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; #启用报告，每次处理后会有报告信息，包括如运行时间、成功失败等。<br />
+pluginsync = true&nbsp;&nbsp; #是否同步plugin<br />
+certname = ch11&nbsp; #puppet管理范围内的唯一标识。默认是其完整主机名。<br />
+<strong></strong></p>
+<h3>3. 启动与认证</h3><br />
+Master启动：<br />
+<span style="color: #0000ff;">shell> service puppetmaster start</span><br />
+<span style="color: #0000ff;">Starting puppetmaster:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [&nbsp; OK&nbsp; ]</span></p>
+<p>Agent启动：<br />
+<span style="color: #0000ff;">shell> service puppet start</span><br />
+这里Agent启动后以Daemon服务的方式存在，这样的好处是可以定期同步Master上的Catalog信息。如果不启动服务的话，则需要在Master上更新后再在每一台Agent上手动处理，这就没有自动化运维的意义了。</p>
+<p>Agent启动时，会向Master发请求，如果没有通过认证，则不会受Master的配置管理影响。需要在Master上进行认证。</p>
+<p>【Master】<br />
+<strong>1.查看待认证的主机：</strong><br />
+<span style="color: #0000ff;">shell> puppet cert list</span><br />
+<span style="color: #0000ff;">&nbsp; "ch13" (SHA256) BF:78:D2:CF:2F:23:6A:4D:A5:0E:78:D7:F3:83:76:AE:2D:E6:26:01:90:88:86:B5:B5:4C:AA:83:F6:94:8A:C8</span><br />
+<span style="color: #0000ff;">&nbsp; "ch15" (SHA256) BE:0B:D0:01:5A:65:60:6C:E1:2D:8B:3F:CD:50:A1:17:94:71:1B:F9:6A:CA:6A:D9:FE:84:82:AD:E8:4C:CA:A3</span><br />
+<strong>2.查看所有Puppet主机，包括已认证和未认证的：</strong><br />
+<span style="color: #0000ff;">shell> puppet cert list -all</span><br />
+<span style="color: #0000ff;">&nbsp; "ch13" (SHA256) BF:78:D2:CF:2F:23:6A:4D:A5:0E:78:D7:F3:83:76:AE:2D:E6:26:01:90:88:86:B5:B5:4C:AA:83:F6:94:8A:C8</span><br />
+<span style="color: #0000ff;">&nbsp; "ch15" (SHA256) BE:0B:D0:01:5A:65:60:6C:E1:2D:8B:3F:CD:50:A1:17:94:71:1B:F9:6A:CA:6A:D9:FE:84:82:AD:E8:4C:CA:A3</span><br />
+<span style="color: #0000ff;">+ "ch11" (SHA256) 0A:A5:8C:B9:73:FE:2E:D8:85:44:C8:97:DC:6A:E5:39:28:F7:97:71:92:21:3F:FA:7C:E0:EA:A7:CE:4A:30:68</span><br />
+前面带+号的即表示已经通过验证的。<br />
+<strong>3.认证通过特定主机</strong><br />
+<span style="color: #0000ff;">shell> puppet cert sign ch13</span><br />
+<span style="color: #0000ff;">Notice: Signed certificate request for ch13</span><br />
+<span style="color: #0000ff;">Notice: Removing file Puppet::SSL::CertificateRequest ch13 at '/var/lib/puppet/ssl/ca/requests/ch13.pem'</span><br />
+<strong>4.将所有待验证的主机通过</strong><br />
+<span style="color: #0000ff;">shell> puppet cert sign --all</span></p>
+<p>【Agent】<br />
+在Agent上，可以通过puppet agent --test来验证是否已经正常连接到Master<br />
+如果未通过验证，则<br />
+<span style="color: #0000ff;">shell> puppet agent --test</span><br />
+<span style="color: #0000ff;">Exiting; no certificate found and waitforcert is disabled</span><br />
+如果通过了验证，则<br />
+<span style="color: #0000ff;">shell> puppet agent --test</span><br />
+<span style="color: #0000ff;">puppet agent --test</span><br />
+<span style="color: #0000ff;">Info: Retrieving plugin</span><br />
+<span style="color: #0000ff;">Info: Caching catalog for ch13</span><br />
+<span style="color: #0000ff;">Info: Applying configuration version '1379934508'</span><br />
+<span style="color: #0000ff;">Notice: Finished catalog run in 0.06 seconds</span></p>
+<p>Puppet使用SSL认证来加密保护Agent与Master之间的通信，所以才需要上述认证过程。</p>
+<h2>三、安装验证</h2><br />
+Master本地的Agent默认是通过了认证的，可以直接进行本地测试。<br />
+<strong>1. 本地测试</strong><br />
+<span style="color: #0000ff;">shell> cat test.pp</span><br />
+<span style="color: #0000ff;">file { '/tmp/hello.txt':</span><br />
+<span style="color: #0000ff;">&nbsp; content => "Hello, world\n",</span><br />
+<span style="color: #0000ff;">}</span></p>
+<p><span style="color: #0000ff;">shell> puppet apply test.pp</span><br />
+<span style="color: #0000ff;">Warning: Could not retrieve fact fqdn</span><br />
+<span style="color: #0000ff;">Notice: Compiled catalog for ch11 in environment production in 0.15 seconds</span><br />
+<span style="color: #0000ff;">Notice: /Stage[main]//File[/tmp/hello]/ensure: defined content as '{md5}b1946ac92492d2347c6235b4d2611184'</span><br />
+<span style="color: #0000ff;">Notice: Finished catalog run in 0.08 seconds</span></p>
+<p>puppet apply命令是在本地运行manifest，这里的test.pp是要生成/tmp/hello.txt文件，内容是Hello, World。如果文件不存在或者文件内容不同，则都会变成这里的指定内容。<br />
+<span style="color: #0000ff;">shell> cat /tmp/hello.txt</span><br />
+<span style="color: #0000ff;">Hello, world</span></p>
+<p>而远程的Agent，在完成安装配置，以及认证后，就可以进行同步测试了。上例中，由于本地运行，apply指定了具体执行的文件路径，那么远程Agent询问Master时，Master会哪里去找manifests进行执行呢？<br />
+Master中根据配置项manifest的指定来确定入口。默认情况下，入口文件是/etc/puppet/manifests/site.pp。这个文件默认不存在，这里创建如下：<br />
+<span style="color: #0000ff;">shell> vi /etc/puppet/manifests/site.pp</span><br />
+<span style="color: #0000ff;">file {'/tmp/hello_agent.txt':</span><br />
+<span style="color: #0000ff;">&nbsp; content => "From Master\n",</span><br />
+<span style="color: #0000ff;">}</span><br />
+Agent要获取编目信息，可以如下两种方式：<br />
+<strong>2. Agent手动测试</strong><br />
+在Agent上执行<br />
+<span style="color: #0000ff;">shell> puppet agent --test</span><br />
+<span style="color: #0000ff;">Info: Retrieving plugin</span><br />
+<span style="color: #0000ff;">Info: Caching catalog for ch13</span><br />
+<span style="color: #0000ff;">Info: Applying configuration version '1379936148'</span><br />
+<span style="color: #0000ff;">Notice: /Stage[main]//File[/tmp/hello_agent.txt]/ensure: defined content as '{md5}2faa5686dea4c718131da3e1eca5dc3f'</span><br />
+<span style="color: #0000ff;">Notice: Finished catalog run in 0.07 seconds</span></p>
+<p>可以看到更新的信息，检查之：<br />
+<span style="color: #0000ff;">shell> cat /tmp/hello_agent.txt</span><br />
+<span style="color: #0000ff;">From Master</span></p>
+<p><strong>3. Agent Daemon测试</strong><br />
+通过service puppet start即是将Agent启动为服务Daemon模式，这种模式下，根据runinterval的设置（默认为30分钟），会每隔一段时间请求Catalog。<br />
+这里修改runinterval为5s，以便快速检查效果。添加：<br />
+<span style="color: #0000ff;">shell> vi /etc/puppet/puppet.conf</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">[agent]</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">runinterval = 5s</span></p>
+<p><span style="color: #0000ff;">shell> service puppet reload</span><br />
+等待片刻即可看到文件生成：<br />
+<span style="color: #0000ff;">shell> cat /tmp/hello_agent.txt</span><br />
+<span style="color: #0000ff;">From Master</span></p>
+<h2>四、常见警告和问题</h2><br />
+1.出现如下警告：Warning: Could not retrieve fact fqdn<br />
+原因见http://stackoverflow.com/questions/7780322/puppet-facter-could- not-retrieve-fact-fqdn-how-to-fix-or-circumvent ，似乎是一个普通主机名是否包含域信息的问题，即 organization.internal比internal的名称更好。</p>
+<p>2.如果有更改Master，更改主机名等操作，容易造成Agent与Master无法正常沟通，解决方案是：<br />
+rm -f /var/lib/puppet/ssl/certs/*<br />
+完了之后puppet agent -t，重新进行认证。</p>
+<p>参考：<br />
+<a href="http://docs.puppetlabs.com/guides/installation.html" target="_blank">http://docs.puppetlabs.com/guides/installation.html</a><br />
+<a href="http://www.mysqlops.com/2012/03/13/puppet-doc.html#more-4221" target="_blank">http://www.mysqlops.com/2012/03/13/puppet-doc.html#more-4221</a><br />
+<a href="http://docs.puppetlabs.com/learning/agent_master_basic.html" target="_blank">http://docs.puppetlabs.com/learning/agent_master_basic.html</a></p>

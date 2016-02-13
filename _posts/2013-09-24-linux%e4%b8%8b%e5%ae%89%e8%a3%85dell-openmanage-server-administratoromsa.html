@@ -1,0 +1,111 @@
+---
+layout: post
+status: publish
+published: true
+title: Linux下安装Dell OpenManage Server Administrator(OMSA)
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Dell OpenManage Server Administrator(OMSA)是Dell提供的完整的系统管理系统，功能包括Dell服务器、存储、硬件、网络、日志等的管理。\r\n操作可以通过两种方式实施：\r\n<ol>\r\n\t<li>集中管理-
+  使用Web界面（GUI）</li>\r\n\t<li>命令行-通过操作系统</li>\r\n</ol>\r\n<h2>OMSA介绍</h2>\r\n官方介绍页面：<a
+  href=\"http://en.community.dell.com/techcenter/systems-management/w/wiki/1760.openmanage-server-administrator-omsa.aspx\"
+  target=\"_blank\">http://en.community.dell.com/techcenter/systems-management/w/wiki/1760.openmanage-server-administrator-omsa.aspx</a>\r\n\r\n这里使用RedHat
+  6.2进行安装和使用说明。\r\n\r\n"
+wordpress_id: 715
+wordpress_url: http://www.sqlparty.com/?p=715
+date: '2013-09-24 20:10:57 +0800'
+date_gmt: '2013-09-24 12:10:57 +0800'
+categories:
+- 系统
+tags:
+- OMSA
+---
+<p>Dell OpenManage Server Administrator(OMSA)是Dell提供的完整的系统管理系统，功能包括Dell服务器、存储、硬件、网络、日志等的管理。<br />
+操作可以通过两种方式实施：</p>
+<ol>
+<li>集中管理- 使用Web界面（GUI）</li>
+<li>命令行-通过操作系统</li><br />
+</ol></p>
+<h2>OMSA介绍</h2><br />
+官方介绍页面：<a href="http://en.community.dell.com/techcenter/systems-management/w/wiki/1760.openmanage-server-administrator-omsa.aspx" target="_blank">http://en.community.dell.com/techcenter/systems-management/w/wiki/1760.openmanage-server-administrator-omsa.aspx</a></p>
+<p>这里使用RedHat 6.2进行安装和使用说明。</p>
+<p><!--more--></p>
+<h2>下载安装</h2><br />
+<span style="color: #0000ff;">shell> wget http://downloads.dell.com/FOLDER01543154M/1/OM-SrvAdmin-Dell-Web-LX-7.3.0-350_A00.RHEL6.x86_64.tar.gz</span><br />
+<span style="color: #0000ff;">shell> tar -zxvf OM-SrvAdmin-Dell-Web-LX-7.3.0-350_A00.RHEL6.x86_64.tar.gz</span><br />
+<span style="color: #0000ff;">shell> sh linux/supportscripts/srvadmin-install.sh --express</span><br />
+<span style="color: #0000ff;">Installing the selected packages.</span></p>
+<p><span style="color: #0000ff;">Preparing...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [100%]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; 1:libsmbios&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 50%]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; 2:smbios-utils-bin&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [100%]</span><br />
+<span style="color: #0000ff;">warning: srvadmin-argtable2-7.3.0-4.2.4.el6.x86_64.rpm: Header V3 DSA/SHA1 Signature, key ID 23b66a9d: NOKEY</span><br />
+<span style="color: #0000ff;">Preparing...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [100%]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; 1:srvadmin-omilcore&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [&nbsp; 3%]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp; **********************************************************</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp; After the install process completes, you may need</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp; to log out and then log in again to reset the PATH</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp; variable to access the Server Administrator CLI utilities</span></p>
+<p><span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp; **********************************************************</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; 2:srvadmin-deng&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [&nbsp; 6%]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; 3:srvadmin-omacs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [&nbsp; 9%]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; 4:srvadmin-xmlsup&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 12%]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; 5:srvadmin-rac-components########################################### [ 15%]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; 6:srvadmin-hapi&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 18%]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; 7:srvadmin-isvc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 21%]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; 8:srvadmin-argtable2&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 24%]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; 9:srvadmin-omcommon&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 26%]</span><br />
+<span style="color: #0000ff;">&nbsp; 10:srvadmin-smcommon&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 29%]</span><br />
+<span style="color: #0000ff;">&nbsp; 11:srvadmin-idracadm7&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 32%]</span><br />
+<span style="color: #0000ff;">&nbsp; 12:srvadmin-ominst&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 35%]</span><br />
+<span style="color: #0000ff;">&nbsp; 13:srvadmin-omacore&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 38%]</span><br />
+<span style="color: #0000ff;">&nbsp; 14:srvadmin-racdrsc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 41%]</span><br />
+<span style="color: #0000ff;">&nbsp; 15:srvadmin-deng-snmp&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 44%]</span><br />
+<span style="color: #0000ff;">&nbsp; 16:srvadmin-jre&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 47%]</span><br />
+<span style="color: #0000ff;">&nbsp; 17:srvadmin-storelib-sysfs########################################### [ 50%]</span><br />
+<span style="color: #0000ff;">&nbsp; 18:srvadmin-storelib&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 53%]</span><br />
+<span style="color: #0000ff;">&nbsp; 19:srvadmin-rnasoap&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 56%]</span><br />
+<span style="color: #0000ff;">&nbsp; 20:srvadmin-realssd&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 59%]</span><br />
+<span style="color: #0000ff;">&nbsp; 21:srvadmin-storage&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 62%]</span><br />
+<span style="color: #0000ff;">&nbsp; 22:srvadmin-racadm4&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 65%]</span><br />
+<span style="color: #0000ff;">&nbsp; 23:srvadmin-idrac-vmcli&nbsp;&nbsp; ########################################### [ 68%]</span><br />
+<span style="color: #0000ff;">&nbsp; 24:srvadmin-idrac7&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 71%]</span><br />
+<span style="color: #0000ff;">&nbsp; 25:srvadmin-storage-cli&nbsp;&nbsp; ########################################### [ 74%]</span><br />
+<span style="color: #0000ff;">&nbsp; 26:srvadmin-storage-snmp&nbsp; ########################################### [ 76%]</span><br />
+<span style="color: #0000ff;">&nbsp; 27:srvadmin-tomcat&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 79%]</span><br />
+<span style="color: #0000ff;">&nbsp; 28:srvadmin-smweb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 82%]</span><br />
+<span style="color: #0000ff;">&nbsp; 29:srvadmin-idracadm&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 85%]</span><br />
+<span style="color: #0000ff;">&nbsp; 30:srvadmin-isvc-snmp&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 88%]</span><br />
+<span style="color: #0000ff;">&nbsp; 31:srvadmin-idrac-ivmcli&nbsp; ########################################### [ 91%]</span><br />
+<span style="color: #0000ff;">&nbsp; 32:srvadmin-idrac-snmp&nbsp;&nbsp;&nbsp; ########################################### [ 94%]</span><br />
+<span style="color: #0000ff;">&nbsp; 33:srvadmin-oslog&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ########################################### [ 97%]</span><br />
+<span style="color: #0000ff;">&nbsp; 34:srvadmin-sysfsutils&nbsp;&nbsp;&nbsp; ########################################### [100%]</span></p>
+<p>这一步安装了如下的管理组件：<br />
+- Server Adminstrator Web Server<br />
+- Server Instrumentation<br />
+- Storage Management<br />
+- Remote Access Controller</p>
+<h2>启动OMSA</h2><br />
+<span style="color: #0000ff;">shell> sh linux/supportscripts/srvadmin-services.sh&nbsp; start</span><br />
+<span style="color: #0000ff;">Starting Systems Management Device Drivers:</span><br />
+<span style="color: #0000ff;">Starting dell_rbu:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [&nbsp; OK&nbsp; ]</span><br />
+<span style="color: #0000ff;">Starting ipmi driver: Already started&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [&nbsp; OK&nbsp; ]</span><br />
+<span style="color: #0000ff;">Starting Systems Management Data Engine:</span><br />
+<span style="color: #0000ff;">Starting dsm_sa_datamgrd:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [&nbsp; OK&nbsp; ]</span><br />
+<span style="color: #0000ff;">Starting dsm_sa_eventmgrd:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [&nbsp; OK&nbsp; ]</span><br />
+<span style="color: #0000ff;">Starting dsm_sa_snmpd:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [&nbsp; OK&nbsp; ]</span><br />
+<span style="color: #0000ff;">Starting DSM SA Shared Services:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [&nbsp; OK&nbsp; ]</span></p>
+<p><span style="color: #0000ff;">Starting DSM SA Connection Service:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [&nbsp; OK&nbsp; ]</span></p>
+<h2>关闭OMSA</h2><br />
+<span style="color: #0000ff;">shell> sh linux/supportscripts/srvadmin-services.sh stop</span></p>
+<h2>GUI访问</h2><br />
+https:// {omsa-server-ip-address}:1311/</p>
+<p>使用{omsa-server}的root用户与密码进行登录。</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/09/omsa.png"><img class="alignnone size-full wp-image-716" alt="omsa" src="http://www.sqlparty.com/wp-content/uploads/2013/09/omsa.png" width="840" height="587" /></a></p>
+<p>然后就可以查看各类指标，也可以对一个指标进行修改：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/09/omsa_inner.png"><img class="alignnone size-full wp-image-717" alt="omsa_inner" src="http://www.sqlparty.com/wp-content/uploads/2013/09/omsa_inner.png" width="733" height="614" /></a></p>
+<p>参考：<br />
+<a href="http://hi.baidu.com/edeed/item/e376fedbb1d2bce954347fb8" target="_blank">http://hi.baidu.com/edeed/item/e376fedbb1d2bce954347fb8</a></p>

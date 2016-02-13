@@ -1,0 +1,255 @@
+---
+layout: post
+status: publish
+published: true
+title: 利用Percona工具玩转MySQL复制Replication
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "MySQL复制(Replication)提供了用MySQL搭建高可用环境的手段，这也使得对MySQL复制正常运行的监控提出了要求。借助Percona的一套工具，我们可以对复制环境进行相应的的常规操作、监控、报警等。\r\n\r\n工具包括：\r\n<ol>\r\n\t<li>工具percona-toolkit:
+  pt-heartbeat, pt-slave-delay,pt-slave-find,pt-slave-restart,pt-table-checksum,pt-table-sync</li>\r\n\t<li>报警：Nagios插件:
+  pmp-check-mysql-replication-delay, pmp-check-mysql-replication-running</li>\r\n\t<li>监控：Cacti图表</li>\r\n</ol>\r\n相关文档地址分别为：\r\n<a
+  href=\"http://www.percona.com/doc/percona-toolkit/2.1/index.html\"
+  target=\"_blank\">http://www.percona.com/doc/percona-toolkit/2.1/index.html</a>\r\n<a
+  href=\"http://www.percona.com/doc/percona-monitoring-plugins/\"
+  target=\"_blank\">http://www.percona.com/doc/percona-monitoring-plugins/</a>\r\n\r\n了解到如下工具后，可以顺利进行MySQL复制环境的监控和错误报警，以及特定需求(如延迟复制等)的实施。当然，利用熟悉这些工具的基础上，需要进一步了解其工作原理，包括MySQL复制的工作原理。\r\n\r\n"
+wordpress_id: 691
+wordpress_url: http://www.sqlparty.com/?p=691
+date: '2013-09-17 21:59:47 +0800'
+date_gmt: '2013-09-17 13:59:47 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+- Replication
+- Percona
+---
+<p>MySQL复制(Replication)提供了用MySQL搭建高可用环境的手段，这也使得对MySQL复制正常运行的监控提出了要求。借助Percona的一套工具，我们可以对复制环境进行相应的的常规操作、监控、报警等。</p>
+<p>工具包括：</p>
+<ol>
+<li>工具percona-toolkit: pt-heartbeat, pt-slave-delay,pt-slave-find,pt-slave-restart,pt-table-checksum,pt-table-sync</li>
+<li>报警：Nagios插件: pmp-check-mysql-replication-delay, pmp-check-mysql-replication-running</li>
+<li>监控：Cacti图表</li><br />
+</ol><br />
+相关文档地址分别为：<br />
+<a href="http://www.percona.com/doc/percona-toolkit/2.1/index.html" target="_blank">http://www.percona.com/doc/percona-toolkit/2.1/index.html</a><br />
+<a href="http://www.percona.com/doc/percona-monitoring-plugins/" target="_blank">http://www.percona.com/doc/percona-monitoring-plugins/</a></p>
+<p>了解到如下工具后，可以顺利进行MySQL复制环境的监控和错误报警，以及特定需求(如延迟复制等)的实施。当然，利用熟悉这些工具的基础上，需要进一步了解其工作原理，包括MySQL复制的工作原理。</p>
+<p><!--more--></p>
+<h2>Percona-Toolkit</h2></p>
+<h3>1.[主|从] pt-heartbeat</h3><br />
+作用：监控MySQL复制的延迟。通过检查数据本身来摆脱对MySQL自身复制机制的依赖，尤其是不可信的部分，如SHOW SLAVE STATUS。</p>
+<p>要求：主从服务器的系统时间设置为一致；pt_heartbeat表的更新、查询权限</p>
+<p>示例：</p>
+<p><strong>主服务器:</strong><br />
+<span style="color: #0000ff;">mysql>CREATE TABLE pt_heartbeat (</span><br />
+<span style="color: #0000ff;"> ts varchar(26) NOT NULL comment '时间戳',</span><br />
+<span style="color: #0000ff;"> server_id int unsigned NOT NULL comment '服务器Server id' PRIMARY KEY,</span><br />
+<span style="color: #0000ff;"> file varchar(255) DEFAULT NULL comment '服务器binlog文件名',</span><br />
+<span style="color: #0000ff;"> position bigint unsigned DEFAULT NULL comment '服务器binlog位置',</span><br />
+<span style="color: #0000ff;"> relay_master_log_file varchar(255) DEFAULT NULL comment '作为从服务器，SQL线程最近执行的事件对应的主服务器上的日志文件',</span><br />
+<span style="color: #0000ff;"> exec_master_log_pos bigint unsigned DEFAULT NULL comment '作为从服务器，SQL线程最近执行的事件对应的主服务器上的日志文件位置'</span><br />
+<span style="color: #0000ff;"> ) engine=MyISAM;</span><br />
+<span style="color: #0000ff;"> mysql>INSERT INTO pt_heartbeat (ts, server_id) VALUES (UTC_TIMESTAMP(), N);</span><br />
+<span style="color: #0000ff;"> shell>./pt-heartbeat -h 192.168.2.18 -P 3310 -u user1 -p xxx --database dbadb --table=pt_heartbeat --update --master-server-id=1 --daemonize</span><br />
+或者：<br />
+<span style="color: #0000ff;">shell>./pt-heartbeat -h 192.168.2.18 -P 3310 -u user1 -p xxx --database dbadb --table=pt_heartbeat --update --master-server-id=1<span style="color: #00ff00;"> --create-table</span> --daemonize</span><br />
+这里指明--master-server-id=1是因为可能存在MULTI-SLAVE HIERARCHY，即从服务器的级联复制的情况。在级联复制的环境下，每个Master只更新pt_heartbeat中server_id=@@server_id的记录。</p>
+<p><strong>从服务器：</strong><br />
+例1.<br />
+<span style="color: #0000ff;">shell>./pt-heartbeat -h 192.168.2.18 -P 3331 -u user1 -p xxx --database db10--table=pt_heartbeat --monitor --master-server-id=1</span><br />
+<span style="color: #0000ff;"> 0.00s [ 0.00s, 0.00s, 0.00s ]</span><br />
+<span style="color: #0000ff;"> 0.00s [ 0.00s, 0.00s, 0.00s ]</span><br />
+<span style="color: #0000ff;"> 0.00s [ 0.00s, 0.00s, 0.00s ]</span><br />
+<span style="color: #0000ff;"> 0.00s [ 0.00s, 0.00s, 0.00s ]</span><br />
+<span style="color: #0000ff;"> 0.00s [ 0.00s, 0.00s, 0.00s ]</span><br />
+<span style="color: #0000ff;"> 0.00s [ 0.00s, 0.00s, 0.00s ]</span><br />
+<span style="color: #0000ff;"> 0.00s [ 0.00s, 0.00s, 0.00s ]</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+输出格式： 当前延迟 [三个--frames指定的时间窗口内的延迟平均值]。默认情况下--frame对应 1m(分钟),5m,15m。--frame设置三个统计的时间窗口，决定了使用多大的内存空间来保存这些监控信息以便计算均值。</p>
+<p>例2.<br />
+<span style="color: #0000ff;">shell>./pt-heartbeat -h 192.168.2.18 -P 3331 -u user1 -p xxx --database db10 --table=pt_heartbeat --check --master-server-id=1</span><br />
+<span style="color: #0000ff;"> 0.00</span></p>
+<p>常用选项：</p>
+<p>--interval=1.0 取值类型，float。设置检查的时间间隔。<br />
+-master-server-id=# 指定所要check，monitor或update的server_id的记录。</p>
+<h3>2.[从] pt-slave-delay</h3><br />
+作用：使从服务器主动延迟于主服务器。其原理是操作从服务器上的slave SQL线程，所以只需要操作从库即可。</p>
+<p>默认情况下，延迟是基于从服务器的中继日志的binlog位置，这在IO线程不会延迟与主库很多的情况下有效。如果IO线程延迟过大，pt-slave-delay也可以连接到主库来获取binlog位置信息。</p>
+<p>要求：PROCESS, REPLICATION CLIENT, and SUPER</p>
+<p>说明：此功能可以用来实现主动实施的延迟复制，Yes!</p>
+<p>示例：<br />
+使从服务器落后主1 分钟，并每隔15秒检测一次，运行 10 分钟<br />
+<span style="color: #0000ff;">shell>./pt-slave-delay -h 192.168.1.18 -u user1 -p xxx -P 3371 192.168.1.18 --delay 1m --interval 15s --run-time 10m</span><br />
+<span style="color: #0000ff;"> 2013-03-08T15:50:05 slave running 0 seconds behind</span><br />
+<span style="color: #0000ff;"> 2013-03-08T15:50:05 STOP SLAVE until 2013-03-08T15:51:05 at master position ar18_3db-bin.000010/43697998</span><br />
+<span style="color: #0000ff;"> 2013-03-08T15:50:20 slave stopped at master position ar18_3db-bin.000010/43703398</span><br />
+<span style="color: #0000ff;"> 2013-03-08T15:50:35 slave stopped at master position ar18_3db-bin.000010/43708798</span><br />
+<span style="color: #0000ff;"> 2013-03-08T15:50:50 slave stopped at master position ar18_3db-bin.000010/43714198</span><br />
+<span style="color: #0000ff;"> 2013-03-08T15:51:05 no new binlog events</span><br />
+<span style="color: #0000ff;"> 2013-03-08T15:51:20 START SLAVE until master 2013-03-08T15:50:20 ar18_3db-bin.000010/43703398</span><br />
+<span style="color: #0000ff;"> 2013-03-08T15:51:35 START SLAVE until master 2013-03-08T15:50:35 ar18_3db-bin.000010/43708798</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+<span style="color: #0000ff;"> 2013-03-08T15:59:50 START SLAVE until master 2013-03-08T15:58:50 ar18_3db-bin.000010/43905897</span><br />
+<span style="color: #0000ff;"> 2013-03-08T16:00:05 START SLAVE until master 2013-03-08T15:59:05 ar18_3db-bin.000010/43911297</span><br />
+<span style="color: #0000ff;"> 2013-03-08T16:00:05 Setting slave to run normally</span><br />
+如果不指定--run-time，那么就是永远</p>
+<h3>3.[主] pt-slave-find</h3><br />
+作用：打印MySQL复制的层次结构</p>
+<p>示例：<br />
+<span style="color: #0000ff;">shell>./pt-slave-find -h 192.168.1.18 -u user1 -p xxx -P 3312 192.168.1.18</span><br />
+<span style="color: #0000ff;"> Cannot connect to P=3371,h=192.168.1.18,p=...,u=user1</span><br />
+<span style="color: #0000ff;"> 192.168.1.18:3312</span><br />
+<span style="color: #0000ff;"> Version 5.1.63-log</span><br />
+<span style="color: #0000ff;"> Server ID 3</span><br />
+<span style="color: #0000ff;"> Uptime 88+23:01:47 (started 2012-12-09T17:08:25)</span><br />
+<span style="color: #0000ff;"> Replication Is not a slave, has 1 slaves connected, is not read_only</span><br />
+<span style="color: #0000ff;"> Filters</span><br />
+<span style="color: #0000ff;"> Binary logging MIXED</span><br />
+<span style="color: #0000ff;"> Slave status</span><br />
+<span style="color: #0000ff;"> Slave mode STRICT</span><br />
+<span style="color: #0000ff;"> Auto-increment increment 1, offset 1</span><br />
+<span style="color: #0000ff;"> InnoDB version BUILTIN</span><br />
+此例其实并未打印出slave，见如下说明。<br />
+此例中，有如下slave hosts:<br />
+<span style="color: #0000ff;">mysql>show slave hosts;</span><br />
+<span style="color: #0000ff;"> +-----------+--------------+------+-------------------+-----------+</span><br />
+<span style="color: #0000ff;"> | Server_id | Host | Port | Rpl_recovery_rank | Master_id |</span><br />
+<span style="color: #0000ff;"> +-----------+--------------+------+-------------------+-----------+</span><br />
+<span style="color: #0000ff;"> | 2 | 192.168.1.18 | 3371 | 0 | 3 |</span><br />
+<span style="color: #0000ff;"> +-----------+--------------+------+-------------------+-----------+</span><br />
+<span style="color: #0000ff;"> 1 row in set (0.00 sec)</span><br />
+说明：<br />
+要显式层次内容，需要在主服务器的SHOW SLAVE HOSTS内容里面获取到从服务器的ip，端口，用户名，密码等信息。而获取这些信息，需要启用如下选项：<br />
+主服务器：<br />
+--show-slave-auth-info (上例中未启用)<br />
+从服务器：<br />
+--report-host=host_name<br />
+--report-user=user_name<br />
+--report-password=password<br />
+--report-port=slave_port_num</p>
+<h3>4.[从] pt-slave-restart</h3><br />
+作用：监控一个或多个从服务器，尝试在从服务器停止后重新启动它。可以指定可跳过的error信息以及跳过的binlog量等。<br />
+示例：<br />
+<span style="color: #0000ff;">shell>./pt-slave-restart -h 192.168.1.18 -u user1 -p xxx -P 3371 --error-numbers=1062 --daemonize</span></p>
+<h3>5.[主] pt-table-checksum</h3><br />
+作用：验证MySQL复制的完整性，检查数据是否一致。</p>
+<p>要求：被检查的表必须有主键或索引；用户权限包括super,process,replication slave和所有需校验数据的select权限。</p>
+<p>原理：<br />
+该工具一次处理一个表。通过将表的数据分成一个一个的块chunk，每个块分别进行处理，一次处理一块，块大小可以参数控制，也会随着服务器负载大小自动调整。通过这种划分机制，可以轻松地处理大表。而块的划分又是基于主键或者索引，使得处理特定块时对表的使用影响降到最低。</p>
+<p>参数：<br />
+安全相关：--chunk-size-limit --max-load<br />
+异常关闭后继续执行：--resume</p>
+<p>示例1：<br />
+第一次使用，指定--create-replicate-table来创建--replicate，用于存储checksum的结果：<br />
+<span style="color: #0000ff;">shell>./pt-table-checksum --set-vars="sql_mode=STRICT_TRANS_TABLES" --replicate=dbadb.pt_checksums --create-replicate-table --ignore-databases=mysql h=192.168.10.118,u=tmp,p=tmp,P=3306</span><br />
+<span style="color: #0000ff;"> TS ERRORS DIFFS ROWS CHUNKS SKIPPED TIME TABLE</span><br />
+<span style="color: #0000ff;"> 05-18T11:59:42 0 0 0 1 0 0.006 buyxdb.cart</span><br />
+<span style="color: #0000ff;"> 05-18T11:59:42 0 0 0 1 0 0.006 buyxdb.cart_item</span><br />
+<span style="color: #0000ff;"> 05-18T11:59:42 0 0 664 1 0 0.011 buyxdb.category</span><br />
+<span style="color: #0000ff;"> 05-18T11:59:42 0 0 13 1 0 0.009 buyxdb.order_item</span><br />
+<span style="color: #0000ff;"> 05-18T11:59:42 0 0 13 1 0 0.007 buyxdb.orders</span><br />
+<span style="color: #0000ff;"> 05-18T11:59:42 0 0 103 1 0 0.007 buyxdb.product</span><br />
+<span style="color: #0000ff;"> 05-18T11:59:42 0 0 1 1 0 0.005 buyxdb.user</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+输出字段说明：<br />
+TS：表checksum计算结束时的时间戳。<br />
+ERRORS：错误和警告信息的数量。<br />
+DIFFS：master与一个或多个slave不同的chunk数。如果指定--no-replicate-check，那么始终为0；如果指定--replicate-check-only，那么只会打印有不同的表记录。(这个生效要求与pt-slave-find类似，需要slave向master注册host，但是往往不会这么做)<br />
+ROWS：表中进行了checksum的行数目。如果指定了--where，那么可能与表的记录数不一致。<br />
+CHUNKS：表被划分的chunk数。<br />
+SKIPPED：因错误、警告等原因跳过的CHUNKS。<br />
+TIME：统计该表checksum所消耗的时间。<br />
+TABLE：表名。</p>
+<p>补充：</p>
+<p>其中--set-vars="sql_mode=STRICT_TRANS_TABLES"是为了避免服务器sql_mode含ONLY_FULL_GROUP_BY时的报错，报错信息类似于：<br />
+... execute failed: Mixing of GROUP columns (MIN(),MAX(),COUNT(),...) with no GROUP columns is illegal if there is no GROUP BY clause...<br />
+另外该问题的解决还需要在pt-table-checksum脚本上打补丁https://launchpadlibrarian.net/137160912/pt-table-checksum.patch。 <a href="https://bugs.launchpad.net/percona-toolkit/+bug/1019479/comments/10" target="_blank">补丁来源</a><br />
+这里创建的表dbadb.pt_checksums结构如下：<br />
+<span style="color: #0000ff;">CREATE TABLE "pt_checksums" (</span><br />
+<span style="color: #0000ff;"> "db" char(64 ) COLLATE utf8_bin NOT NULL,</span><br />
+<span style="color: #0000ff;"> "tbl" char(64 ) COLLATE utf8_bin NOT NULL,</span><br />
+<span style="color: #0000ff;"> "chunk" int(11 ) NOT NULL,</span><br />
+<span style="color: #0000ff;"> "chunk_time" float DEFAULT NULL,</span><br />
+<span style="color: #0000ff;"> "chunk_index" varchar(200 ) COLLATE utf8_bin DEFAULT NULL,</span><br />
+<span style="color: #0000ff;"> "lower_boundary" text COLLATE utf8_bin,</span><br />
+<span style="color: #0000ff;"> "upper_boundary" text COLLATE utf8_bin,</span><br />
+<span style="color: #0000ff;"> "this_crc" char(40 ) COLLATE utf8_bin NOT NULL,</span><br />
+<span style="color: #0000ff;"> "this_cnt" int(11 ) NOT NULL,</span><br />
+<span style="color: #0000ff;"> "master_crc" char(40 ) COLLATE utf8_bin DEFAULT NULL,</span><br />
+<span style="color: #0000ff;"> "master_cnt" int(11 ) DEFAULT NULL,</span><br />
+<span style="color: #0000ff;"> "ts" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP ,</span><br />
+<span style="color: #0000ff;"> PRIMARY KEY ("db" ,"tbl" ,"chunk" ),</span><br />
+<span style="color: #0000ff;"> KEY "ts_db_tbl" ("ts" ,"db" ,"tbl" )</span><br />
+<span style="color: #0000ff;"> ) ENGINE=InnoDB;</span><br />
+该表每行记录了某表一个chunk的checksum信息。</p>
+<p>示例2：<br />
+<span style="color: #0000ff;">shell>pt-table-checksum --set-vars="sql_mode=STRICT_TRANS_TABLES" --replicate=dbadb.pt_checksums --create-replicate-table --ignore-databases=mysql,dbadb h=192.168.10.118,u=tmp,p=tmp,P=3306</span><br />
+上述操作始终是连接到主库，变更语句会传递给从库，从库上通过如下sql，可以查看到不一致的表信息<br />
+[从]<br />
+<span style="color: #0000ff;">从库-mysql></span><br />
+<span style="color: #0000ff;"> SELECT db, tbl, SUM(this_cnt) AS total_rows, COUNT(*) AS chunks</span><br />
+<span style="color: #0000ff;"> FROM dbadb.pt_checksums</span><br />
+<span style="color: #0000ff;"> WHERE master_cnt <> this_cnt</span><br />
+<span style="color: #0000ff;"> OR master_crc <> this_crc</span><br />
+<span style="color: #0000ff;"> OR ISNULL(master_crc) <> ISNULL(this_crc)</span><br />
+<span style="color: #0000ff;"> GROUP BY db, tbl;</span><br />
+有记录查询到就表示有不一致发生！</p>
+<p>如果确实有不一致发生，那么就需要考虑想办法使其一致，可以使用工具pt-table-sync</p>
+<h3>6.[主]pt-table-sync</h3><br />
+作用：不同表之间同步数据。这里我们只关注在复制环境下的应用。实际是计算出不同点，然后在主库上执行，从库自动更新。其更新操作对主库的数据没有变化，而使得从库数据发生改变，这样最终从库与主库一致。</p>
+<p>在复制环境下，使用--replicate或者--sync-to-master选项。</p>
+<p>要求：其权限要求较高，而且有时需要使用相同用户名密码连接主库和从库。<br />
+参数：<br />
+--print仅仅打印出需要变更的语句。在变化量不大的情况下，推荐打印出来，在手动核实的情况下，可以手动运行这些语句，必要时设置set sql_log_bin=off以避免复制。<br />
+--dry-run 仅仅输出要做的操作，不会真正执行<br />
+--execute 执行！</p>
+<p>示例1、主从复制的环境下，使从库同步成与主库数据一致<br />
+<span style="color: #0000ff;">shell>pt-table-sync --print --sync-to-master --charset=utf8 --set-vars="sql_mode=STRICT_TRANS_TABLES" h=192.168.10.111,D=mydb,t=table1,u=user1,p=xx,P=3371</span><br />
+注：这里的--set-vars=的作用与在pt-table-checksum时一样，都是为了解决Mixing of GROUP columns (MIN(),MAX(),COUNT(),...) with no GROUP columns is illegal if there is no GROUP BY clause的问题。而且，应该是pt-table-sync打了类似补丁的情况下才有效。</p>
+<p>示例2、不指定表，利用pt-table-checksum的结果表找到主从的不同表，进行同步<br />
+<span style="color: #0000ff;">shell>pt-table-sync --replicate=dbadb.pt_checksums --execute --sync-to-master h=192.168.10.111,D=mydb,t=table1,u=user1,p=xx,P=3371</span></p>
+<p>示例3、双主复制架构下，认为M2数据有问题，要同步到和M1一致<br />
+<span style="color: #0000ff;">shell>pt-table-sync --execute --sync-to-master h=master2,D=db,t=tbl</span></p>
+<p>示例4、直接比对两库的表<br />
+<span style="color: #0000ff;">shell>pt-table-sync --print h=host1,D=db,t=tbl h=host2</span></p>
+<h3>7.[主|从]pt-show-grants</h3><br />
+作用：输出MySQL的用户和权限信息，通过格式化处理，便于比对和版本控制。在复制环境下，从库往往随时准备着在主库宕机的时候切换成主库，这就要求从库和主库上针对应用具有一致的用户和权限。而在复制搭建时，包括MS和MM方式，为了减少麻烦，往往不复制mysql库的变更，即用户和权限信息不同步，这样就要求我们经常比对从库和主库的用户和权限信息，以确保非常条件下主从切换的顺利进行。</p>
+<p>这里，就可以分别对主从使用pt-show-grants，然后进行比对</p>
+<p>参数：<br />
+--revoke 添加revoke信息<br />
+--drop 添加drop user<br />
+--only=user1,user2 指定只查看指定的用户<br />
+--ignore=user1,user2 指定忽略这些用户<br />
+--flush 输出后执行FLUSH PRIVILEGES</p>
+<p>示例1、查看192.168.10.112:3310实例的用户和权限<br />
+<span style="color: #0000ff;">shell>pt-show-grants h=192.168.10.112,P=3310,u=user1,p=xx</span></p>
+<p>示例2、比对主从之间的用户和权限<br />
+<span style="color: #0000ff;">shell>pt-show-grants h=192.168.10.112,P=3310,u=user1,p=xx > m1.sql</span><br />
+<span style="color: #0000ff;"> shell>pt-show-grants h=192.168.10.122,P=3310,u=user1,p=xx > s1.sql</span><br />
+<span style="color: #0000ff;"> shell>diff -u m1.sql s1.sql</span></p>
+<h2>Nagios</h2></p>
+<h3>1.pmp-check-mysql-replication-delay</h3><br />
+作用：当MySQL复制出现延迟时，报警。默认情况下是使用从服务器的SHOW SLAVE STATUS输出，但是实际上Seconds_behind_master是比较的SQL线程与IO线程的时间差，不可靠。更可靠的方式是基于pt-heartbeat的表进行检查。<br />
+要求：SHOW SLAVE STATUS 或 pt-heartbeat对应表的SELECT权限。</p>
+<p>示例：<br />
+<span style="color: #0000ff;">shell>./pmp-check-mysql-replication-delay -H 192.168.1.18 -l user1 -p xxx -P 3371 -s 3 -T db10.pt_heartbeat -w 300 -c 600</span><br />
+<span style="color: #0000ff;"> OK 0 seconds of replication delay</span></p>
+<h3>2.pmp-check-mysql-replication-running</h3><br />
+作用：当MySQL复制停止时报警。</p>
+<p>要求：SHOW SLAVE STATUS</p>
+<p>默认当遇到错误线程停止时，报错；无错误线程停止时，报警告。</p>
+<p>示例：<br />
+<span style="color: #0000ff;">shell>./pmp-check-mysql-replication-running -H 192.168.1.18 -l user1 -p xxx -P 3371</span><br />
+<span style="color: #0000ff;"> OK Slave_IO_Running: Yes Slave_SQL_Running: Yes Last_Error:</span></p>
+<h2>Cacti</h2><br />
+图表MySQL Replication</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/09/cacti.png"><img class="alignnone size-full wp-image-692" alt="cacti" src="http://www.sqlparty.com/wp-content/uploads/2013/09/cacti.png" width="587" height="286" /></a><br />
+默认情况下是通过检查SHOW SLAVE STATUS中Seconds_behind_master来判断是否有延迟，其无法准确说明延迟情况。可以结合pt_heartbeat表进行延迟判断，配置方法是：</p>
+<p>在ss_get_mysql_stats.php.cnf中配置。<br />
+$heartbeat='dbadb.pt_heartbeat';</p>
+<p>关于ss_get_mysql_stats.php.cnf，查看文章"<a title="Cacti中安装Percona监控插件" href="http://www.sqlparty.com/cacti%e4%b8%ad%e5%ae%89%e8%a3%85percona%e7%9b%91%e6%8e%a7%e6%8f%92%e4%bb%b6/" target="_blank">Cacti中安装Percona监控插件</a>"。</p>

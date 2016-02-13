@@ -1,0 +1,188 @@
+---
+layout: post
+status: publish
+published: true
+title: Hive与HBase整合
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Hive方便地提供了Hive QL的接口来简化MapReduce的使用，而HBase提供了低延迟的数据库访问。如果两者结合，可以利用MapReduce的优势针对HBase存储的大量内容进行离线的计算和分析。本文介绍Hive与HBase整合的方案，即通过Hive，读/写HBase的表。\r\n<h2>一、通过Hive创建新HBase表</h2>\r\n创建Hive
+  Managed Table:\r\n\r\n<span style=\"color: #0000ff;\">CREATE TABLE hbase_table_1(key
+  int, value string)</span>\r\n<span style=\"color: #0000ff;\">STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'</span>\r\n<span
+  style=\"color: #0000ff;\">WITH SERDEPROPERTIES (\"hbase.columns.mapping\" = \":key,cf1:val\")</span>\r\n<span
+  style=\"color: #0000ff;\">TBLPROPERTIES (\"hbase.table.name\" = \"xyz\")</span>\r\n<span
+  style=\"color: #0000ff;\">;</span>\r\n\r\n这种方式，是创建内部表Managed Table，要创建与HBase的映射，需要设定如下几点：\r\n<ol>\r\n\t<li>设置存储方式：STORED
+  BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'</li>\r\n\t<li>设置HBase列名与Hive表中列的对应，按照顺序逐一对应：WITH
+  SERDEPROPERTIES (\"hbase.columns.mapping\" = \":key,cf1:val\")。\":key\"是HBase的rowkey，对应到hive表的key；cf1:val对应到第二个列value。</li>\r\n\t<li>【可选】指定映射到的HBase表的表名:TBLPROPERTIES
+  (\"hbase.table.name\" = \"xyz\")。如果不指定，则与Hive表同名。</li>\r\n</ol>\r\n如果疑惑Hive怎么找到HBase所在，请看下文&ldquo;<strong>问题汇总</strong>&rdquo;部分。\r\n\r\n"
+wordpress_id: 802
+wordpress_url: http://www.sqlparty.com/?p=802
+date: '2013-12-14 12:05:52 +0800'
+date_gmt: '2013-12-14 04:05:52 +0800'
+categories:
+- 大数据
+tags:
+- Hadoop
+- HBase
+- hive
+---
+<p>Hive方便地提供了Hive QL的接口来简化MapReduce的使用，而HBase提供了低延迟的数据库访问。如果两者结合，可以利用MapReduce的优势针对HBase存储的大量内容进行离线的计算和分析。本文介绍Hive与HBase整合的方案，即通过Hive，读/写HBase的表。</p>
+<h2>一、通过Hive创建新HBase表</h2><br />
+创建Hive Managed Table:</p>
+<p><span style="color: #0000ff;">CREATE TABLE hbase_table_1(key int, value string)</span><br />
+<span style="color: #0000ff;">STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'</span><br />
+<span style="color: #0000ff;">WITH SERDEPROPERTIES ("hbase.columns.mapping" = ":key,cf1:val")</span><br />
+<span style="color: #0000ff;">TBLPROPERTIES ("hbase.table.name" = "xyz")</span><br />
+<span style="color: #0000ff;">;</span></p>
+<p>这种方式，是创建内部表Managed Table，要创建与HBase的映射，需要设定如下几点：</p>
+<ol>
+<li>设置存储方式：STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'</li>
+<li>设置HBase列名与Hive表中列的对应，按照顺序逐一对应：WITH SERDEPROPERTIES ("hbase.columns.mapping" = ":key,cf1:val")。":key"是HBase的rowkey，对应到hive表的key；cf1:val对应到第二个列value。</li>
+<li>【可选】指定映射到的HBase表的表名:TBLPROPERTIES ("hbase.table.name" = "xyz")。如果不指定，则与Hive表同名。</li><br />
+</ol><br />
+如果疑惑Hive怎么找到HBase所在，请看下文&ldquo;<strong>问题汇总</strong>&rdquo;部分。</p>
+<p><!--more--></p>
+<p>以上方式创建表后，在HBase中也创建了表xyz：</p>
+<p><span style="color: #ff00ff;">hbase(main):001:0> describe 'xyz'</span><br />
+<span style="color: #ff00ff;">DESCRIPTION&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ENABLED</span><br />
+<span style="color: #ff00ff;">{NAME => 'xyz', FAMILIES => [{NAME => 'cf1', DATA_BLOCK_ENCODING => 'NONE', BLOOMFILTER => 'NONE', R true</span><br />
+<span style="color: #ff00ff;">EPLICATION_SCOPE => '0', VERSIONS => '3', COMPRESSION => 'NONE', MIN_VERSIONS => '0', TTL => '214748</span><br />
+<span style="color: #ff00ff;">3647', KEEP_DELETED_CELLS => 'false', BLOCKSIZE => '65536', IN_MEMORY => 'false', ENCODE_ON_DISK =></span><br />
+<span style="color: #ff00ff;">'true', BLOCKCACHE => 'true'}]}</span><br />
+<span style="color: #ff00ff;">1 row(s) in 1.8630 seconds</span></p>
+<p>hbase的结构上只能划分到column family，表的映射虽然映射到了column级别，但是hbase表定义中显示不出来，我们插入一些数据到该hive表中：</p>
+<p><span style="color: #0000ff;">hive> insert overwrite table hbase_table_1 select * from t4;</span><br />
+<span style="color: #0000ff;">hive> select * from hbase_table_1;</span><br />
+<span style="color: #0000ff;">OK</span><br />
+<span style="color: #0000ff;">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; abc</span><br />
+<span style="color: #0000ff;">2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; d2</span><br />
+<span style="color: #0000ff;">3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; e3</span><br />
+<span style="color: #0000ff;">4&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; f4</span><br />
+<span style="color: #0000ff;">5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; h5</span></p>
+<p>看hbase表中的数据情况：</p>
+<p><span style="color: #ff00ff;">hbase(main):001:0> scan 'xyz'</span><br />
+<span style="color: #ff00ff;">ROW&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; COLUMN+CELL</span><br />
+<span style="color: #ff00ff;">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; column=cf1:val, timestamp=1386940293951, value=abc</span><br />
+<span style="color: #ff00ff;">2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; column=cf1:val, timestamp=1386940293951, value=d2</span><br />
+<span style="color: #ff00ff;">3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; column=cf1:val, timestamp=1386940293951, value=e3</span><br />
+<span style="color: #ff00ff;">4&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; column=cf1:val, timestamp=1386940293951, value=f4</span><br />
+<span style="color: #ff00ff;">5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; column=cf1:val, timestamp=1386940293951, value=h5</span><br />
+<span style="color: #ff00ff;">5 row(s) in 0.3150 seconds</span></p>
+<p>这样就可以看到key字段映射为hbase的rowkey，而value就映射到cf1:val。数据通过hive表的外壳，顺利插入到hbase中！</p>
+<p>如果通过这种方式插入大量数据，可以设置HBase不计日志来提升插入效率：set hive.hbase.wal.enabled=false;当然，这样如果hbase宕机可能导致数据丢失，需要考虑。</p>
+<h2>二、hive映射到已存在HBase表</h2><br />
+Hive中的外部表可以映射到已经存在的HBase表，如映射到上例中已经创建的xyz表：</p>
+<p><span style="color: #0000ff;">hive> CREATE EXTERNAL TABLE hbase_table_2(key2 int, value2 string)</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; > STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; > WITH SERDEPROPERTIES ("hbase.columns.mapping" = "cf1:val")</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; > TBLPROPERTIES("hbase.table.name" = "xyz");</span><br />
+<span style="color: #0000ff;">OK</span><br />
+<span style="color: #0000ff;">Time taken: 0.69 seconds</span><br />
+<span style="color: #0000ff;">hive> select * from hbase_table_2;</span><br />
+<span style="color: #0000ff;">OK</span><br />
+<span style="color: #0000ff;">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; abc</span><br />
+<span style="color: #0000ff;">2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; d2</span><br />
+<span style="color: #0000ff;">3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; e3</span><br />
+<span style="color: #0000ff;">4&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; f4</span><br />
+<span style="color: #0000ff;">5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; h5</span><br />
+<span style="color: #0000ff;">Time taken: 15.607 seconds</span></p>
+<p>可以看到映射成功后，可以直接查到hbase的表数据。</p>
+<p><span style="color: #0000ff;">hive> drop table hbase_table_2;</span><br />
+<span style="color: #0000ff;">OK</span></p>
+<p><span style="color: #ff00ff;">hbase(main):002:0> scan 'xyz'</span><br />
+<span style="color: #ff00ff;">ROW&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; COLUMN+CELL</span><br />
+<span style="color: #ff00ff;">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; column=cf1:val, timestamp=1386940293951, value=abc</span><br />
+<span style="color: #ff00ff;">2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; column=cf1:val, timestamp=1386940293951, value=d2</span><br />
+<span style="color: #ff00ff;">3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; column=cf1:val, timestamp=1386940293951, value=e3</span><br />
+<span style="color: #ff00ff;">4&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; column=cf1:val, timestamp=1386940293951, value=f4</span><br />
+<span style="color: #ff00ff;">5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; column=cf1:val, timestamp=1386940293951, value=h5</span></p>
+<p><span style="color: #0000ff;">hive> drop table hbase_table_1;</span><br />
+<span style="color: #0000ff;">OK</span></p>
+<p><span style="color: #ff00ff;">hbase(main):001:0> scan 'xyz'</span></p>
+<p><span style="color: #ff00ff;">ERROR: Unknown table xyz!</span></p>
+<p>以上也可以看到Hive Managed table与External table的区别，内部表Managed table，会把表结构和数据都纳入hive的管理，删除表也会删除底层数据，而外部表External table，则hive认为自己只负责添加一层表结构映射关系，删除表不会使底层数据丢失！</p>
+<p>所以，<strong>在不同的场景下，选择不同的hive表类型！</strong></p>
+<h2>三、映射属性</h2><br />
+有两个属性控制HBase与Hive列的映射关系：</p>
+<ul>
+<li>hbase.columns.mapping 如前，我们可以指定hive表字段与hbase的rowkey，columnFamily:column的映射关系。</li>
+<li>hbase.table.default.storage.type 指定表内数据的存储类型。可以指定为string(默认值)或binary。Hive 0.9版本起支持。</li><br />
+</ul><br />
+指定映射关系有如下注意点：</p>
+<ul>
+<li>对于hive表的每个字段，必须在hbase.columns.mapping字符串中用逗号分隔，指定相应的hbase列(rowkey或columnFamily:column)。注意hbase列中不应包含空格，否则空格会作为column的一部分。</li>
+<li>映射项的格式必须是:key或者column-family-name:[column-name][#(binary|string)]
+<ul>
+<li>如果没有指定[#(binary|string)]，那么就采用hbase.table.default.storage.type的设置，默认为string</li>
+<li>如果指定一列为binary，则HBase的cell中存储的字节内容应该是HBase的Bytes类型的。</li><br />
+</ul><br />
+</li></p>
+<li>只允许有一个:key的映射，不支持多个键。</li>
+<li>现在没有选项来指定对应hbase表的timestamp，查询每次都是获取最新版本。</li>
+<li>由于HBase中的column没有数据类型，serde会把所有内容转换为字符串再进行存储。</li>
+<li>可以只映射HBase的部分columnfamily，也可以将同一张hbase表映射到多个hive表。</li><br />
+</ul><br />
+对于hbase.columns.mapping中不指定column，只有columnFamily，那么hive必须只用MAP数据类型，用key:value来指定column:cell，如：</p>
+<p><span style="color: #0000ff;">SELECT foo, bar FROM pokes WHERE foo=98 OR foo=100;</span><br />
+<span style="color: #0000ff;">100&nbsp;&nbsp;&nbsp;&nbsp; val_100</span><br />
+<span style="color: #0000ff;">98&nbsp;&nbsp;&nbsp;&nbsp; val_98</span></p>
+<p><span style="color: #0000ff;">CREATE TABLE hbase_table_1(value map<string,int>, row_key int) </span><br />
+<span style="color: #0000ff;">STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'</span><br />
+<span style="color: #0000ff;">WITH SERDEPROPERTIES (</span><br />
+<span style="color: #0000ff;">"hbase.columns.mapping" = "cf:,:key"</span><br />
+<span style="color: #0000ff;">);</span></p>
+<p><span style="color: #0000ff;">INSERT OVERWRITE TABLE hbase_table_1 SELECT map(bar, foo), foo FROM pokes </span><br />
+<span style="color: #0000ff;">WHERE foo=98 OR foo=100;</span></p>
+<p><span style="color: #0000ff;">select * from hbase_table_1;</span><br />
+<span style="color: #0000ff;">{"val_100":100}&nbsp;&nbsp;&nbsp;&nbsp; 100</span><br />
+<span style="color: #0000ff;">{"val_98":98}&nbsp;&nbsp;&nbsp;&nbsp; 98</span></p>
+<p><span style="color: #ff00ff;">hbase(main):012:0> scan "hbase_table_1"</span><br />
+<span style="color: #ff00ff;">ROW&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; COLUMN+CELL&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;</span><br />
+<span style="color: #ff00ff;">100&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; column=cf:val_100, timestamp=1267739509194, value=100&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;</span><br />
+<span style="color: #ff00ff;">98&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; column=cf:val_98, timestamp=1267739509194, value=98&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;</span><br />
+<span style="color: #ff00ff;">2 row(s) in 0.0080 seconds</span></p>
+<p>这边的columnFamily没有指定column(cf:)，这就要求对应的hive表value字段必须是map类型，而且map的key必须是字符串！否则会如下报错：</p>
+<p><span style="color: #0000ff;">CREATE TABLE hbase_table_1(key int, value map<int,int>) </span><br />
+<span style="color: #0000ff;">STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'</span><br />
+<span style="color: #0000ff;">WITH SERDEPROPERTIES (</span><br />
+<span style="color: #0000ff;">"hbase.columns.mapping" = ":key,cf:"</span><br />
+<span style="color: #0000ff;">);</span><br />
+<span style="color: #0000ff;">FAILED: Error in metadata: java.lang.RuntimeException: MetaException(message:org.apache.hadoop.hive.serde2.SerDeException org.apache.hadoop.hive.hbase.HBaseSerDe: hbase column family 'cf:' should be mapped to map<string,?> but is mapped to map<int,int>)</span></p>
+<h2>四、问题汇总</h2><br />
+实际使用中，要使Hive与HBase建立起关联，会遇到些问题，如：</p>
+<p><strong>1.找不到HBase在哪里？</strong></p>
+<p>上面的过程中我们并没有指定HBase的连接地址，如果本地有如/etc/hbase/conf/hbase-site.xml包含了连接HBase的配置，而Hive能够访问到这个配置文件，那么自然知道HBase的连接地址，否则会爆出如下错误信息：</p>
+<p>2013-11-13 11:13:19,368 WARN&nbsp; zookeeper.ClientCnxn (ClientCnxn.java:run(1089)) - Session 0x0 for server null, unexpected error, closing socket connection and attempting reconnect<br />
+java.net.ConnectException: Connection refused<br />
+at sun.nio.ch.SocketChannelImpl.checkConnect(Native Method)<br />
+at sun.nio.ch.SocketChannelImpl.finishConnect(SocketChannelImpl.java:708)<br />
+at org.apache.zookeeper.ClientCnxnSocketNIO.doTransport(ClientCnxnSocketNIO.java:350)<br />
+at org.apache.zookeeper.ClientCnxn$SendThread.run(ClientCnxn.java:1068)</p>
+<p><strong>解决方案：</strong></p>
+<p>在hive-site.xml中添加HBase的连接方法，如：</p>
+<property>
+<name>hbase.zookeeper.quorum</name><br />
+<value>h1,h2,h3</value><br />
+</property></p>
+<property>
+<name>hbase.zookeeper.property.clientPort</name><br />
+<value>2181</value><br />
+</property></p>
+<property>
+<name>zookeeper.znode.parent</name><br />
+<value>/hbase</value><br />
+</property></p>
+<p><strong>2.找不到连接HBase所需的库文件，报错信息如下：</strong></p>
+<p>Error: java.io.IOException: Cannot create an instance of InputSplit class = org.apache.hadoop.hive.hbase.HBaseSplit:Class org.apache.hadoop.hive.hbase.HBaseSplit not found</p>
+<p><strong>解决方案：</strong></p>
+<p>在hive-site.xml中添加库路径，如：</p>
+<property>
+<name>hive.aux.jars.path</name><br />
+<value>file:///usr/lib/hive/lib/hbase.jar,file:///usr/lib/hive/lib/hive-hbase-handler-0.10.0-cdh4.4.0.jar</value><br />
+</property></p>
+<p>参考：<br />
+<a href="https://cwiki.apache.org/confluence/display/Hive/HBaseIntegration#HBaseIntegration-HiveHBaseIntegration">https://cwiki.apache.org/confluence/display/Hive/HBaseIntegration#HBaseIntegration-HiveHBaseIntegration</a></p>

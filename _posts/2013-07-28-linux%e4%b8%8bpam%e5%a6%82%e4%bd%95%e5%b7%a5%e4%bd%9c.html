@@ -1,0 +1,112 @@
+---
+layout: post
+status: publish
+published: true
+title: Linux下PAM如何工作
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "PAM，Pluggable Authentication Modules， 插入式鉴别模块，是一个用于用户鉴别的框架。\r\n\r\n插件式鉴别模块（PAM）机制采用模块化设计和插件功能，使得我们可以轻易地在应用程序中插入新的鉴别模块或替换原先的组件,而不必对应用程序做任何修改，从而使软件的定制、维持和升级更加轻松--因为鉴别机制与应用程序之间相对独立。应用程序可以通过
+  PAM API 方便的使用 PAM 提供的各种鉴别功能，而不必了解太多的底层细节。此外，PAM的易用性也较强，主要表现在它对上层屏蔽了鉴别的具体细节，所以用户不必被迫学习各种各样的鉴别方式，也不必记住多个口令；又由于它实现了多鉴别机制的集成问题，所以单个程序可以轻易集成多种鉴别机制如
+  Kerberos 鉴别机制和 Diffie - Hellman 鉴别机制等，但用户仍可以用同一个口令登录而感觉不到采取了各种不同鉴别方法。\r\n\r\nPAM的核心是一个库libpam和PAM模块集（动态加载/lib/security下的链接库.so）。\r\n\r\n"
+wordpress_id: 166
+wordpress_url: http://www.sqlparty.com/?p=166
+date: '2013-07-28 15:52:20 +0800'
+date_gmt: '2013-07-28 07:52:20 +0800'
+categories:
+- 系统
+tags:
+- 系统
+- Linux
+- PAM
+---
+<p>PAM，Pluggable Authentication Modules， 插入式鉴别模块，是一个用于用户鉴别的框架。</p>
+<p>插件式鉴别模块（PAM）机制采用模块化设计和插件功能，使得我们可以轻易地在应用程序中插入新的鉴别模块或替换原先的组件,而不必对应用程序做任何修改，从而使软件的定制、维持和升级更加轻松--因为鉴别机制与应用程序之间相对独立。应用程序可以通过 PAM API 方便的使用 PAM 提供的各种鉴别功能，而不必了解太多的底层细节。此外，PAM的易用性也较强，主要表现在它对上层屏蔽了鉴别的具体细节，所以用户不必被迫学习各种各样的鉴别方式，也不必记住多个口令；又由于它实现了多鉴别机制的集成问题，所以单个程序可以轻易集成多种鉴别机制如 Kerberos 鉴别机制和 Diffie - Hellman 鉴别机制等，但用户仍可以用同一个口令登录而感觉不到采取了各种不同鉴别方法。</p>
+<p>PAM的核心是一个库libpam和PAM模块集（动态加载/lib/security下的链接库.so）。</p>
+<p><!--more--></p>
+<h2>一、原理</h2><br />
+每个PAM模块执行特定任务，每个涉及PAM的应用往往会用到多个模块来完成任务，使用的方式是通过调用PAM API，PAM体系结构图如下:</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/pam.png"><img class="alignnone size-medium wp-image-167" alt="pam" src="http://www.sqlparty.com/wp-content/uploads/2013/07/pam-300x220.png" width="300" height="220" /></a><br />
+从上图可以看出，PAM API 起着承上启下的作用，它是应用程序和鉴别模块之间联系的纽带：当应用程序调用 PAM API 时,应用接口层按照配置文件的规定，加载相应的鉴别模块。然后把请求（即从应用程序那里得到的参数）传递给底层的鉴别模块,这时鉴别模块就可以根据要求执行具体的鉴别操作了。当鉴别模块执行完相应操作后，将结果返回给应用接口层，然后由接口层根据配置的具体情况将来自鉴别模块的应答返回给应用程序。</p>
+<h3>鉴别模块层</h3><br />
+鉴别模块层处于最底层， 向上为接口层提供用户鉴别等服务，即所有实际的鉴别工作都是由该层的模块来完成。<br />
+对于应用程序，有些不但需要验证用户的口令，还可能要求验证用户的帐户是否已经过期。此外,有些应用程序也许还会要求记录当前会话的有关信息或改变口令 等，所以 PAM 在模块层除了提供鉴别模块外，同时提供了支持帐户管理、会话管理以及口令管理功能的模块。当然,这四种模块并不是所有应用程序所必需的,而是根据需要灵活 取舍,比如虽然 login 可能要求访问所有四种模块,但是 su 可能仅仅需要使用鉴别组件即可。至于如何取舍则涉及到接口层的 PAM API和配置文件。</p>
+<h3>应用接口层</h3><br />
+应用接口层向上为应用程序屏蔽了用户鉴别等过程的具体细节，向下调用模块层中的具体模块所提供的特定服务。<br />
+PAM API 可以分为两类，一类是用于调用下层特定模块的接口，这类接口与底层的模块相对应：</p>
+<ol>
+<li>鉴别类接口：pam_authenticate（）用于鉴别用户，pam_setcred（）用于修改用户的秘密信息。</li>
+<li>帐号类接口：pam_acct_mgmt（）检查受鉴别的用户所持帐户是否有权登陆系统，以及该帐户是否已过期等。</li>
+<li>会话类接口：包括用于会话管理和记帐的 pam_open_session（）和 pam_close_session（）函数。</li>
+<li>口令类接口：包括用于修改用户口令的 pam_chauthtok（）。</li><br />
+</ol><br />
+第二类接口通常并不与底层模块一一对应，它们的作用是对底层模块提供支持以及实现应用程序与模块之间的通信等。具体如下：</p>
+<ol>
+<li>管理性接口&mdash;&mdash;每组 PAM 事务从 pam_start（）开始，结束于 pam_end（）函数。接口 pam_get_item（）和 pam_set_item（）用来读写与 PAM 事务有关的状态信息。同时，能够用 pam_str()输出 PAM 接口的出错信息。</li>
+<li>应用程序与模块间的通讯接口&mdash;&mdash;在应用程序初始化期间,某些诸如用户名之类的数据可以通过 pam_start（）将其存放在PAM接口层中，以备将来底层模块使用。另外，底层模块还可以使用 pam_putenv()向应用程序传递特定的环境变量，然后应用程序利用 pam_getenv() 和 pam_getenvlist() 读取这些变量。</li>
+<li>用户与模块间的通讯接口&mdash;&mdash;pam_start（）函数可以通过会话式的回调函数，让底层模块通过它们读写模块相关的鉴别信息，比如以应用程序所规定的方式提示用户输入口令。</li>
+<li>模块间通讯接口&mdash;&mdash;尽管各模块是独立的,但是他们仍然能够通过 pam_get_item（）和 pam_set_item（）接口共享某些与鉴别会话有关的公用信息，诸如用户名、服务名、口令等。此外，这些API还可以用于在调用 pam_start（）之后，让应用程序修改状态信息。</li>
+<li>读写模块状态信息的接口&mdash;&mdash;接口 pam_get_data（）和 pam_set_data（）用以按照PAM句柄要求访问和更新特定模块的信息。此外，还可以在这些模块后附加一个清除数据函数，以便当调用 pam_end（）时清除现场。</li><br />
+</ol><br />
+由于 PAM 模块随需加载,所以各模块始化任务在第一次调用时完成。如果某些模块的清除任务必须在鉴别会话结束时完成,则它们应该使用 pam_set_data（）规定清除函数，这些执行清除任务的函数将在应用程序调用 pam_end（）接口时被调用。</p>
+<h2>二、配置</h2><br />
+[shell]<br />
+shell> cat /etc/pam.d/sshd<br />
+#%PAM-1.0<br />
+auth include system-auth<br />
+account required pam_nologin.so<br />
+account include system-auth<br />
+password include system-auth<br />
+session optional pam_keyinit.so force revoke<br />
+session include system-auth<br />
+session required pam_loginuid.so<br />
+[/shell]</p>
+<p>以上是sshd使用pam的配置，/etc/pam.d/目录下每个文件对应相应应用程序。<br />
+配置文件的每一行(除注释外）的格式如下：<br />
+<em>type control module-path module-arguments</em><br />
+其中：<br />
+<strong>type</strong>&mdash;&mdash;是规则对应的管理类别。可取auth,account,password,session，与PAM API的四类接口功能对应；</p>
+<p><strong>control</strong>&mdash;&mdash; 规定如何处理模块的成功和失败情况。单个应用程序可以调用多种底层模块，这通常称为"堆叠"，对应于某程序的按照配置文件中出现顺序执行的所有模块成为"堆"，堆中的各模块的地位与出错时的处理由control栏的取值决定。<br />
+取值包括:</p>
+<ol>
+<li>required：它表示该模块的成功是用户通过鉴别的必要条件，换句话说，只有当对应于应用程序的所有带required标记的模块全部成功后，该程序才能通过鉴别。同时，如果任何带required标记的模块出现了错误，PAM并不立刻将错误消息返回给应用程序，而是在所有模块都调用完毕后才将错误消息返回调用它的程序。其特性可以避免告知用户在哪个环节出的错，一定程度上提高了安全性。</li>
+<li>requisite： 它与required相仿，只有带此标记的模块返回成功后，用户才能通过鉴别，不同之处在于其一旦失败就不再执行堆中后面的其它模块，并且鉴别过程到此结束。</li>
+<li>optional： 它表示即便该模块失败，用户仍能通过鉴别。在PAM体系中，带有该标记的模块失败后将继续处理下一模块。</li>
+<li>sufficient： 它表示该模块取得成功是用户通过鉴别的充分条件,也就是说只要标记为sufficient的模块一旦成功，那么PAM便立即向应用程序返回成功(如果前面没有required项失败的话)而不必尝试任何其他模块。当标记为sufficient的模块失败时，sufficient模块当做optional对待。</li>
+<li>include：此标识与其他标识不同，并不涉及模块成功失败的操作。它表示执行包含文件中的验证。</li><br />
+</ol><br />
+注：control除了使用上述关键字外，也可以使用[value1=action1 value2=action2 ...]形式，详细可查看这里。</p>
+<p><strong>module-path</strong>&mdash;&mdash; PAM模块的位置</p>
+<p><strong>module-arguments</strong>&mdash;&mdash;传递给PAM模块的参数</p>
+<p>所以，对上述sshd的配置实例进行分析，就是：</p>
+<ol>
+<li>auth用户密码验证，使用/etc/pam.d/system-auth中auth的配置；</li>
+<li>account必须通过pam_nologin模块，如果失败，则等到运行完本模块所有验证后再返回出错信息；</li>
+<li>account使用/etc/pam.d/system-auth中account的配置；</li>
+<li>password使用/etc/pam.d/system-auth中password的配置；</li>
+<li>session的与上类似，不再赘述。</li><br />
+</ol></p>
+<h2>三、谁使用PAM</h2><br />
+任何需要用户验证、登录管理、资源约束、密码管理功能的应用都可以从PAM中获益。常见的一些有：<br />
+login登录程序、su切换用户程序、passwd修改密码程序等。<br />
+PAM最大的优势在于将应用程序与其需要的认证相关活动进行了分离。这使得变更安全策略，添加新的认证机制等都可以通过简单配置PAM实现，非常方便。</p>
+<p>怎么知道哪些程序在使用PAM呢？<br />
+方法一，查看/etc/pam.d下的配置文件；<br />
+方法二，查看特定应用是否链接了PAM库，有则说明使用了PAM。方法如下：</p>
+<p>[shell]<br />
+shell> ldd /bin/login | grep -i libpam<br />
+libpam.so.0 => /lib64/libpam.so.0 (0x0000003bcae00000)<br />
+libpam_misc.so.0 => /lib64/libpam_misc.so.0 (0x0000003bc7e00000)<br />
+[/shell]</p>
+<p>注：命令ldd的作用是打印出程序所依赖的共享库。</p>
+<p>参考：<br />
+<a href="http://www.tuxradar.com/content/how-pam-works" target="_blank">http://www.tuxradar.com/content/how-pam-works</a><br />
+<a href="http://superuser.com/questions/451304/what-is-pam-pluggable-authentication-modules-in-linux" target="_blank">http://superuser.com/questions/451304/what-is-pam-pluggable-authentication-modules-in-linux</a><br />
+<a href="http://www.linux-pam.org/Linux-PAM-html/sag-configuration-file.html" target="_blank">http://www.linux-pam.org/Linux-PAM-html/sag-configuration-file.html</a><br />
+<a href="http://www.ibm.com/developerworks/cn/linux/l-cn-pam/" target="_blank">http://www.ibm.com/developerworks/cn/linux/l-cn-pam/</a><br />
+<a href="http://docs.oracle.com/cd/E26926_01/html/E25889/pam-32.html" target="_blank">http://docs.oracle.com/cd/E26926_01/html/E25889/pam-32.html</a><br />
+<a href="https://access.redhat.com/site/documentation/en-US/Red_Hat_Enterprise_Linux/6/html/Managing_Smart_Cards/PAM_Configuration_Files.html" target="_blank">https://access.redhat.com/site/documentation/en-US/Red_Hat_Enterprise_Linux/6/html/Managing_Smart_Cards/PAM_Configuration_Files.html</a></p>

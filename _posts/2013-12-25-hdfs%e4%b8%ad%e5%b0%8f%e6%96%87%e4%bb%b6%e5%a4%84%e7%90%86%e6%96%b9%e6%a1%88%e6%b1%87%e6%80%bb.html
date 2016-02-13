@@ -1,0 +1,134 @@
+---
+layout: post
+status: publish
+published: true
+title: HDFS中小文件处理方案汇总
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "HDFS被设计来存储大文件，而有时候会有大量的小文件生成，造成NameNode资源的浪费，同时也影响MapReduce的处理效率。\r\n\r\n在实际工作中使用Flume做数据收集，将日志类文本信息存入HDFS。由于配置不当导致大量的小文件生成，如：\r\n<span
+  style=\"color: #0000ff;\">shell> hadoop fs -ls -h /hive/request/2013-10-15/</span>\r\n<span
+  style=\"color: #0000ff;\">-rw-r--r-- 3 hdfs hadoop 20.0 K 2013-11-06 11:45 /hive/request/2013-10-15/FlumeData.1381803387852</span>\r\n<span
+  style=\"color: #0000ff;\">-rw-r--r-- 3 hdfs hadoop 34.3 K 2013-11-06 11:45 /hive/request/2013-10-15/FlumeData.1381803387853</span>\r\n<span
+  style=\"color: #0000ff;\">-rw-r--r-- 3 hdfs hadoop 20.5 K 2013-11-06 11:45 /hive/request/2013-10-15/FlumeData.1381803387854</span>\r\n<span
+  style=\"color: #0000ff;\">-rw-r--r-- 3 hdfs hadoop 13.6 K 2013-11-06 11:45 /hive/request/2013-10-15/FlumeData.1381803387855</span>\r\n<span
+  style=\"color: #0000ff;\">-rw-r--r-- 3 hdfs hadoop 24.6 K 2013-11-06 11:45 /hive/request/2013-10-15/FlumeData.1381803387856</span>\r\n<span
+  style=\"color: #0000ff;\">...</span>\r\n\r\n有哪些方案可以合并这些小文件，或者提高处理小文件的效率呢？\r\n\r\n"
+wordpress_id: 811
+wordpress_url: http://www.sqlparty.com/?p=811
+date: '2013-12-25 13:56:51 +0800'
+date_gmt: '2013-12-25 05:56:51 +0800'
+categories:
+- 大数据
+tags:
+- Hadoop
+- hdfs
+- MapReduce
+- CombineFileInputFormat
+---
+<p>HDFS被设计来存储大文件，而有时候会有大量的小文件生成，造成NameNode资源的浪费，同时也影响MapReduce的处理效率。</p>
+<p>在实际工作中使用Flume做数据收集，将日志类文本信息存入HDFS。由于配置不当导致大量的小文件生成，如：<br />
+<span style="color: #0000ff;">shell> hadoop fs -ls -h /hive/request/2013-10-15/</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 3 hdfs hadoop 20.0 K 2013-11-06 11:45 /hive/request/2013-10-15/FlumeData.1381803387852</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 3 hdfs hadoop 34.3 K 2013-11-06 11:45 /hive/request/2013-10-15/FlumeData.1381803387853</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 3 hdfs hadoop 20.5 K 2013-11-06 11:45 /hive/request/2013-10-15/FlumeData.1381803387854</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 3 hdfs hadoop 13.6 K 2013-11-06 11:45 /hive/request/2013-10-15/FlumeData.1381803387855</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 3 hdfs hadoop 24.6 K 2013-11-06 11:45 /hive/request/2013-10-15/FlumeData.1381803387856</span><br />
+<span style="color: #0000ff;">...</span></p>
+<p>有哪些方案可以合并这些小文件，或者提高处理小文件的效率呢？</p>
+<p><!--more--></p>
+<h2>方案1.所有HDFS小文件数据导出到本地单个文件后，再存入HDFS</h2><br />
+利用hadoop fs -cat或hadoop fs -text命令，将所有内容导出到本地文件，然后put到HDFS即可。如：</p>
+<p><span style="color: #0000ff;">shell> hadoop fs -text /hive/request/2013-10-15/FlumeData.* > FlumeData1</span><br />
+<span style="color: #0000ff;">shell> hadoop fs -put FlumeData1 /hive/request/2013-10-15/</span></p>
+<p>或者使用管道：<br />
+<span style="color: #0000ff;">shell> hadoop fs -text /hive/request/2013-10-15/FlumeData.* | hadoop fs -put - /hive/request/2013-10-15/FlumeData1</span></p>
+<p>然后删除原有文件，注意避免删除新上传的FlumeData1（通过模糊匹配的方式即可）<br />
+<span style="color: #0000ff;">shell> hadoop fs -rm -skipTrash /hive/request/2013-10-15/FlumeData.*</span></p>
+<p>补充：</p>
+<ol>
+<li>这个合并方案适用于文件格式一致，文件合并顺序不敏感（或者按照文件名为序）的场景，例如这里收集的日志信息，每一条都是一样的格式，每一条记录本身有生成时间信息，所以不依赖与在文件中的位置。</li>
+<li>如果文件中使用数字用于命名，而期望以数字顺序而不是字符串顺序进行合并，会遇到如下问题：
+<ol>
+<li>问题：1,10,100,1000,11,110这些数字从小到大排列，如果安装字符串顺序，是1,10,100,1000,11,110，而我们知道数字的期望顺序是1,10,11,100,110,1000。</li>
+<li>这里的一个参考方法可以如下：<span style="color: #0000ff;">hadoop fs -text [0-9]_fileName.txt [0-9][0-9]_fileName.txt [0-9][0-9[0-9]_fileName.txt | hadoop fs -put - targetFilename.txt&nbsp;</span>以此类推实现更多位数的数字排序。当然，如果可以的话，使用数字前补零的命名方式(如000009)，使得所有文件名称长度一致，可以使得字符顺序与数字的顺序一致。</li><br />
+</ol><br />
+</li></p>
+<li>-text包含-cat的功能，-cat只能针对平面文件，而-text可以处理压缩(compressed)和顺序(sequence)文件。</li><br />
+</ol></p>
+<h2>方案2.调用API方法org.apache.hadoop.fs.FileUtil.copyMerge或自行开发</h2><br />
+[java]<br />
+public static boolean copyMerge(FileSystem srcFS,<br />
+                                Path srcDir,<br />
+                                FileSystem dstFS,<br />
+                                Path dstFile,<br />
+                                boolean deleteSource,<br />
+                                Configuration conf,<br />
+                                String addString)<br />
+                         throws IOException<br />
+[/java]</p>
+<p>拷贝指定目录下的所有文件复制、合并到一个文件。copyMerge更加通用，可以在不同FileSystem中移动，通过deleteSource标识来指定是否删除，如果设定为true，则会删除整个srcDir目录。而conf的传入其实只是为了获取io.file.buffer.size的设置。而addString则是在合并时，每个文件后添加的字符串。</p>
+<p>我们可以参考copyMerge的写法，编写我们需要的合并程序，如下例，在本FileSystem中将srcDir下的所有文件写入同一个文件dstFile，而删除则是针对被合并的文件而不是整个目录。</p>
+<p>[java]<br />
+public boolean dirMergeToFile(String srcDir, Path dstFile, boolean deleteSource)<br />
+      {<br />
+             boolean rtcd = true;<br />
+             try {<br />
+                  FileSystem fs = FileSystem. get(conf);</p>
+<p>                  Path sDir = new Path(srcDir);<br />
+                  Path dFile = dstFile;<br />
+                   if (!fs.getFileStatus(sDir).isDirectory()) {<br />
+                        System. out.println(sDir.getName() + " is not a directory!");<br />
+                         return false ;<br />
+                  }<br />
+                  OutputStream out = null;<br />
+                   try {<br />
+                         //排除隐藏的文件，即以.开头。<br />
+                        FileStatus contents[] = fs.listStatus(sDir);</p>
+<p>                         if(contents.length == 0)<br />
+                        {<br />
+                              return true ;<br />
+                        }</p>
+<p>                         if (fs.exists(dFile)) {<br />
+                              System. out.println(dFile.getName() + " exists!");<br />
+                               return false ;<br />
+                        }</p>
+<p>                        out = fs.create(dFile);<br />
+                        Arrays. sort(contents);</p>
+<p>                         for (int i = 0; i < contents.length; i++) {<br />
+                               if (contents[i].isFile()) {<br />
+                                    InputStream in = fs.open(contents[i].getPath());<br />
+                                     try {<br />
+                                          IOUtils. copyBytes(in, out, conf, false );<br />
+                                    } finally {<br />
+                                          in.close();<br />
+                                    }<br />
+                                     if (deleteSource &amp;&amp; !fs.delete(contents[i].getPath(), false)) {<br />
+                                          rtcd = false;<br />
+                                    }<br />
+                              }<br />
+                        }<br />
+                  } finally {<br />
+                         if (out != null)<br />
+                              out.close();<br />
+                  }<br />
+                   return rtcd;<br />
+            } catch (IOException e) {<br />
+                  System. out.println(e.getMessage());<br />
+                   return false ;<br />
+            }<br />
+      }<br />
+[/java]</p>
+<p>本质上，这种方案还是先把数据内容读到客户端，再写入到FileSystem。</p>
+<h2>方案3.Hadoop自带方案Hadoop Archive</h2><br />
+hadoop archive命令运行MapReduce job来并行处理输入文件，将小文件的内容合并形成少量大文件，然后再利用index文件，指出小文件在大文件中所属的坐标，以此来减少小文件的量。Hadoop Archives生成归档文件格式为HAR，关于Hadoop Archive详见<a title="Hadoop Archives用法" href="http://www.sqlparty.com/hadoop-archives%e7%94%a8%e6%b3%95/" target="_blank">这篇文章</a>。</p>
+<h2>方案4.使用CombineFileInputFormat针对小文件进行合并输入</h2><br />
+CombineFileInputFormat是Hadoop自带的多文件合并处理方案，指定输入目录，将其下的大量小文件进行合并分片，减少map任务数量。详细见<a title="MapReduce应用中CombineFileInputFormat原理与用法" href="http://www.sqlparty.com/mapreduce%e5%ba%94%e7%94%a8%e4%b8%adcombinefileinputformat%e5%8e%9f%e7%90%86%e4%b8%8e%e7%94%a8%e6%b3%95/" target="_blank">MapReduce应用中CombineFileInputFormat原理与用法</a>。</p>
+<p>参考：<br />
+<a href="http://stackoverflow.com/questions/14831117/merging-hdfs-files" target="_blank">http://stackoverflow.com/questions/14831117/merging-hdfs-files</a><br />
+<a href="http://dongxicheng.org/mapreduce/hdfs-small-files-solution/" target="_blank">http://dongxicheng.org/mapreduce/hdfs-small-files-solution/</a><br />
+<a href="http://blog.cloudera.com/blog/2009/02/the-small-files-problem/" target="_blank">http://blog.cloudera.com/blog/2009/02/the-small-files-problem/</a></p>

@@ -1,0 +1,57 @@
+---
+layout: post
+status: publish
+published: true
+title: MySQL中关于>=all的Bug
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "实习生Joj在阅读《MySQL开发者 SQL权威指南》时发现如下问题：\r\n\r\n[sql]\r\nmysql>create table t1(id
+  int);\r\nmysql>insert into t1 values(1),(10);\r\nmysql>create table t2(id int);\r\nmysql>insert
+  into t2 values(2),(null);\r\nmysql>select id from t1 where id>=all(select id from
+  t2);\r\n+------+\r\n| id   |\r\n+------+\r\n|   10 |\r\n+------+\r\n1 row in set
+  (0.00 sec)\r\n[/sql]\r\n\r\n"
+wordpress_id: 416
+wordpress_url: http://www.sqlparty.com/?p=416
+date: '2013-08-13 21:55:37 +0800'
+date_gmt: '2013-08-13 13:55:37 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+- Bug
+- all
+---
+<p>实习生Joj在阅读《MySQL开发者 SQL权威指南》时发现如下问题：</p>
+<p>[sql]<br />
+mysql>create table t1(id int);<br />
+mysql>insert into t1 values(1),(10);<br />
+mysql>create table t2(id int);<br />
+mysql>insert into t2 values(2),(null);<br />
+mysql>select id from t1 where id>=all(select id from t2);<br />
++------+<br />
+| id   |<br />
++------+<br />
+|   10 |<br />
++------+<br />
+1 row in set (0.00 sec)<br />
+[/sql]</p>
+<p><!--more--></p>
+<p>按照书本提示，以及官网手册 <a href="http://dev.mysql.com/doc/refman/5.5/en/all-subqueries.html" target="_blank">http://dev.mysql.com/doc/refman/5.5/en/all-subqueries.html</a> 页 面，以及我的理解，都应该是返回空集，因为当子查询存在null值，>=的谓词结果只可能是false或null。但是奇怪的是MySQL实际给出了一个结果，利用explain extended和show warnings命令，发现MySQL优化的语句谓词中改为了：</p>
+<p>[sql]<br />
+ where not (<br />
+ t1.id < ( select max(t2.id) from t2 ) )</p>
+<p>[/sql]</p>
+<p>看上去逻辑上转换没有问题，&ldquo;大于等于所有&rdquo;不就是&ldquo;不小于最大值&rdquo;么？但是null的存在使这个转换其实是不等价的。</p>
+<p>百思不解，在stackoverflow上提了这个问题，见识到了专业人士的专业水平，果真是不一般，旁征博引，又利用其他RDBMS系统进行检测，讨论的结果是其是MySQL的一个bug。也有人帮忙提给了MySQL官方，确认为bug。</p>
+<p>讨论页面：<a href="http://stackoverflow.com/questions/11462716/weird-all-inwhere " target="_blank">http://stackoverflow.com/questions/11462716/weird-all-inwhere </a></p>
+<p>Bug确认页面：<a href="http://bugs.mysql.com/bug.php?id=65902 " target="_blank">http://bugs.mysql.com/bug.php?id=65902 </a></p>
+<p>这个事情让我深深体会到国外牛人的专业素养确实非同凡响，在国内论坛上提出后基本没有有效反馈。</p>
+<p>stackoverflow所凝聚起来的技术人的极度活跃、开放和乐于分享，其充满乐趣的精神激励以及严谨的版块管理人让国内充斥着广告、灌水的论坛几乎一无是处。</p>
+<p>由于英文能力一般，发出的帖子单纯语法、格式的修改就有数人帮忙处理，钦佩和感谢。</p>
+<p>希望有一天在中国也能有一番乐土凝聚起技术人的力量，也激励我在这块土地分享出有质量的内容。</p>
+<p><strong>最后值得一提的是：上述>=all的用法很不常用，完全可以用max之类的等价转换掉，这里仅仅讨论此种用法的缺陷。</strong></p>

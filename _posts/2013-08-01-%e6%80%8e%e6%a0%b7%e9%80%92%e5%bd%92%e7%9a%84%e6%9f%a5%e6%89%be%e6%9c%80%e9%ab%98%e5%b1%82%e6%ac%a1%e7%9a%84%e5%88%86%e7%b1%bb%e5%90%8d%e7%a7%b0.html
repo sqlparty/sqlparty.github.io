@@ -1,0 +1,85 @@
+---
+layout: post
+status: publish
+published: true
+title: 怎样递归的查找最高层次的分类名称
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "我有这样一张表category，表结构和内容如下：\r\n\r\n[sql]\r\nslno      category            uppercategory\r\n\r\n1
+  \          Mouse              Computer\r\n2          Computer            Electronics\r\n3
+  \         Electronics           END\r\n4           END                    -\r\n[/sql]\r\n\r\n上表可以很容易看出其含义。Mouse(鼠标)的上层分类为Computer(电脑)，而Computer的上层分类为Electronics(电子产品)，再上面不做分类了，就为END。该表记录了各种各样的分类，分类名称唯一，上例只是取了四条样例数据。\r\n\r\n现在我的需求是，输入一个分类@Dcat，希望返回其顶层分类名称，即END之下的分类。我尝试了如下代码，但是不起作用：\r\n\r\n[sql]\r\nUSE
+  [Database1]\r\nGO\r\n\r\nSET ANSI_NULLS ON\r\nGO\r\nSET QUOTED_IDENTIFIER ON\r\nGO\r\n\r\nALTER
+  PROCEDURE [dbo].[kt_category]\r\n       @Dcat AS NVARCHAR(250)\r\nAS\r\nDECLARE
+  @tmp TABLE (cater NVARCHAR(255))\r\n\r\nBEGIN\r\n\r\nINSERT INTO @tmp\r\nSELECT
+  UPPERCATEGORY FROM CATEGORY where CATEGORY=@Dcat\r\n\r\nwhile( SELECT UPPERCATEGORY
+  FROM CATEGORY )= 'END'\r\nRETURN\r\nEND\r\n[/sql]\r\n\r\n这样的需求应该如何实现呢\r\n\r\n本题来源<a
+  title=\"How to use Stored Procedure Select a value using while\" href=\"http://stackoverflow.com/questions/16785275/how-to-use-stored-procedure-select-a-value-using-while\"
+  target=\"_blank\">stackoverflow</a>\r\n\r\n"
+wordpress_id: 225
+wordpress_url: http://www.sqlparty.com/?p=225
+date: '2013-08-01 00:00:14 +0800'
+date_gmt: '2013-07-31 16:00:14 +0800'
+categories:
+- 题炼
+tags:
+- 数据库
+- with
+- 递归
+---
+<p>我有这样一张表category，表结构和内容如下：</p>
+<p>[sql]<br />
+slno      category            uppercategory</p>
+<p>1           Mouse              Computer<br />
+2          Computer            Electronics<br />
+3          Electronics           END<br />
+4           END                    -<br />
+[/sql]</p>
+<p>上表可以很容易看出其含义。Mouse(鼠标)的上层分类为Computer(电脑)，而Computer的上层分类为Electronics(电子产品)，再上面不做分类了，就为END。该表记录了各种各样的分类，分类名称唯一，上例只是取了四条样例数据。</p>
+<p>现在我的需求是，输入一个分类@Dcat，希望返回其顶层分类名称，即END之下的分类。我尝试了如下代码，但是不起作用：</p>
+<p>[sql]<br />
+USE [Database1]<br />
+GO</p>
+<p>SET ANSI_NULLS ON<br />
+GO<br />
+SET QUOTED_IDENTIFIER ON<br />
+GO</p>
+<p>ALTER PROCEDURE [dbo].[kt_category]<br />
+       @Dcat AS NVARCHAR(250)<br />
+AS<br />
+DECLARE @tmp TABLE (cater NVARCHAR(255))</p>
+<p>BEGIN</p>
+<p>INSERT INTO @tmp<br />
+SELECT UPPERCATEGORY FROM CATEGORY where CATEGORY=@Dcat</p>
+<p>while( SELECT UPPERCATEGORY FROM CATEGORY )= 'END'<br />
+RETURN<br />
+END<br />
+[/sql]</p>
+<p>这样的需求应该如何实现呢</p>
+<p>本题来源<a title="How to use Stored Procedure Select a value using while" href="http://stackoverflow.com/questions/16785275/how-to-use-stored-procedure-select-a-value-using-while" target="_blank">stackoverflow</a></p>
+<p><!--more--></p>
+<div class="dailyanswer">本题是典型的递归查询的应用，在Oracle/SQLServer/DB2中都支持使用with来实现递归。具体可以如下：[sql]<br />
+WITH R<br />
+     AS (SELECT *,<br />
+                1 AS Level<br />
+         FROM   CATEGORY<br />
+         WHERE  Category = @Dcat<br />
+         UNION ALL<br />
+         SELECT C.*,<br />
+                R.Level + 1<br />
+         FROM   CATEGORY C<br />
+                JOIN R<br />
+                  ON R.Uppercategory = C.Category)<br />
+SELECT *<br />
+FROM   R<br />
+WHERE Uppercategory  = 'End'<br />
+[/sql]</p>
+<p>这里利用With生成了一张临时表。</p>
+<p>临时表的生成过程是这样的：首先执行union all上部的SQL，对R进行初始化。基于这些初始化数据，再执行union all下部的SQL。执行过程中，依次取R中的每一条记录找出下部查询中的返回，再插入到R中，循环往复，直到union all下部SQL没有记录返回为止。R中记录的处理顺序是基于插入的先后顺序。当R表记录最终确定后，执行with后面的select。</p>
+<p>上面给出的解答中，LEVEL其实可以不需要，它的作用是表示出递归的层次，这里也就是category从底向上的层数，可以帮助理解。LEVEL在本题来源中协助进行结果处理，详细见本题来源<a title="How to use Stored Procedure Select a value using while" href="http://stackoverflow.com/questions/16785275/how-to-use-stored-procedure-select-a-value-using-while" target="_blank">stackoverflow</a>。</p>
+<p>在MySQL环境下，暂时没有类似With的递归处理方法，可以通过循环查询的方式变通，本次不做扩展。</p>
+<p></div></p>

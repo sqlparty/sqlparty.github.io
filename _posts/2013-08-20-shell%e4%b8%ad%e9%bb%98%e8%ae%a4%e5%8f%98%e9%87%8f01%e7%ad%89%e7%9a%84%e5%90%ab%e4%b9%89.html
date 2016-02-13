@@ -1,0 +1,72 @@
+---
+layout: post
+status: publish
+published: true
+title: shell中默认变量($#,$@,$0,$1)等的含义
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "通过简单脚本的方式解释shell中默认变量的含义:\r\n\r\n<span>shell>vi /tmp/test.sh</span>\r\n加入如下内容\r\n<span
+  style=\"color: #0000ff;\">#!/bin/sh</span>\r\n<span style=\"color: #0000ff;\">
+  echo -e \"\\$#(number of parameters):\" $#</span>\r\n<span style=\"color: #0000ff;\">
+  echo -e \"\\$0(program name):\" $0</span>\r\n<span style=\"color: #0000ff;\">
+  echo -e \"\\$1(first parameter):\" $1</span>\r\n<span style=\"color: #0000ff;\">
+  echo -e \"\\$2(second parameter):\" $2</span>\r\n<span style=\"color: #0000ff;\">
+  echo -e \"\\$@(all parameters):\" \"$@\"</span>\r\n<span style=\"color: #0000ff;\">
+  echo -e \"\\$*(show parameters):\" $*</span>\r\n<span style=\"color: #0000ff;\">
+  echo -e \"\\$\\$(pid of this program):\" $$</span>\r\n<span style=\"color: #0000ff;\">
+  echo -e \"\\$?(show exit stat of previous program):\" $?</span>\r\n\r\n"
+wordpress_id: 463
+wordpress_url: http://www.sqlparty.com/?p=463
+date: '2013-08-20 21:48:14 +0800'
+date_gmt: '2013-08-20 13:48:14 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- shell
+---
+<p>通过简单脚本的方式解释shell中默认变量的含义:</p>
+<p><span>shell>vi /tmp/test.sh</span><br />
+加入如下内容<br />
+<span style="color: #0000ff;">#!/bin/sh</span><br />
+<span style="color: #0000ff;"> echo -e "\$#(number of parameters):" $#</span><br />
+<span style="color: #0000ff;"> echo -e "\$0(program name):" $0</span><br />
+<span style="color: #0000ff;"> echo -e "\$1(first parameter):" $1</span><br />
+<span style="color: #0000ff;"> echo -e "\$2(second parameter):" $2</span><br />
+<span style="color: #0000ff;"> echo -e "\$@(all parameters):" "$@"</span><br />
+<span style="color: #0000ff;"> echo -e "\$*(show parameters):" $*</span><br />
+<span style="color: #0000ff;"> echo -e "\$\$(pid of this program):" $$</span><br />
+<span style="color: #0000ff;"> echo -e "\$?(show exit stat of previous program):" $?</span></p>
+<p><!--more--></p>
+<p><span style="color: #0000ff;">shell>chmod u+x /tmp/test.sh</span></p>
+<p><span style="color: #0000ff;">shell>/tmp/test.sh p1 -p2 --p3</span><br />
+<span style="color: #0000ff;"> $#(number of parameters):3</span><br />
+<span style="color: #0000ff;"> $0(program name):/tmp/test.sh</span><br />
+<span style="color: #0000ff;"> $1(first parameter):p1</span><br />
+<span style="color: #0000ff;"> $2(second parameter):-p2</span><br />
+<span style="color: #0000ff;"> $@(all parameters):p1 -p2 --p3</span><br />
+<span style="color: #0000ff;"> $*(show parameters):p1 -p2 --p3</span><br />
+<span style="color: #0000ff;"> $$(pid of this program):24063</span><br />
+<span style="color: #0000ff;"> $?(show exit stat of previous program):0</span></p>
+<p>如上可以看出各个变量的含义：</p>
+<p>$# 传递为脚本的参数的个数<br />
+$0 脚本本身名称<br />
+$1 传递给脚本的第一个参数<br />
+$2 传递给脚本的第二个参数(有$1..$9九个变量可以使用，分别代表1-9个参数，$10其实是$1拼上0)<br />
+"$@" 使用时需要加双引号，是传给脚本的所有参数的列表。看上去与$*相同，实际$*是返回单个字符串，包含所有参数，而"$@"依然是一个参数列表，每个都是独立的字符串。如"$@"用「"」括起来的情况、以"$1" "$2" &hellip; "$n" 的形式输出所有参数。如果需要将参数原样传递，应该使用"$@"。<br />
+$* 是以一个单字符串显示所有向脚本传递的参数，与位置变量不同，参数可超过9个。如"$*"用「"」括起来的情况、以"$1 $2 &hellip; $n"的形式输出所有参数。<br />
+$$ 是脚本运行的当前进程ID号<br />
+$? 是显示最后命令的退出状态，0表示没有错误，其他表示有错误。上述脚本中的$0实际是获取了其上一条命令echo -e "\$\$(pid of this program):$$"的退出状态</p>
+<p>另外：<br />
+$! 后台运行的最后一个进程的进程ID号<br />
+$- 传递给脚本中的标志(使用set) 。 使用Set命令设定的Flag一览。如果包括i，则表示是处在交互式shell的环境下。<br />
+$_ 之前命令的最后一个参数<br />
+a=$(xxx) 将xxx的命令输出赋给变量a。同a=`xxx`。如a=$(echo "abc") ;echo $a 即可输出abc。</p>
+<p>参考：<br />
+<a href="http://dadekey.blog.51cto.com/107327/119938" target="_blank">http://dadekey.blog.51cto.com/107327/119938</a><br />
+<a href="http://www.phpzixue.cn/detail882.shtml" target="_blank">http://www.phpzixue.cn/detail882.shtml</a></p>

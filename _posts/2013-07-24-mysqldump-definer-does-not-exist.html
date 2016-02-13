@@ -1,0 +1,50 @@
+---
+layout: post
+status: publish
+published: true
+title: 'mysqldump: definer does not exist'
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "运行\r\n\r\n[sql]\r\nmysqldump -h 192.168.2.66 -u aaa -pxxx -P 3306 devdb
+  > abc.sql\r\n mysqldump: Got error: 1449: The user specified\r\nas a definer ('opr'@'%')
+  does not exist when using LOCK TABLES\r\n[/sql]\r\n\r\n导致无法备份脚本，如何解决？\r\n\r\n"
+wordpress_id: 21
+wordpress_url: http://www.sqlparty.com/?p=21
+date: '2013-07-24 23:21:53 +0800'
+date_gmt: '2013-07-24 15:21:53 +0800'
+categories:
+- 数据库
+tags:
+- 数据库
+- MySQL
+- 备份
+- mysqldump
+---
+<p>运行</p>
+<p>[sql]<br />
+mysqldump -h 192.168.2.66 -u aaa -pxxx -P 3306 devdb > abc.sql<br />
+ mysqldump: Got error: 1449: The user specified<br />
+as a definer ('opr'@'%') does not exist when using LOCK TABLES<br />
+[/sql]</p>
+<p>导致无法备份脚本，如何解决？</p>
+<p><!--more--><br />
+<strong>原因</strong>：<br />
+该数据库中包含了视图View，其创建者的账户已被删除。通过information_schema.views可以看到起definer。LOCK TABLES貌似会检查其definer。</p>
+<p><strong>解决方案</strong>：<br />
+删除重建视图</p>
+<p>#拼接生成语句，将View的创建语句保留</p>
+<p>[sql]<br />
+ mysql -h 192.168.2.66 -u aaa -pxxx -P 3306 --skip-column-names -e "SELECT CONCAT('CREATE VIEW ',table_schema,'.',table_name,' as ',view_definition,';') FROM information_schema.views WHERE table_schema= 'devdb'" > allviews.sql<br />
+ #删除原有视图<br />
+ mysql -h 192.168.2.66 -u aaa -pxxx -P 3306 --skip-column-names -e "SELECT CONCAT('DROP VIEW ',table_schema,'.',table_name,';') FROM information_schema.views WHERE table_schema= 'devdb'" | mysql -h 192.168.2.66 -u aaa -pxxx -P 3306<br />
+ #使用指定账户新建这些视图<br />
+ mysql -h 192.168.2.66 -u aaa -pxxx -P 3306&nbsp; < allviews.sql<br />
+[/sql]</p>
+<p>然后再执行mysqldump即可。</p>
+<p><strong>参考阅读</strong>:<br />
+​http://dba.stackexchange.com/questions/4129/modify-definer-on-many-views</p>

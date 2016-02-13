@@ -1,0 +1,131 @@
+---
+layout: post
+status: publish
+published: true
+title: Yarn在Shuffle阶段内存不足问题(error in shuffle in fetcher)
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "在Hadoop集群（CDH4.4, Mv2即Yarn框架）使用过程中，发现处理大数据集时程序报出如下错误：\r\n\r\n<span style=\"color:
+  #0000ff;\">13/12/02 20:02:06 INFO mapreduce.Job: map 100% reduce 2%</span>\r\n<span
+  style=\"color: #0000ff;\">13/12/02 20:02:18 INFO mapreduce.Job: Task Id
+  : attempt_1385983958793_0001_r_000000_1, Status : FAILED</span>\r\n<span style=\"color:
+  #0000ff;\">Error: org.apache.hadoop.mapreduce.task.reduce.Shuffle$ShuffleError:
+  error in shuffle in fetcher#1</span>\r\n<span style=\"color: #0000ff;\"> at
+  org.apache.hadoop.mapreduce.task.reduce.Shuffle.run(Shuffle.java:121)</span>\r\n<span
+  style=\"color: #0000ff;\"> at org.apache.hadoop.mapred.ReduceTask.run(ReduceTask.java:379)</span>\r\n<span
+  style=\"color: #0000ff;\"> at org.apache.hadoop.mapred.YarnChild$2.run(YarnChild.java:157)</span>\r\n<span
+  style=\"color: #0000ff;\"> at java.security.AccessController.doPrivileged(Native
+  Method)</span>\r\n<span style=\"color: #0000ff;\"> at javax.security.auth.Subject.doAs(Subject.java:415)</span>\r\n<span
+  style=\"color: #0000ff;\"> at org.apache.hadoop.security.UserGroupInformation.doAs(UserGroupInformation.java:1408)</span>\r\n<span
+  style=\"color: #0000ff;\"> at org.apache.hadoop.mapred.YarnChild.main(YarnChild.java:152)</span>\r\n<span
+  style=\"color: #0000ff;\">Caused by: java.lang.OutOfMemoryError: Java heap space</span>\r\n<span
+  style=\"color: #0000ff;\"> at org.apache.hadoop.io.BoundedByteArrayOutputStream.<init>(BoundedByteArrayOutputStream.java:58)</span>\r\n<span
+  style=\"color: #0000ff;\"> at org.apache.hadoop.io.BoundedByteArrayOutputStream.<init>(BoundedByteArrayOutputStream.java:45)</span>\r\n<span
+  style=\"color: #0000ff;\"> at org.apache.hadoop.mapreduce.task.reduce.InMemoryMapOutput.<init>(InMemoryMapOutput.java:63)</span>\r\n<span
+  style=\"color: #0000ff;\"> at org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl.unconditionalReserve(MergeManagerImpl.java:297)</span>\r\n<span
+  style=\"color: #0000ff;\"> at org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl.reserve(MergeManagerImpl.java:287)</span>\r\n<span
+  style=\"color: #0000ff;\"> at org.apache.hadoop.mapreduce.task.reduce.Fetcher.copyMapOutput(Fetcher.java:360)</span>\r\n<span
+  style=\"color: #0000ff;\"> at org.apache.hadoop.mapreduce.task.reduce.Fetcher.copyFromHost(Fetcher.java:295)</span>\r\n<span
+  style=\"color: #0000ff;\"> at org.apache.hadoop.mapreduce.task.reduce.Fetcher.run(Fetcher.java:154)</span>\r\n\r\nGoogle一番后居然无果！程序等着运行，老板催着要结果，没有大师协助，只能开始艰难地自救了！认真分析，求助于源代码！\r\n\r\n首先发现的一点是：map任务百分比一直在递增，出现reduce任务之后，每隔一段时间报一个类似上面的错误，reduce从0%重新开始，而Map任务继续前进，reduce处理一段后再报，再从0开始。累计到第四个报错后即整个Application宣布Fail。\r\n\r\n根据这一点，大致可以得出这样的结论：\r\n<ol>\r\n\t<li>reduce任务每次尝试都失败了，失败后重新开始；</li>\r\n\t<li>reduce任务失败累计4次后整个Application退出，应该是设置了最大重试次数之类的配置项。</li>\r\n\t<li>map任务与reduce任务是隔离的，之间不会干扰。这个从map、reduce任务原理也可以了解到。</li>\r\n</ol>\r\n基于这一点，首先查询到map-site.xml中的配置项<span
+  style=\"color: #0000ff;\">mapreduce.reduce.maxattempts</span>，表示Reduce Task最大失败尝试次数，这个配置默认是4，调整到400后接着尝试。\r\n\r\nmapreduce.reduce.maxattempts起了作用，但是报错依然不断，不过不会4次报错就结束了，map进度一直向前，map到达100%后，reduce依然重复报错的节奏。是时候查查这里报错的类究竟在做啥了。\r\n\r\n"
+wordpress_id: 794
+wordpress_url: http://www.sqlparty.com/?p=794
+date: '2013-12-02 21:19:46 +0800'
+date_gmt: '2013-12-02 13:19:46 +0800'
+categories:
+- 大数据
+tags:
+- 问题集
+- Hadoop
+- yarn
+---
+<p>在Hadoop集群（CDH4.4, Mv2即Yarn框架）使用过程中，发现处理大数据集时程序报出如下错误：</p>
+<p><span style="color: #0000ff;">13/12/02 20:02:06 INFO mapreduce.Job: map 100% reduce 2%</span><br />
+<span style="color: #0000ff;">13/12/02 20:02:18 INFO mapreduce.Job: Task Id : attempt_1385983958793_0001_r_000000_1, Status : FAILED</span><br />
+<span style="color: #0000ff;">Error: org.apache.hadoop.mapreduce.task.reduce.Shuffle$ShuffleError: error in shuffle in fetcher#1</span><br />
+<span style="color: #0000ff;"> at org.apache.hadoop.mapreduce.task.reduce.Shuffle.run(Shuffle.java:121)</span><br />
+<span style="color: #0000ff;"> at org.apache.hadoop.mapred.ReduceTask.run(ReduceTask.java:379)</span><br />
+<span style="color: #0000ff;"> at org.apache.hadoop.mapred.YarnChild$2.run(YarnChild.java:157)</span><br />
+<span style="color: #0000ff;"> at java.security.AccessController.doPrivileged(Native Method)</span><br />
+<span style="color: #0000ff;"> at javax.security.auth.Subject.doAs(Subject.java:415)</span><br />
+<span style="color: #0000ff;"> at org.apache.hadoop.security.UserGroupInformation.doAs(UserGroupInformation.java:1408)</span><br />
+<span style="color: #0000ff;"> at org.apache.hadoop.mapred.YarnChild.main(YarnChild.java:152)</span><br />
+<span style="color: #0000ff;">Caused by: java.lang.OutOfMemoryError: Java heap space</span><br />
+<span style="color: #0000ff;"> at org.apache.hadoop.io.BoundedByteArrayOutputStream.<init>(BoundedByteArrayOutputStream.java:58)</span><br />
+<span style="color: #0000ff;"> at org.apache.hadoop.io.BoundedByteArrayOutputStream.<init>(BoundedByteArrayOutputStream.java:45)</span><br />
+<span style="color: #0000ff;"> at org.apache.hadoop.mapreduce.task.reduce.InMemoryMapOutput.<init>(InMemoryMapOutput.java:63)</span><br />
+<span style="color: #0000ff;"> at org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl.unconditionalReserve(MergeManagerImpl.java:297)</span><br />
+<span style="color: #0000ff;"> at org.apache.hadoop.mapreduce.task.reduce.MergeManagerImpl.reserve(MergeManagerImpl.java:287)</span><br />
+<span style="color: #0000ff;"> at org.apache.hadoop.mapreduce.task.reduce.Fetcher.copyMapOutput(Fetcher.java:360)</span><br />
+<span style="color: #0000ff;"> at org.apache.hadoop.mapreduce.task.reduce.Fetcher.copyFromHost(Fetcher.java:295)</span><br />
+<span style="color: #0000ff;"> at org.apache.hadoop.mapreduce.task.reduce.Fetcher.run(Fetcher.java:154)</span></p>
+<p>Google一番后居然无果！程序等着运行，老板催着要结果，没有大师协助，只能开始艰难地自救了！认真分析，求助于源代码！</p>
+<p>首先发现的一点是：map任务百分比一直在递增，出现reduce任务之后，每隔一段时间报一个类似上面的错误，reduce从0%重新开始，而Map任务继续前进，reduce处理一段后再报，再从0开始。累计到第四个报错后即整个Application宣布Fail。</p>
+<p>根据这一点，大致可以得出这样的结论：</p>
+<ol>
+<li>reduce任务每次尝试都失败了，失败后重新开始；</li>
+<li>reduce任务失败累计4次后整个Application退出，应该是设置了最大重试次数之类的配置项。</li>
+<li>map任务与reduce任务是隔离的，之间不会干扰。这个从map、reduce任务原理也可以了解到。</li><br />
+</ol><br />
+基于这一点，首先查询到map-site.xml中的配置项<span style="color: #0000ff;">mapreduce.reduce.maxattempts</span>，表示Reduce Task最大失败尝试次数，这个配置默认是4，调整到400后接着尝试。</p>
+<p>mapreduce.reduce.maxattempts起了作用，但是报错依然不断，不过不会4次报错就结束了，map进度一直向前，map到达100%后，reduce依然重复报错的节奏。是时候查查这里报错的类究竟在做啥了。</p>
+<p><!--more--></p>
+<p>org.apache.hadoop.mapreduce.task.reduce.Fetcher类位于hadoop-mapreduce-client-core-2.0.0-cdh4.4.0.jar包中，Maven的话在pom.xml添加如下配置，可以获取该包以及源码：<br />
+<span style="color: #0000ff;"><dependency></span><br />
+<span style="color: #0000ff;"> <groupId >org.apache.hadoop</ groupId></span><br />
+<span style="color: #0000ff;"> <artifactId >hadoop-mapreduce -client-core</ artifactId></span><br />
+<span style="color: #0000ff;"> <version >2.0.0-cdh4.4.0</ version></span><br />
+<span style="color: #0000ff;"></dependency></span></p>
+<p>问题的入口是run中的：</p>
+<p><span style="color: #0000ff;">// Shuffle</span><br />
+<span style="color: #0000ff;"> copyFromHost(host);</span></p>
+<p>跟踪到copyMapOutput，是要准备从Map节点本地拷贝map的output进行shuffle。其中出错点：</p>
+<p><span style="color: #0000ff;">// Get the location for the map output - either in-memory or on-disk</span><br />
+<span style="color: #0000ff;"> mapOutput = merger.reserve(mapId, decompressedLength, id );</span></p>
+<p>merger指向了MergeManagerImpl对象，调用其reserve函数，而这个函数中定义了shuffle的处理方式，是将output塞入内存(InMemoryMapOutput)还是放在磁盘上慢慢做(OnDiskMapOutput)？</p>
+<p>从我们这边的出错信息，显然可以看到任务选择了InMemoryMapOutput，在检查为什么作出这样的选择前，我们看看map的输出结果到底有多大：</p>
+<p><span style="color: #0000ff;">shell> cd /data/1/mrlocal/yarn/local/usercache/hdfs/appcache/application_1385983958793_0001/output</span><br />
+<span style="color: #0000ff;">shell>du -sh * | grep _r_</span><br />
+<span style="color: #0000ff;">7.3G attempt_1385983958793_0001_r_000000_1</span><br />
+<span style="color: #0000ff;">6.5G attempt_1385983958793_0001_r_000000_12</span><br />
+<span style="color: #0000ff;">5.2G attempt_1385983958793_0001_r_000000_5</span><br />
+<span style="color: #0000ff;">5.8G attempt_1385983958793_0001_r_000000_7</span></p>
+<p>这样大的输出放到内存里，显然要OOM了，可以有两种选择，它为什么不选择OnDiskMapOutput呢？</p>
+<p>如下这段很显然是关键所在：<br />
+<span style="color: #0000ff;">if (!canShuffleToMemory(requestedSize)) {</span><br />
+<span style="color: #0000ff;"> LOG.info(mapId + ": Shuffling to disk since " + requestedSize +</span><br />
+<span style="color: #0000ff;"> " is greater than maxSingleShuffleLimit (" +</span><br />
+<span style="color: #0000ff;"> maxSingleShuffleLimit + ")" );</span><br />
+<span style="color: #0000ff;"> return new OnDiskMapOutput<K,V>(mapId, reduceId, this , requestedSize,</span><br />
+<span style="color: #0000ff;"> jobConf, mapOutputFile , fetcher, true);</span><br />
+<span style="color: #0000ff;"> }</span></p>
+<p>再看canShuffleToMemory：</p>
+<p><span style="color: #0000ff;">private boolean canShuffleToMemory( long requestedSize) {</span><br />
+<span style="color: #0000ff;"> return (requestedSize < maxSingleShuffleLimit);</span><br />
+<span style="color: #0000ff;"> }</span></p>
+<p>requestedSize从源码上并不能清楚了解其真实含义，问题最终落在maxSingleShuffleLimit这个参数的含义和来源上，进一步细查可以发现其来源：</p>
+<p><span style="color: #0000ff;">this.maxSingleShuffleLimit =</span><br />
+<span style="color: #0000ff;"> (long)( memoryLimit * singleShuffleMemoryLimitPercent);</span></p>
+<p>两个变量的取值：</p>
+<p><span style="color: #0000ff;">// Allow unit tests to fix Runtime memory</span><br />
+<span style="color: #0000ff;"> this. memoryLimit =</span><br />
+<span style="color: #0000ff;"> (long)(jobConf.getLong(MRJobConfig. REDUCE_MEMORY_TOTAL_BYTES,</span><br />
+<span style="color: #0000ff;"> Math. min(Runtime.getRuntime ().maxMemory(), Integer.MAX_VALUE))</span><br />
+<span style="color: #0000ff;"> * maxInMemCopyUse);</span></p>
+<p><span style="color: #0000ff;">final float singleShuffleMemoryLimitPercent =</span><br />
+<span style="color: #0000ff;"> jobConf.getFloat(MRJobConfig. SHUFFLE_MEMORY_LIMIT_PERCENT,</span><br />
+<span style="color: #0000ff;"> DEFAULT_SHUFFLE_MEMORY_LIMIT_PERCENT );</span></p>
+<p>singleShuffleMemoryLimitPercent 取的是<span style="color: #0000ff;">mapreduce.reduce.shuffle.memory.limit.percent</span>这个配置的取值，官网给出的解释是：</p>
+<p><em>Expert: Maximum percentage of the in-memory limit that a single shuffle can consume</em></p>
+<p><em></em>单个shuffle能够消耗的内存占reduce所有内存的比例，默认值为0.25。Expert"专家模式"，说的很唬人。。</p>
+<p>那么降低mapreduce.reduce.shuffle.memory.limit.percent这个参数应该可以使得程序选择OnDiskMapout而不是选择InMemory，调低至0.06在测试，顺利执行，不再报错。</p>
+<p>收获：选择了最新的框架，意味着会遇到最新的问题。无助时，了解原理，查询源码，总能找到想要的答案。</p>
+<p>遗留：</p>
+<p>1.查看源码，很多不清晰的地方都略过了，其中memoryLimit的取值，即reduce所有可使用的内存，实际取值如何确定，需要进一步找寻答案。</p>
+<p>2.如何控制mapreduce.reduce.shuffle.memory.limit.percent使得我们能够使用合理的配置来最大化的使用内存，待续。</p>
+<p>&nbsp;</p>

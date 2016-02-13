@@ -1,0 +1,190 @@
+---
+layout: post
+status: publish
+published: true
+title: MySQL Metadata lock深入
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "MySQL 5.5.3版本中引入了Metadata lock。在5.5.3版本之前，MySQL事务对于表结构元数据(Metadata)的锁定是<strong>语句(statement)粒度</strong>的，即语句执行完成后，不管事务是否可以完成，其表结构就可以被其他会话更新掉！而引入Metadata
+  lock后，表结构元数据(Metadata)的锁定变成了<strong>事务(transaction)粒度</strong>的，即只有事务结束时才会释放Metadata
+  lock。\r\n\r\n"
+wordpress_id: 689
+wordpress_url: http://www.sqlparty.com/?p=689
+date: '2013-09-16 21:50:38 +0800'
+date_gmt: '2013-09-16 13:50:38 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+- metadata-lock
+---
+<p>MySQL 5.5.3版本中引入了Metadata lock。在5.5.3版本之前，MySQL事务对于表结构元数据(Metadata)的锁定是<strong>语句(statement)粒度</strong>的，即语句执行完成后，不管事务是否可以完成，其表结构就可以被其他会话更新掉！而引入Metadata lock后，表结构元数据(Metadata)的锁定变成了<strong>事务(transaction)粒度</strong>的，即只有事务结束时才会释放Metadata lock。</p>
+<p><!--more--></p>
+<h2>引入Metadata lock之前(5.5.3版本以前)</h2><br />
+5.5.3之前的Metadata处理方式，有如下问题：</p>
+<h3>1）隔离级别会被破坏</h3><br />
+例如：理论上REPEATABLE-READ隔离级别下，一个事务内同样的查询能够读到同样的内容，如果没有新记录的话。但是由于没有事务级别的Metadata锁，这个隔离级别下就不能满足这样的约定：</p>
+<p>5.1.51版本中运行：</p>
+<div><span style="color: #800000;">Session1 mysql> select @@tx_isolation;</span><br />
+<span style="color: #800000;">+-----------------+</span><br />
+<span style="color: #800000;">| @@tx_isolation&nbsp; |</span><br />
+<span style="color: #800000;">+-----------------+</span><br />
+<span style="color: #800000;">| REPEATABLE-READ |</span><br />
+<span style="color: #800000;">+-----------------+</span><br />
+<span style="color: #800000;">1 row in set (0.00 sec)</span><span style="color: #800000;">Session1&nbsp;mysql> start transaction;</span><br />
+<span style="color: #800000;">Query OK, 0 rows affected (0.00 sec)</span></p>
+<p><span style="color: #800000;">Session1&nbsp;mysql> select * from table1 where id=1;</span><br />
+<span style="color: #800000;">+------+------+------+-------+</span><br />
+<span style="color: #800000;">| id&nbsp;&nbsp; | one&nbsp; | two&nbsp; | three |</span><br />
+<span style="color: #800000;">+------+------+------+-------+</span><br />
+<span style="color: #800000;">|&nbsp;&nbsp;&nbsp; 1 |&nbsp;&nbsp; 34 |&nbsp;&nbsp; 45 |&nbsp;&nbsp;&nbsp; 80 |</span><br />
+<span style="color: #800000;">+------+------+------+-------+</span><br />
+<span style="color: #800000;">1 row in set (0.00 sec)</span></p>
+<p></div><br />
+<span style="color: #0000ff;">Session2 mysql> alter table table1 add column c1 int;</span><br />
+<span style="color: #0000ff;">Query OK, 4 rows affected (0.23 sec)</span><br />
+<span style="color: #0000ff;">Records: 4&nbsp; Duplicates: 0&nbsp; Warnings: 0</span></p>
+<p><span style="color: #800000;">Session1 mysql> select * from table1 where id=1;</span><br />
+<span style="color: #800000;">Empty set (0.00 sec) &nbsp;</span></p>
+<p>可以看到Session1的事务内部，虽然隔离级别是&ldquo;可重复读&rdquo;，但是由于并发的Session2中途成功更改了table1的结构(因为前一个SQL查完table1后就释放了对表结构的约束)，两次查询的结果不同！</p>
+<p><span style="color: #ff0000;">遗留问题1.为什么第二次查询，记录没有发生变化，但结果集返回空？</span></p>
+<h3>2）可能导致复制的失败</h3><br />
+上例的影响还比较明显，这种机制还有隐藏的危害，即可能影响复制的成功进行！</p>
+<p>我们知道，binlog内操作的记录是基于事务的提交顺序进行的。与上例类似，ALTER语句后执行但可能先提交，这影响到了执行中的其他事务，而那些事务后提交。而SLAVE看来完全是ALTER先执行，这很可能导致被打断的事务在SLAVE上重现时导致失败，要么表结构不对，要么数据导致不一致。</p>
+<h2>引入Metadata lock之后(5.5.3版本及以后)</h2><br />
+而5.5.3中引入了Metadata lock后，由于事务结束后才会释放，避免了这样的问题。还是上例，在5.5.30版本中运行：</p>
+<div><span style="color: #800000;">Session1 mysql> select @@tx_isolation;</span><br />
+<span style="color: #800000;">+-----------------+</span><br />
+<span style="color: #800000;">| @@tx_isolation&nbsp; |</span><br />
+<span style="color: #800000;">+-----------------+</span><br />
+<span style="color: #800000;">| REPEATABLE-READ |</span><br />
+<span style="color: #800000;">+-----------------+</span><br />
+<span style="color: #800000;">1 row in set (0.00 sec)</span><span style="color: #800000;">Session1&nbsp;mysql> start transaction;</span><br />
+<span style="color: #800000;">Query OK, 0 rows affected (0.00 sec)</span></p>
+<p><span style="color: #800000;">Session1&nbsp;mysql> select * from table1 where id=1;</span><br />
+<span style="color: #800000;">+------+------+------+-------+</span><br />
+<span style="color: #800000;">| id&nbsp;&nbsp; | one&nbsp; | two&nbsp; | three |</span><br />
+<span style="color: #800000;">+------+------+------+-------+</span><br />
+<span style="color: #800000;">|&nbsp;&nbsp;&nbsp; 1 |&nbsp;&nbsp; 34 |&nbsp;&nbsp; 45 |&nbsp;&nbsp;&nbsp; 80 |</span><br />
+<span style="color: #800000;">+------+------+------+-------+</span><br />
+<span style="color: #800000;">1 row in set (0.00 sec)</span></p>
+<p></div><br />
+<span style="color: #0000ff;">Session2 mysql> alter table table1 add column c1 int;</span><br />
+这个语句一直等待。</p>
+<p><span style="color: #ff0000;">遗留问题2：为什么没有锁等待超时？？</span></p>
+<p>我们再开一个会话查看当前状况：</p>
+<p><span style="color: #808080;">Session3 mysql>show full processlist;</span><br />
+<span style="color: #808080;">+--------+-----------+----------------------+---------------+---------+------+---------------------------------+--------------------------------------+</span><br />
+<span style="color: #808080;">| Id&nbsp;&nbsp;&nbsp;&nbsp; | User&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Host&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | db&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Command | Time | State&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Info&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |</span><br />
+<span style="color: #808080;">+--------+-----------+----------------------+---------------+---------+------+---------------------------------+--------------------------------------+</span><br />
+<span style="color: #808080;">| 163612 | sup&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 192.168.2.213:1844&nbsp;&nbsp; | dbadb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Sleep&nbsp;&nbsp; |&nbsp;&nbsp; 37 |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | NULL&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |</span><br />
+<span style="color: #808080;">| 163613 | sup&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 192.168.2.213:1883&nbsp;&nbsp; | dbadb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Query&nbsp;&nbsp; |&nbsp;&nbsp; 21 | Waiting for table metadata lock | alter table table1 add column c3 int |</span><br />
+<span style="color: #808080;">| 163614 | sup&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 192.168.2.213:1884&nbsp;&nbsp; | dbadb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Query&nbsp;&nbsp; |&nbsp;&nbsp;&nbsp; 0 | NULL&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | show full processlist&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |</span><br />
+<span style="color: #808080;">+--------+-----------+----------------------+---------------+---------+------+---------------------------------+--------------------------------------+</span></p>
+<p>这里的示例中，我们可以看到ALTER TABLE会应Metadata lock而阻塞。一旦Session 1中的事务提交或者回滚，即释放了table1表的Metadata lock，Session2的操作立即可以执行。</p>
+<p>那么究竟是怎样的操作会被Metadata lock影响到呢？我们可以借助<a title="SHOW PROFILE-MySQL性能分析工具用法" href="http://www.sqlparty.com/show-profile-mysql%e6%80%a7%e8%83%bd%e5%88%86%e6%9e%90%e5%b7%a5%e5%85%b7%e7%94%a8%e6%b3%95/" target="_blank">SHOW PROFILE</a>看看到底ALTER命令在哪里卡住了：</p>
+<p><span style="color: #0000ff;">Session2 mysql> show profile;<br />
++------------------------------+----------+<br />
+| Status&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Duration |<br />
++------------------------------+----------+<br />
+| starting&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000093 |<br />
+| checking permissions&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000062 |<br />
+| checking permissions&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000058 |<br />
+| init&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000058 |<br />
+| Opening tables&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000078 |<br />
+| System lock&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000061 |<br />
+| setup&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000077 |<br />
+| creating table&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.053156 |<br />
+| After create&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000111 |<br />
+| copy to tmp table&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000231 |<br />
+| rename result table&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 5.780077 |<br />
+| end&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000545 |<br />
+| Waiting for query cache lock | 0.000064 |<br />
+| end&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000126 |<br />
+| query end&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000090 |<br />
+| closing tables&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000110 |<br />
+| freeing items&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000118 |<br />
+| logging slow query&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000095 |<br />
+| logging slow query&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000125 |<br />
+| cleaning up&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000090 |<br />
++------------------------------+----------+<br />
+20 rows in set (0.02 sec)</span></p>
+<p>可以看到，卡住的那一步是在rename result table，MySQL后台将ALTER保存变成连续操作&ldquo;<strong>创建临时新表->插入老表的数据->临时新表取到老表(RENAME)</strong>&rdquo;，即实际的变化老表的操作在RENAME阶段才发生。而这一步即是被阻塞的那一步。所以可以确认，Metadata lock影响到的是要真实修改表结构的动作。</p>
+<p>基于此，我们可以验证ALTER TABLE,RENAME TABLE,DROP TABLE都会被Metadata lock影响，验证步骤与上类似，省略。</p>
+<p>值得注意的是，创建一个已存在的表也会被Metadata lock影响。如果在一个事务中用到了表A的Metadata lock（如SELECT了该表）且事务未完成，那么创建同名的表也会被卡住。<a href="http://www.mysqlperformanceblog.com/2013/02/01/implications-of-metadata-locking-changes-in-mysql-5-5/" target="_blank">所参考的文章中</a>提及这一点。有兴趣可参看：<a href="http://bugs.mysql.com/bug.php?id=67647" target="_blank">讨论页</a>&nbsp; ，这里不作讨论。</p>
+<p>metadata lock的另一个副作用：如上例中，ALTER TABLE应metadata lock被阻塞后，这导致后续其他事务针对该表的SELECT也会被阻塞！即ALTER TABLE的操作会影响到其他SELECT操作。根据上述示例：</p>
+<p><span style="color: #0000ff;">Session2 mysql> alter table table1 add column c1 int;</span></p>
+<p>此步一直处于等待状态时，新会话中查询table1。</p>
+<p><span style="color: #808080;">Session3 mysql> select * from table1 where id=1;&nbsp;</span> #一直等待</p>
+<p><span style="color: #cc99ff;">Session4 mysql>show full processlist;</span><br />
+<span style="color: #cc99ff;">+--------+-----------+----------------------+---------------+---------+------+---------------------------------+--------------------------------------+</span><br />
+<span style="color: #cc99ff;">| Id&nbsp;&nbsp;&nbsp;&nbsp; | User&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Host&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | db&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Command | Time | State&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Info&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |</span><br />
+<span style="color: #cc99ff;">+--------+-----------+----------------------+---------------+---------+------+---------------------------------+--------------------------------------+</span><br />
+<span style="color: #cc99ff;">| 163612 | sup&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 192.168.2.213:1844&nbsp;&nbsp; | dbadb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Sleep&nbsp;&nbsp; |&nbsp;&nbsp; 45 |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | NULL&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |</span><br />
+<span style="color: #cc99ff;">| 163613 | sup&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 192.168.2.213:1883&nbsp;&nbsp; | dbadb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Query&nbsp;&nbsp; |&nbsp;&nbsp; 35 | Waiting for table metadata lock | alter table table1 add column c1 int |</span><br />
+<span style="color: #cc99ff;">| 163614 | sup&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 192.168.2.213:1884&nbsp;&nbsp; | dbadb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Query&nbsp;&nbsp; |&nbsp;&nbsp;&nbsp; 0 | NULL&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | show full processlist&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |</span><br />
+<span style="color: #cc99ff;">| 163615 | sup&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 192.168.2.213:2142&nbsp;&nbsp; | dbadb&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Query&nbsp;&nbsp; |&nbsp;&nbsp; 16 | Waiting for table metadata lock | select * from table1 where id=1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |</span><br />
+<span style="color: #cc99ff;">+--------+-----------+----------------------+---------------+---------+------+---------------------------------+--------------------------------------+</span></p>
+<p><span style="color: #008080;"><span style="color: #800000;">Session1 mysql> commit;&nbsp;</span> </span></p>
+<p>第一个会话提交后，Session2、Session3也成功执行。看看Session3的select在哪个步骤需要等待：</p>
+<p><span style="color: #808080;">Session3 mysql> show profile;<br />
++--------------------------------+-----------+<br />
+| Status&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Duration&nbsp; |<br />
++--------------------------------+-----------+<br />
+| starting&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000018 |<br />
+| Waiting for query cache lock&nbsp;&nbsp; |&nbsp; 0.000003 |<br />
+| checking query cache for query |&nbsp; 0.000037 |<br />
+| checking permissions&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000007 |<br />
+| Opening tables&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 22.502591 |<br />
+| System lock&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000013 |<br />
+| Waiting for query cache lock&nbsp;&nbsp; |&nbsp; 0.000024 |<br />
+| init&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000022 |<br />
+| optimizing&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000009 |<br />
+| statistics&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000011 |<br />
+| preparing&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000015 |<br />
+| executing&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000003 |<br />
+| Sending data&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000036 |<br />
+| end&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000009 |<br />
+| query end&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000005 |<br />
+| closing tables&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000006 |<br />
+| freeing items&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000007 |<br />
+| Waiting for query cache lock&nbsp;&nbsp; |&nbsp; 0.000003 |<br />
+| freeing items&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000015 |<br />
+| Waiting for query cache lock&nbsp;&nbsp; |&nbsp; 0.000002 |<br />
+| freeing items&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000002 |<br />
+| storing result in query cache&nbsp; |&nbsp; 0.000004 |<br />
+| logging slow query&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000002 |<br />
+| logging slow query&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000028 |<br />
+| cleaning up&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp; 0.000003 |<br />
++--------------------------------+-----------+<br />
+</span></p>
+<p>可以看到SELECT语句首先检查查询缓存，没有命中，然后在Opening tables阶段卡住。</p>
+<p>这引出了另一个特点，基于上述场景，如果后续的SELECT能够在查询缓存中命中，那么不会被ALTER TABLE卡住，因为不需要Opening tables操作。命中缓存SELECT的SHOW PROFILE如下：</p>
+<p>mysql>&nbsp; show profile;<br />
++--------------------------------+----------+<br />
+| Status&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Duration |<br />
++--------------------------------+----------+<br />
+| starting&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000017 |<br />
+| Waiting for query cache lock&nbsp;&nbsp; | 0.000004 |<br />
+| checking query cache for query | 0.000006 |<br />
+| checking privileges on cached&nbsp; | 0.000004 |<br />
+| checking permissions&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000007 |<br />
+| sending cached result to clien | 0.000011 |<br />
+| logging slow query&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000002 |<br />
+| cleaning up&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0.000003 |<br />
++--------------------------------+----------+<br />
+8 rows in set (0.00 sec)</p>
+<p><strong>遗留问题1.为什么第二次查询，记录没有发生变化，但结果集返回空？</strong></p>
+<p>这个问题在<a href="http://bugs.mysql.com/bug.php?id=11981" target="_blank">这个页面</a>进行了讨论，确认原因是：</p>
+<p>MySQL中ALTER操作实际后台是<strong>"创建新表"->"拷贝老表数据"->"RENAME新表成老表"</strong>。InnoDB引擎针对客户端的REPEATABLE READ隔离级别，采用的是基于多版本(Multi-version)功能的"一致性读"，即在事务中第一个查询时，获取的是当时版本的表的快照，而ALTER操作后实际是创建的新表，这个新表对于之前的快照而言是没有数据的，所以第二次查询新表基于快照的数据，返回空。在MySQL 5.6.6版本后，这样的第二个查询会返回Error信息&ldquo;Table definition has changed, please retry transaction&rdquo;。详细请看<a href="http://dev.mysql.com/doc/refman/5.6/en/innodb-consistent-read.html" target="_blank">这里</a>。</p>
+<p><strong>遗留问题2.为什么没有锁等待超时？？</strong></p>
+<p>我们知道InnoDB行锁的等待时间超过innodb_lock_wait_timeout就会报超时错误。这里的metadata lock一直等待着，为什么没有超时呢？其实metadata lock的超时设置是另一个系统变量lock_wait_timeout。</p>
+<p>lock_wait_timeout控制着所有涉及到metadata lock的操作，包括DML and DDL，以及在表、视图、存储过程、存储函数上的操作，以及LOCK TABLES、FLUSH TABLES WITH READ LOCK、HANDLER等。</p>
+<p>lock_wait_timeout的默认设置时一年，可以动态设置，根据实际场景进行调整。</p>
+<p>大量参考：<br />
+<a href="http://www.mysqlperformanceblog.com/2013/02/01/implications-of-metadata-locking-changes-in-mysql-5-5/" target="_blank">http://www.mysqlperformanceblog.com/2013/02/01/implications-of-metadata-locking-changes-in-mysql-5-5/</a></p>

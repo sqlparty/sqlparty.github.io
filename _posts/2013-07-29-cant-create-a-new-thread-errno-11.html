@@ -1,0 +1,101 @@
+---
+layout: post
+status: publish
+published: true
+title: Can't create a new thread (errno 11)
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "实际工作中，遇到如下问题，我们设置max_connections=1000，普通情况下连接数在五六百，某次业务量激增，到达了1000上限，出现了super用户也无法建立连接的情况，甚至无法正常关闭MySQL服务器。super用户连接时发现报如下错误：\r\n\r\n<em>SQL
+  错误 [1135] [HY000]: null,&nbsp; message from server: \"Can't create a new thread
+  (errno 11); if you are not out of available memory, you can consult the manual for
+  a possible OS-dependent bug\"&nbsp; null,&nbsp; message from server: \"Can't create
+  a new thread (errno 11); if you are not out of available memory, you can consult
+  the manual for a possible OS-dependent bug\"</em>\r\n\r\n使用的环境：mysql 5.5.30
+  &amp; RedHat Enterprise 6.2\r\n\r\n"
+wordpress_id: 194
+wordpress_url: http://www.sqlparty.com/?p=194
+date: '2013-07-29 21:56:27 +0800'
+date_gmt: '2013-07-29 13:56:27 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+- 问题集
+- Linux
+- PAM
+---
+<p>实际工作中，遇到如下问题，我们设置max_connections=1000，普通情况下连接数在五六百，某次业务量激增，到达了1000上限，出现了super用户也无法建立连接的情况，甚至无法正常关闭MySQL服务器。super用户连接时发现报如下错误：</p>
+<p><em>SQL 错误 [1135] [HY000]: null,&nbsp; message from server: "Can't create a new thread (errno 11); if you are not out of available memory, you can consult the manual for a possible OS-dependent bug"&nbsp; null,&nbsp; message from server: "Can't create a new thread (errno 11); if you are not out of available memory, you can consult the manual for a possible OS-dependent bug"</em></p>
+<p>使用的环境：mysql 5.5.30 &amp; RedHat Enterprise 6.2</p>
+<p><!--more--></p>
+<p>查询网络，看到强文<a title="Can&rsquo;t Create Thread: Errno 11 (A Tale of Two Ulimits)" href="http://www.mysqlperformanceblog.com/2013/02/04/cant_create_thread_errno_11/" target="_blank">Can&rsquo;t Create Thread: Errno 11 (A Tale of Two Ulimits)</a>&nbsp; 翻译+记录如下：</p>
+<p>出现上述报错内容，原因在于Linux下对系统用户有进程/线程数目的限制，通常情况下在/etc/security/limits.conf中添加如下内容即可。<br />
+<span style="color: #0000ff;">mysql soft nproc 4096</span><br />
+然后，在Linux新建session中重启mysqld服务。</p>
+<p>以上方案对于RHEL/CentOS 5/Ubuntu/Fedora 低版本(9之前)基本有效，但是对于高版本的系统你会发现不再生效。</p>
+<p>在Fedora 9和RHEL 6中，引入了新的PAM控制文件，/etc/security/limits.d/90-nproc.conf。默认文件内容如下：<br />
+<span style="color: #0000ff;"># Default limit for number of user's processes to prevent</span><br />
+<span style="color: #0000ff;"> # accidental fork bombs.</span><br />
+<span style="color: #0000ff;"> # See rhbz #432903 for reasoning.</span></p>
+<p><span style="color: #0000ff;">*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; soft&nbsp;&nbsp;&nbsp; nproc&nbsp;&nbsp;&nbsp;&nbsp; 1024</span><br />
+<span style="color: #ff0000;">注意：90-nproc.conf文件会覆盖/etc/security/limits.conf中的进程/线程数限制！</span></p>
+<p>所以即使/etc/security/limits.conf中配置了mysql用户的限制，也会因为90-nproc.conf文件的存在而被忽略！<br />
+要在RHEL 6+/Fedora 9+上配置mysql账户的进程/线程限制，你可以选择如下一个操作：</p>
+<ol>
+<li>直接将mysql soft nproc 4096添加到90-nproc.conf文件中</li>
+<li>直接删除90-nproc.conf文件(考虑到PAM的升级等，不推荐)</li>
+<li>在/etc/security/limits.d/下创建一个新文件，使用较高的编号，如91-mysql.conf，在该文件中配置mysql soft nproc 4096。（此法清晰明了，推荐）</li><br />
+</ol><br />
+但是，事情没有那么简单。。</p>
+<p>在配置/etc/security/limits.conf和/etc/security/limit.d/90-nproc.conf时，大家往往没有注意到，这些文件只是用来控制PAM用户控制模块(pam_limits.so)的行为，而该模块仅仅应用于用户连接session。<br />
+默认情况下，我们都会配置mysql随机启动脚本，基于Sys V。这种模式下启动的实例不受上述控制文件的限制！也就是说，如果你通过用户连接session(常常是ssh远程方式)来启动进程，那么这个进程/服务会服从于任意基于PAM的限制，如果不是这种方式，则不受控。所以MySQL实例的nproc限制会受启动时机的影响！</p>
+<p><strong>测试</strong><br />
+<span style="color: #0000ff;">shell>cat /proc/`pidof mysqld`/limits | grep -E "processes"</span><br />
+<span style="color: #0000ff;"> Max processes&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1024&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 256352&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; processes</span><br />
+<span style="color: #0000ff;"> shell>vi /etc/security/limits.d/91-mysql.conf&nbsp; <span style="color: #000000;">#新建文件</span></span><br />
+<span style="color: #0000ff;"> mysql soft nproc 6000</span><br />
+<span style="color: #0000ff;"> shell>service mysql5 restart</span><br />
+<span style="color: #0000ff;"> shell>cat /proc/`pidof mysqld`/limits | grep -E "processes"</span><br />
+<span style="color: #0000ff;"> Max processes&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1024&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 256352&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; processes</span><br />
+#发现最后Max processes没有变化，根据上述介绍可以知道，应该新建连接session才能用到新的PAM限制<br />
+#在新的连接session下（注意，需要使用mysql用户登录，root用户登录时配置也不能生效）<br />
+<span style="color: #800080;">shell>service mysql5 restart</span><br />
+<span style="color: #800080;"> shell>cat /proc/`pidof mysqld`/limits | grep -E "processes"</span><br />
+<span style="color: #800080;"> Max processes&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 6000&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 256352&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; processes</span></p>
+<p>有没有方法可以不重启服务，对运行的服务就生效呢？答案是有！<br />
+2.6.32及以后版本的内核（我们使用的RHEL 6.2正好使用2.6.32）支持使用非常方便的方式更新限制：<br />
+使用root运行如下命令，替换其中SOFT_LIMIT和HARD_LIMIT为我们设定的整数值，或者unlimited。<br />
+<span style="color: #0000ff;">shell>echo -n "Max processes=<span style="color: #339966;">SOFT_LIMIT:HARD_LIMIT</span>" > /proc/`pidof mysqld`/limits</span></p>
+<p>示例：<br />
+<span style="color: #0000ff;">shell>echo -n "Max processes=7000:unlimited" > /proc/`pidof mysqld`/limits</span><br />
+<span style="color: #0000ff;"> shell>cat /proc/`pidof mysqld`/limits | grep -E "processes"</span><br />
+<span style="color: #0000ff;"> Max processes&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7000&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; unlimited&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; processes</span></p>
+<p><strong>小结</strong><br />
+综合上面的内容，针对Fedora 9/RHEL 6以及衍生版本，我们要完整便利控制PAM的process的限制，可以：<br />
+1.使用echo -n 方式更新运行中的服务；<br />
+<strong> shell>echo -n "Max processes=7000:unlimited" > /proc/`pidof mysqld`/limits</strong><br />
+2.编辑90-nproc.conf（或者创建91-mysql.conf）来设置期望的process/thread限制，使服务重启时生效；<br />
+<strong>shell>vi /etc/security/limits.d/90-nproc.conf</strong><br />
+3.在重启服务时，确保在新建的连接session中，而且是配置正确的用户的session。</p>
+<p><strong>延伸</strong><br />
+1.什么是PAM？<br />
+参考&ldquo;<a title="Linux下PAM如何工作" href="http://www.sqlparty.com/linux%e4%b8%8bpam%e5%a6%82%e4%bd%95%e5%b7%a5%e4%bd%9c/" target="_blank">Linux下PAM如何工作</a>&rdquo;</p>
+<p>2.上面Max processes中hard limit显示的256352从哪里来？<br />
+查看/etc/security/limits.conf和/etc/security/limits.d/*，没有对hard的限制，那么该数字如何而来呢？根据文章<a title="ulimit限制之nproc问题" href="http://rdc.taobao.com/blog/cs/?p=1760" target="_blank">ulimit限制之nproc问题</a> 中研究，在没有任何设置的情况下，该值取自内核，计算逻辑是：<br />
+default_nproc = max_threads / 2 = (mempages * PAGE_SIZE) / ( 2 * 8 *THREAD_SIZE ) = total_memory/128K;<br />
+这里我们也验证一下：<br />
+<span style="color: #0000ff;">shell>cat /proc/meminfo | grep -i memtotal</span><br />
+<span style="color: #0000ff;"> MemTotal:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 32832888 kB</span><br />
+<span style="color: #0000ff;"> shell>echo "32832888 / 128" | bc</span><br />
+<span style="color: #0000ff;"> 256506</span><br />
+可以看到与256352非常接近，因为内存有部分被额外使用，所以实际使用稍小于计算值。</p>
+<p>3.上面讲到mysqld的开机启动不受limit影响，那么我们怎样能够控制其使用的资源？</p>
+<p>mysqld的启动选项--open-files-limit是配置时允许打开的文件句柄数，文件句柄数过低会导致系统在压力大时无法提供服务。所以对于文件句柄数限制，指定如--open-files-limit=24000就可以解决问题，而开机启动时的进程约束没有特别的选项来控制。</p>
+<p>参考：<br />
+<a href=" http://www.mysqlperformanceblog.com/2013/02/04/cant_create_thread_errno_11/" target="_blank"> http://www.mysqlperformanceblog.com/2013/02/04/cant_create_thread_errno_11/</a><br />
+<a href="http://rdc.taobao.com/blog/cs/?p=1760" target="_blank"> http://rdc.taobao.com/blog/cs/?p=1760</a></p>

@@ -1,0 +1,132 @@
+---
+layout: post
+status: publish
+published: true
+title: 如何生成指定日期之间的日期列表？
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "实际应用中，我们期望有这样一个时间表，包含两个指定日期之间的所有日期，便于我们在统计等情况下用到。例如，我们给出2013-01-01和2013-01-13，就可以得到一张表内保存了如下数据：\r\n<ul>\r\n\t<li>2013-01-01</li>\r\n\t<li>2013-01-02</li>\r\n\t<li>2013-01-03</li>\r\n\t<li>2013-01-04</li>\r\n\t<li>2013-01-05</li>\r\n\t<li>2013-01-06</li>\r\n\t<li>2013-01-07</li>\r\n\t<li>2013-01-08</li>\r\n\t<li>2013-01-09</li>\r\n\t<li>2013-01-10</li>\r\n\t<li>2013-01-11</li>\r\n\t<li>2013-01-12</li>\r\n\t<li>2013-01-13</li>\r\n</ul>\r\n如何在不依赖于其他表的情况下使用SQL完成该需求呢？\r\n\r\n本题来源<a
+  title=\"Get a list of dates between two dates\" href=\"http://stackoverflow.com/questions/510012/get-a-list-of-dates-between-two-dates\"
+  target=\"_blank\">stackoverflow</a>\r\n\r\n"
+wordpress_id: 252
+wordpress_url: http://www.sqlparty.com/?p=252
+date: '2013-08-02 20:02:07 +0800'
+date_gmt: '2013-08-02 12:02:07 +0800'
+categories:
+- 题炼
+tags:
+- with
+- 递归
+- 循环
+---
+<p>实际应用中，我们期望有这样一个时间表，包含两个指定日期之间的所有日期，便于我们在统计等情况下用到。例如，我们给出2013-01-01和2013-01-13，就可以得到一张表内保存了如下数据：</p>
+<ul>
+<li>2013-01-01</li>
+<li>2013-01-02</li>
+<li>2013-01-03</li>
+<li>2013-01-04</li>
+<li>2013-01-05</li>
+<li>2013-01-06</li>
+<li>2013-01-07</li>
+<li>2013-01-08</li>
+<li>2013-01-09</li>
+<li>2013-01-10</li>
+<li>2013-01-11</li>
+<li>2013-01-12</li>
+<li>2013-01-13</li><br />
+</ul><br />
+如何在不依赖于其他表的情况下使用SQL完成该需求呢？</p>
+<p>本题来源<a title="Get a list of dates between two dates" href="http://stackoverflow.com/questions/510012/get-a-list-of-dates-between-two-dates" target="_blank">stackoverflow</a></p>
+<p><!--more--></p>
+<div class="dailyanswer">首先想到的，肯定是循环，指定了开始日期和结束日期，循环插入到一张表中即可。<br />
+MySQL可以在存储过程中实现，其他系统都可以类似实现，具体如下：<br />
+[sql]<br />
+create table date_intervals<br />
+(<br />
+	d date not null primary key<br />
+);</p>
+<p>CREATE PROCEDURE make_intervals<br />
+(<br />
+	in startdate date,<br />
+	in enddate date,<br />
+	out o_rtcd  integer,<br />
+    out o_msg varchar(300)<br />
+)<br />
+BEGIN<br />
+/*<br />
+description：make days list between startdate and enddate<br />
+example: call make_intervals('2013-1-1','2013-1-13',@rtcd, @msg);<br />
+         select @rtcd,@msg;<br />
+author:  Carl<br />
+create date:  2013-05-30<br />
+*/<br />
+	/*----------- local variables ---------------*/<br />
+	declare thisDate date;</p>
+<p>	/*----------- main begin---------------*/<br />
+	set o_rtcd = 0;<br />
+        set o_msg = 'ok';</p>
+<p>	set thisDate=startdate;</p>
+<p>	repeat<br />
+		insert into date_intervals values(thisDate);<br />
+		set thisDate=thisDate + interval 1 day;<br />
+	UNTIL thisDate > enddate<br />
+	end repeat;</p>
+<p>	/*----------- main end ---------------*/<br />
+END<br />
+[/sql]</p>
+<p>运行如下：</p>
+<p>[sql]<br />
+mysql> call make_intervals('2013-1-1','2013-1-13',@rtcd, @msg);<br />
+Query OK, 1 row affected (0.02 sec)</p>
+<p>mysql> select @rtcd,@msg;<br />
++-------+------+<br />
+| @rtcd | @msg |<br />
++-------+------+<br />
+|     0 | ok   |<br />
++-------+------+<br />
+1 row in set (0.00 sec)</p>
+<p>mysql> select * from date_intervals;<br />
++------------+<br />
+| d          |<br />
++------------+<br />
+| 2013-01-01 |<br />
+| 2013-01-02 |<br />
+| 2013-01-03 |<br />
+| 2013-01-04 |<br />
+| 2013-01-05 |<br />
+| 2013-01-06 |<br />
+| 2013-01-07 |<br />
+| 2013-01-08 |<br />
+| 2013-01-09 |<br />
+| 2013-01-10 |<br />
+| 2013-01-11 |<br />
+| 2013-01-12 |<br />
+| 2013-01-13 |<br />
++------------+<br />
+13 rows in set (0.00 sec)</p>
+<p>[/sql]</p>
+<p>在Oracle/SqlServer/DB2中，支持with来实现递归，如下展示了SqlServer的一个实现，其他系统类似：</p>
+<p>[sql]<br />
+BEGIN<br />
+    DECLARE @startDate DATETIME;<br />
+    DECLARE @endDate DATETIME;</p>
+<p>    SET @startDate = '2013-01-01';<br />
+    SET @endDate = '2013-01-31';</p>
+<p>    WITH dates(d) AS<br />
+    (<br />
+        SELECT @startdate as d<br />
+        UNION ALL<br />
+        SELECT DATEADD(day,1,d)<br />
+        FROM dates<br />
+        WHERE d < @enddate<br />
+    )<br />
+    SELECT d<br />
+    FROM dates<br />
+END<br />
+[/sql]</p>
+<p></div></p>

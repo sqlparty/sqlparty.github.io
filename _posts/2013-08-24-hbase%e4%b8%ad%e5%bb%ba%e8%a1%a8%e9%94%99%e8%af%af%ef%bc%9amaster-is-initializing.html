@@ -1,0 +1,111 @@
+---
+layout: post
+status: publish
+published: true
+title: HBase中建表错误：Master is initializing
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "进入hbase shell后，第一次建表，报错如下：\r\n\r\nERROR: org.apache.hadoop.hbase.PleaseHoldException:
+  org.apache.hadoop.hbase.PleaseHoldException: Master is initializing\r\nat org.apache.hadoop.hbase.master.HMaster.checkInitialized(HMaster.java:1706)\r\nat
+  org.apache.hadoop.hbase.master.HMaster.createTable(HMaster.java:1230)\r\nat sun.reflect.NativeMethodAccessorImpl.invoke0(Native
+  Method)\r\nat sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)\r\nat
+  sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)\r\nat
+  java.lang.reflect.Method.invoke(Method.java:597)\r\nat org.apache.hadoop.hbase.ipc.WritableRpcEngine$Server.call(WritableRpcEngine.java:320)\r\nat
+  org.apache.hadoop.hbase.ipc.HBaseServer$Handler.run(HBaseServer.java:1426)\r\n\r\n"
+wordpress_id: 488
+wordpress_url: http://www.sqlparty.com/?p=488
+date: '2013-08-24 15:28:37 +0800'
+date_gmt: '2013-08-24 07:28:37 +0800'
+categories:
+- 大数据
+tags:
+- 问题集
+- 大数据
+- HBase
+---
+<p>进入hbase shell后，第一次建表，报错如下：</p>
+<p>ERROR: org.apache.hadoop.hbase.PleaseHoldException: org.apache.hadoop.hbase.PleaseHoldException: Master is initializing<br />
+at org.apache.hadoop.hbase.master.HMaster.checkInitialized(HMaster.java:1706)<br />
+at org.apache.hadoop.hbase.master.HMaster.createTable(HMaster.java:1230)<br />
+at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)<br />
+at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)<br />
+at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)<br />
+at java.lang.reflect.Method.invoke(Method.java:597)<br />
+at org.apache.hadoop.hbase.ipc.WritableRpcEngine$Server.call(WritableRpcEngine.java:320)<br />
+at org.apache.hadoop.hbase.ipc.HBaseServer$Handler.run(HBaseServer.java:1426)</p>
+<p><!--more--><br />
+查看master日志，发现有：</p>
+<pre> 2013-08-22 15:56:11,299 WARN org.apache.hadoop.hbase.master.AssignmentManager: Failed assignment of -ROOT-,,0.70236052 to CHBM222,60020,1377158172649, trying to assign elsewhere instead; retry=0<br />
+ org.apache.hadoop.hbase.client.RetriesExhaustedException: Failed setting up proxy interface org.apache.hadoop.hbase.ipc.HRegionInterface to CHBM222/192.168.10.222:60020 after attempts=1<br />
+ at org.apache.hadoop.hbase.ipc.HBaseRPC.handleConnectionException(HBaseRPC.java:263)<br />
+ at org.apache.hadoop.hbase.ipc.HBaseRPC.waitForProxy(HBaseRPC.java:231)<br />
+ at org.apache.hadoop.hbase.client.HConnectionManager$HConnectionImplementation.getHRegionConnection(HConnectionManager.java:1335)<br />
+ at org.apache.hadoop.hbase.client.HConnectionManager$HConnectionImplementation.getHRegionConnection(HConnectionManager.java:1294)<br />
+ at org.apache.hadoop.hbase.client.HConnectionManager$HConnectionImplementation.getHRegionConnection(HConnectionManager.java:1281)<br />
+ at org.apache.hadoop.hbase.master.ServerManager.getServerConnection(ServerManager.java:562)<br />
+ at org.apache.hadoop.hbase.master.ServerManager.sendRegionOpen(ServerManager.java:495)<br />
+ at org.apache.hadoop.hbase.master.AssignmentManager.assign(AssignmentManager.java:1697)<br />
+ at org.apache.hadoop.hbase.master.AssignmentManager.assign(AssignmentManager.java:1424)<br />
+ at org.apache.hadoop.hbase.master.AssignmentManager.assign(AssignmentManager.java:1399)<br />
+ at org.apache.hadoop.hbase.master.AssignmentManager.assign(AssignmentManager.java:1394)<br />
+ at org.apache.hadoop.hbase.master.handler.ClosedRegionHandler.process(ClosedRegionHandler.java:105)<br />
+ at org.apache.hadoop.hbase.master.AssignmentManager.addToRITandCallClose(AssignmentManager.java:675)<br />
+ at org.apache.hadoop.hbase.master.AssignmentManager.processRegionsInTransition(AssignmentManager.java:586)<br />
+ at org.apache.hadoop.hbase.master.AssignmentManager.processRegionInTransition(AssignmentManager.java:525)<br />
+ at org.apache.hadoop.hbase.master.AssignmentManager.processRegionInTransitionAndBlockUntilAssigned(AssignmentManager.java:489)<br />
+ at org.apache.hadoop.hbase.master.HMaster.assignRootAndMeta(HMaster.java:679)<br />
+ at org.apache.hadoop.hbase.master.HMaster.finishInitialization(HMaster.java:583)<br />
+ at org.apache.hadoop.hbase.master.HMaster.run(HMaster.java:395)<br />
+ at java.lang.Thread.run(Thread.java:662)<br />
+ Caused by: java.net.ConnectException: Connection refused<br />
+ at sun.nio.ch.SocketChannelImpl.checkConnect(Native Method)<br />
+ at sun.nio.ch.SocketChannelImpl.finishConnect(SocketChannelImpl.java:599)<br />
+ at org.apache.hadoop.net.SocketIOWithTimeout.connect(SocketIOWithTimeout.java:207)<br />
+ at org.apache.hadoop.net.NetUtils.connect(NetUtils.java:528)<br />
+ at org.apache.hadoop.net.NetUtils.connect(NetUtils.java:492)<br />
+ at org.apache.hadoop.hbase.ipc.HBaseClient$Connection.setupConnection(HBaseClient.java:390)<br />
+ at org.apache.hadoop.hbase.ipc.HBaseClient$Connection.setupIOstreams(HBaseClient.java:436)<br />
+ at org.apache.hadoop.hbase.ipc.HBaseClient.getConnection(HBaseClient.java:1124)<br />
+ at org.apache.hadoop.hbase.ipc.HBaseClient.call(HBaseClient.java:974)<br />
+ at org.apache.hadoop.hbase.ipc.WritableRpcEngine$Invoker.invoke(WritableRpcEngine.java:86)<br />
+ at $Proxy18.getProtocolVersion(Unknown Source)<br />
+ at org.apache.hadoop.hbase.ipc.WritableRpcEngine.getProxy(WritableRpcEngine.java:138)<br />
+ at org.apache.hadoop.hbase.ipc.HBaseRPC.waitForProxy(HBaseRPC.java:208)<br />
+ ... 18 more<br />
+ 2013-08-22 15:56:11,300 WARN org.apache.hadoop.hbase.master.AssignmentManager: Unable to find a viable location to assign region -ROOT-,,0.70236052</pre><br />
+无法给-ROOT-表找地方安家？？</p>
+<p>这个很诡异啊，明明已经加入了4个RegionServer了，从Master Web UI的zk_dump中信息如下：<br />
+<em>HBase is rooted at /hbasebm</em><br />
+<em> Active master address: CHBM220,60000,1377158133015</em><br />
+<em> Backup master addresses:</em><br />
+<em> CHBM221,60000,1377158198201</em><br />
+<em> Region server holding ROOT: <span style="color: #0000ff;">null</span></em><br />
+<em> Region servers:</em><br />
+<em> CHBM223,60020,1377158209234</em><br />
+<em> CHBM221,60020,1377158224855</em><br />
+<em> CHBM224,60020,1377158214085</em><br />
+<em> CHBM222,60020,1377158172649</em></p>
+<p>搜寻了一下网络，在参考了几篇文章后，发现出现类似情况的，很多情况下是主机名称解析的问题，根据自身主机名如CHBM223解析成了127.0.0.1，而不是对应的真实ip 192.168.10.223。</p>
+<p>我们的集群搭建名称解析是借助/etc/hosts进行的，果断查看，果然是有问题：</p>
+<p>192.168.10.223&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CHBM223<br />
+...<br />
+127.0.0.1&nbsp; <span style="color: #ff0000;">CHBM223</span> localhost localhost.localdomain localhost4 localhost4.localdomain4</p>
+<p>这里主机名的映射出现了两次，而服务器选择了127.0.0.1，这样就不能正常融合进集群中。检查发现RegionServer都有类似配置，看来确实是这方面问题。<br />
+将/etc/hosts中127.0.0.1的解析中去掉CHBM223，所有RegionServer都同样处理。</p>
+<p><strong>重启Master，可以看到zk_dump信息中</strong><br />
+HBase is rooted at /hbasebm<br />
+Active master address: CHBM220,60000,1377158573889<br />
+Backup master addresses:<br />
+CHBM221,60000,1377158198201<br />
+Region server holding ROOT:<span style="color: #0000ff;"> CHBM221,60020,1377158224855</span><br />
+Region servers:<br />
+CHBM223,60020,1377158209234<br />
+CHBM221,60020,1377158224855<br />
+CHBM224,60020,1377158214085<br />
+CHBM222,60020,1377158172649</p>
+<p><strong>重启修改过hosts的RegionServer</strong>，否则建表会出现&ldquo;卡死&rdquo;的情况，也避免其他未知问题。</p>

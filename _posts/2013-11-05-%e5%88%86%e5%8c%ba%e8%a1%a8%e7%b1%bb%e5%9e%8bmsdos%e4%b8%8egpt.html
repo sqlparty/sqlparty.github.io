@@ -1,0 +1,65 @@
+---
+layout: post
+status: publish
+published: true
+title: 分区表类型MSDOS与GPT
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "最近在工作中遇到MSDOS与GPT两种分区表的疑惑，了解了一番，记录如下。\r\n<h2>1.关于MSDOS</h2>\r\n<h3>1.1.BIOS+MBR组合：历史悠久，存在局限。</h3>\r\n现有的PC机架构，大多是沿用了数十年的主板BIOS+硬盘MBR分区的这种组合模式。\r\n\r\nBIOS是英文&rdquo;Basic
+  Input Output System&rdquo;的缩略语，直译过来后中文名称就是&rdquo;基本输入输出系统&rdquo;。其实，它是一组固化到计算机内主板上一个ROM芯片上的程序，它保存着计算机最重要的基本输入输出的程序、系统设置信息、开机后自检程序和系统自启动程序。
+  其主要功能是为计算机提供最底层的、最直接的硬件设置和控制。\r\n\r\n主引导记录（Master Boot Record，缩写：MBR），又叫做主引导扇区，是计算机开机后访问硬盘时所必须要读取的首个扇区，它在硬盘上的三维地址为（柱面，磁头，扇区）＝（0，0，1）。主引导扇区记录着硬盘本身的相关信息以及硬盘各个分区的大小及位置信息，是数据信息的重要入口。\r\n\r\n现有PC架构通常使用BIOS+MBR这种组合模式，MSDOS是该模式中的磁盘分区表类型，有时也称为MBR格式。\r\n\r\n"
+wordpress_id: 764
+wordpress_url: http://www.sqlparty.com/?p=764
+date: '2013-11-05 12:45:38 +0800'
+date_gmt: '2013-11-05 04:45:38 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- 文件系统
+---
+<p>最近在工作中遇到MSDOS与GPT两种分区表的疑惑，了解了一番，记录如下。</p>
+<h2>1.关于MSDOS</h2></p>
+<h3>1.1.BIOS+MBR组合：历史悠久，存在局限。</h3><br />
+现有的PC机架构，大多是沿用了数十年的主板BIOS+硬盘MBR分区的这种组合模式。</p>
+<p>BIOS是英文&rdquo;Basic Input Output System&rdquo;的缩略语，直译过来后中文名称就是&rdquo;基本输入输出系统&rdquo;。其实，它是一组固化到计算机内主板上一个ROM芯片上的程序，它保存着计算机最重要的基本输入输出的程序、系统设置信息、开机后自检程序和系统自启动程序。 其主要功能是为计算机提供最底层的、最直接的硬件设置和控制。</p>
+<p>主引导记录（Master Boot Record，缩写：MBR），又叫做主引导扇区，是计算机开机后访问硬盘时所必须要读取的首个扇区，它在硬盘上的三维地址为（柱面，磁头，扇区）＝（0，0，1）。主引导扇区记录着硬盘本身的相关信息以及硬盘各个分区的大小及位置信息，是数据信息的重要入口。</p>
+<p>现有PC架构通常使用BIOS+MBR这种组合模式，MSDOS是该模式中的磁盘分区表类型，有时也称为MBR格式。</p>
+<p><!--more--></p>
+<h3>1.2.MSDOS特点</h3></p>
+<ol>
+<li>最大支持2TB卷大小，如果超过2T，则只能管理2T部分。</li>
+<li>每个磁盘最多只能有4个主分区(或3个主分区，1个扩展分区和无限制的逻辑分区）</li>
+<li>Linux系统下可以使用fdisk/parted对该分区类型进行操作</li><br />
+</ol></p>
+<h2>2.关于GPT</h2></p>
+<h3>2.1.EFI+GPT组合：先进技术，意在替代BIOS+MBR组合。</h3><br />
+随着磁盘技术越来越先进，使用垂直磁化和巨磁阻磁头，出现了容量远超于传统磁盘的容量，所以为了克服BIOS+MBR的2TB、4分区限制，就出现了EFI+GPT的模式。</p>
+<p>EFI名为可扩展固件接口，是微软和英特尔共同推出的主板升级换代方案。EFI，即可扩展固件接口(Extensible Firmware Interface)，EFI的位置很特殊，不像是BIOS那样是固件又是接口，EFI只是一个接口，位于操作系统与平台固件之间。 到目前为止，现有的PC机主板绝大部分还是BIOS模式。</p>
+<p>GUID分区表（GUID Partition Table，缩写：GPT）是一个实体硬盘的分区结构。它是可扩展固件接口标准EFI的一部分，但并不依赖于EFI主板，在BIOS主板的PC中也可使用GPT分区。GPT用来替代BIOS中的主开机记录分区表。</p>
+<p>GPT的分区信息是在分区中，而不象MBR一样在主引导扇区，至关重要的平台操作数据位于分区，而不是位于非分区或隐藏扇区。另外，GPT 分区磁盘有多余的主要及备份分区表来提高分区数据结构的完整性。允许将主磁盘分区表和备份磁盘分区表用于冗余，支持唯一的磁盘和分区ID。</p>
+<p>为保护GPT不受MBR类磁盘管理软件的危害，GPT在主引导扇区建立了一个保护分区(Protective MBR)的MBR分区表，这种分区的类型标识为0xEE，这个保护分区的大小在Windows下为128MB，Mac OS X下为200MB，在Window磁盘管理器里名为GPT保护分区，可让MBR类磁盘管理软件把GPT看成一个未知格式的分区，而不是错误地当成一个未分区的磁盘。</p>
+<p>2010年以来，大多数现代的操作系统支持GPT。一些操作系统如OS X和Microsoft Windows，只在有EFI固件的系统中支持GPT，而FreeBSD和大多数的Linux分发版都支持GPT分区，不管是BIOS固件还是EFI固件。</p>
+<h3>2.2.GPT特点</h3></p>
+<ol>
+<li>GPT支持磁盘大小达到了18EB(1EB=1024PB=1,048,576TB)，但需要注意的是，单一分区的磁盘大小还受文件系统类型的限制，比如NTFS文件系统最大只支持256TB的大小。</li>
+<li>GPT对分区数量没有限制。</li>
+<li>Linux系统下可以使用parted工具对该分区类型进行操作</li><br />
+</ol></p>
+<h3>2.3.GPT分区表结构图</h3><br />
+<a href="http://www.sqlparty.com/wp-content/uploads/2013/11/guid_partition_table.png"><img class="alignnone size-full wp-image-765" alt="guid_partition_table" src="http://www.sqlparty.com/wp-content/uploads/2013/11/guid_partition_table.png" width="400" height="550" /></a></p>
+<h2>3.总结</h2><br />
+综合上文，在Linux环境下，我们可以如下取舍了：</p>
+<ol>
+<li>使用GPT分区表，突破分区限制，且安全性高</li>
+<li>使用parted分区工具。</li><br />
+</ol><br />
+参考：<br />
+<a href="http://www.weittor.com/gpt-and-msdos.html" target="_blank">http://www.weittor.com/gpt-and-msdos.html</a><br />
+<a href="http://en.wikipedia.org/wiki/GUID_Partition_Table" target="_blank">http://en.wikipedia.org/wiki/GUID_Partition_Table</a><br />
+<a href="http://spazzzz.blog.51cto.com/2707720/633137" target="_blank">http://spazzzz.blog.51cto.com/2707720/633137</a></p>

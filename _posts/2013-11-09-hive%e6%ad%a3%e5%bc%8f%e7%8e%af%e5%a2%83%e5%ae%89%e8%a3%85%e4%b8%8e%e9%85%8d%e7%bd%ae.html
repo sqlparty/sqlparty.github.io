@@ -1,0 +1,179 @@
+---
+layout: post
+status: publish
+published: true
+title: Hive正式环境安装与配置
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "本文详细介绍正式环境下Hive的搭建，使用独立的Metastore管理Hive的元数据，并安装和配置HiveServer2服务对外提供高效、可并发的hive连接服务。\r\n\r\n前提：依赖的Hadoop集群，ZooKeeper集群都完成安装。\r\n\r\nMetastore的安装依赖MySQL，具体安装和配置方式见<a
+  title=\"Hive远程元数据服务Thrift Metastore搭建与管理\" href=\"http://www.sqlparty.com/hive%e8%bf%9c%e7%a8%8b%e5%85%83%e6%95%b0%e6%8d%ae%e6%9c%8d%e5%8a%a1thrift-metastore%e6%90%ad%e5%bb%ba%e4%b8%8e%e7%ae%a1%e7%90%86/\"
+  target=\"_blank\">这里</a>。\r\n<h2>一、Hive命令行</h2>\r\nhive命令行可以在任意一台主机上安装，配置远程Metastore作为元数据管理服务，就可以进行HQL查询等各类操作。\r\n\r\n"
+wordpress_id: 771
+wordpress_url: http://www.sqlparty.com/?p=771
+date: '2013-11-09 21:47:03 +0800'
+date_gmt: '2013-11-09 13:47:03 +0800'
+categories:
+- 大数据
+tags:
+- hive
+---
+<p>本文详细介绍正式环境下Hive的搭建，使用独立的Metastore管理Hive的元数据，并安装和配置HiveServer2服务对外提供高效、可并发的hive连接服务。</p>
+<p>前提：依赖的Hadoop集群，ZooKeeper集群都完成安装。</p>
+<p>Metastore的安装依赖MySQL，具体安装和配置方式见<a title="Hive远程元数据服务Thrift Metastore搭建与管理" href="http://www.sqlparty.com/hive%e8%bf%9c%e7%a8%8b%e5%85%83%e6%95%b0%e6%8d%ae%e6%9c%8d%e5%8a%a1thrift-metastore%e6%90%ad%e5%bb%ba%e4%b8%8e%e7%ae%a1%e7%90%86/" target="_blank">这里</a>。</p>
+<h2>一、Hive命令行</h2><br />
+hive命令行可以在任意一台主机上安装，配置远程Metastore作为元数据管理服务，就可以进行HQL查询等各类操作。</p>
+<p><!--more--></p>
+<h3>1.安装</h3><br />
+<span style="color: #0000ff;">shell> yum install hive</span></p>
+<p>如果是完全独立安装，会自动带上所需的安装包。</p>
+<h3>2.配置连接远程MetaStore</h3><br />
+shell> vi /etc/hive/conf/hive-site.xml</p>
+<property>
+<name>hive.metastore.uris</name><br />
+<value>thrift://<host>:9083</value><br />
+</property></p>
+<property>
+<name>hive.metastore.local</name><br />
+<value>false</value><br />
+</property></p>
+<h3>3.测试</h3><br />
+<span style="color: #0000ff;">shell> hive</span><br />
+<span style="color: #0000ff;">hive> show tables;</span><br />
+<span style="color: #0000ff;">OK</span><br />
+<span style="color: #0000ff;">t1</span><br />
+<span style="color: #0000ff;">Time taken: 0.063 seconds</span><br />
+<span style="color: #0000ff;">hive> create table t2(id int);</span><br />
+<span style="color: #0000ff;">OK</span><br />
+<span style="color: #0000ff;">Time taken: 0.261 seconds</span><br />
+<span style="color: #0000ff;">hive> drop table t2;</span><br />
+<span style="color: #0000ff;">OK</span><br />
+<span style="color: #0000ff;">Time taken: 0.316 seconds</span></p>
+<p>hive命令行的更多内容这里省略，后续另写文补充。</p>
+<p>hive命令行的使用局限在所安装的主机上，而对于应用程序而言，最好是可以通过jdbc的方式直接执行HQL语句即可。要支持这样的应用，需要安装HiveServer2服务。</p>
+<h2>二、安装和配置HiveServer2服务</h2><br />
+各类客户端通过JDBC连接到HiveServer2后，就可以执行HQL语句，进行应用开发。这样对于客户端而言，有了统一而方便的入口。</p>
+<p>HiveServer2相对旧版本的HiveServer(HiveServer1)，提供了更多的功能，例如支持Kerberos身份认证，多用户并发访问等，推荐使用。</p>
+<h2>1.安装HiveServer2</h2><br />
+<span style="color: #0000ff;">shell>yum install hive-server2</span></p>
+<p>其实主要是安装管理脚本。</p>
+<h2>2.端口配置</h2><br />
+默认情况下，HiveServer2启动后监听10000端口，要更新这个端口配置，只需在/etc/hive/conf/hive-env.sh中添加：</p>
+<p><span style="color: #0000ff;">export HIVE_SERVER2_THRIFT_PORT =
+<port></span></p>
+<h3>3.JVM内存大小配置</h3><br />
+在/etc/hive/conf/hive-env.sh中添加或者更新</p>
+<p><span style="color: #0000ff;">export HADOOP_HEAPSIZE=2048 </span></p>
+<p>单位为MB，即这里使用2G。</p>
+<h3>4.正确配置表锁管理(Table Lock Manage)。</h3><br />
+必须正确的配置Hive的表锁管理，这需要通过ZooKeeper集群来实现。如果不进行如下配置，HiveServer2无法提供并发的查询操作。</p>
+<p>在hive的配置文件(这里是/etc/hive/conf/hive-site.xml)中进行如下配置：</p>
+<p><!-- ZooKeeper集群相关配置 --></p>
+<property>
+<name>hive.zookeeper.quorum</name><br />
+<description>Zookeeper quorum used by Hive's Table Lock Manager</description><br />
+<value>H22,H34,H35</value><br />
+</property></p>
+<property>
+<name>hive.zookeeper.client.port</name><br />
+<value>2281</value><br />
+<description>The port at which the clients will connect.</description><br />
+</property></p>
+<property>
+<name>hive.zookeeper.namespace</name><br />
+<value>hive_zookeeper_namespace</value><br />
+<description>Znode for hive, default value is hive_zookeeper_namespace</description><br />
+</property></p>
+<p><!-- hive支持并发 --></p>
+<property>
+<name>hive.support.concurrency</name><br />
+<value>true</value><br />
+<description>Enable Hive's Table Lock Manager Service</description><br />
+</property></p>
+<h3>5.客户端的JDBC配置</h3><br />
+要连接到HiveServer2服务，需要针对HiveServer2的JDBC配置如下：</p>
+<p>Connection URL:<br />
+jdbc:hive2://<host>:
+<port>
+Driver Class:<br />
+org.apache.hive.jdbc.HiveDriver</p>
+<h3>6.认证</h3><br />
+HiveServer2可以配置使用Kerberos或者LDAP进行连接用户的身份验证。相关配置暂略。</p>
+<h3>7.配置使用YARN</h3><br />
+要使HiveServer2使用YARN框架，必须设置HADOOP_MAPRED_HOME环境变量，在/etc/hive/conf/hive-env.sh中添加：<br />
+<span style="color: #0000ff;">export HADOOP_MAPRED_HOME=/usr/lib/hadoop-mapreduce</span></p>
+<h3>8.Linux系统文件数限制配置</h3><br />
+使用HiveServer2时，所有hql处理都是经过HiveServer2处理。同MySQL服务器类似，会涉及到打开大量文件，或者起了大量进程/线程。HiveServer2运行往往使用hive用户，在Linux层面对单个用户允许打开的文件数/进程数有限制，在PAM这层进行了控制，如果采用默认设置(往往是1024上限)，很容易导致HiveServer2日志中报&ldquo;too many open files&rdquo;错误。解决方法是Linux层面调高hive用户或者所有用户的文件数/进程数上限，原理参考<a title="Can&rsquo;t create a new thread (errno 11)" href="http://www.sqlparty.com/cant-create-a-new-thread-errno-11/" target="_blank">limit</a>。</p>
+<p><span style="color: #0000ff;">shell> vi&nbsp;/etc/security/limits.d/90-nproc.conf</span></p>
+<p><span style="color: #0000ff;">* - nproc 65535</span><br />
+<span style="color: #0000ff;">* - nofile 65535</span></p>
+<p>此限制在新会话中生效!</p>
+<h3>9.管理操作</h3><br />
+这里使用远程的metastore服务，这要求HiveServer2启动前需要先启动远程Metastore服务。</p>
+<p>HiveServer2会在启动阶段尝试连接metastore，如果无法成功连接，则会报错，退出。</p>
+<p><strong>启动：</strong><br />
+<span style="color: #0000ff;">shell> service hive-server2 start</span></p>
+<p><strong>停止：</strong><br />
+<span style="color: #0000ff;">shell> service hive-server2 stop</span></p>
+<p><strong>测试，检查hive-server2是否存活：</strong><br />
+<span style="color: #0000ff;">shell> beeline</span><br />
+<span style="color: #0000ff;">Beeline version 0.10.0-cdh4.3.0 by Apache Hive</span><br />
+<span style="color: #0000ff;">beeline> !connect jdbc:hive2://localhost:10000 org.apache.hive.jdbc.HiveDriver</span><br />
+<span style="color: #0000ff;">scan complete in 1ms</span><br />
+<span style="color: #0000ff;">Connecting to jdbc:hive2://localhost:10000</span><br />
+<span style="color: #0000ff;">Enter password for jdbc:hive2://localhost:10000:</span><br />
+<span style="color: #0000ff;">Connected to: Hive (version 0.10.0)</span><br />
+<span style="color: #0000ff;">Driver: Hive (version 0.10.0-cdh4.3.0)</span><br />
+<span style="color: #0000ff;">Transaction isolation: TRANSACTION_REPEATABLE_READ</span><br />
+<span style="color: #0000ff;">0: jdbc:hive2://localhost:10000> show tables;</span><br />
+<span style="color: #0000ff;">+-----------+</span><br />
+<span style="color: #0000ff;">| tab_name |</span><br />
+<span style="color: #0000ff;">+-----------+</span><br />
+<span style="color: #0000ff;">| t1 |</span><br />
+<span style="color: #0000ff;">+-----------+</span><br />
+<span style="color: #0000ff;">1 row selected (1.772 seconds)</span><br />
+<span style="color: #0000ff;">0: jdbc:hive2://localhost:10000></span></p>
+<p>ps：</p>
+<p>BeeLine CLI简介<br />
+BeeLine是HiveServer2的命令行接口，其不能用于操作老版本的HiveServer1。<br />
+要连接主机localhost和端口10000，那么如下<br />
+shell> beeline<br />
+beeline> !connect jdbc:hive2://localhost:10000 <user>
+<passwd> org.apache.hive.jdbc.HiveDriver #由于没有用户名密码限制，上面的使用中没有指定 <user>
+<passwd>，但是还是会提示输入密码，任意输入即可。<br />
+beeline是基于<a href="http://sqlline.sourceforge.net/" target="_blank">SQLLine</a>。使用beeline可以从任何一台主机连接Hive-Server2进行hql操作。</p>
+<h2>六.常见问题</h2><br />
+1.启动Hive时遇到如下问题</p>
+<p>shell>hive<br />
+Exception in thread "main" java.lang.NoSuchFieldError: ALLOW_UNQUOTED_CONTROL_CHARS<br />
+at org.apache.hadoop.hive.ql.udf.generic.GenericUDTFJSONTuple.<clinit>(GenericUDTFJSONTuple.java:59)<br />
+at sun.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)<br />
+at sun.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:39)<br />
+at sun.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:27)<br />
+at java.lang.reflect.Constructor.newInstance(Constructor.java:513)<br />
+at org.apache.hadoop.util.ReflectionUtils.newInstance(ReflectionUtils.java:113)<br />
+at org.apache.hadoop.hive.ql.exec.FunctionRegistry.registerGenericUDTF(FunctionRegistry.java:550)<br />
+at org.apache.hadoop.hive.ql.exec.FunctionRegistry.registerGenericUDTF(FunctionRegistry.java:544)<br />
+at org.apache.hadoop.hive.ql.exec.FunctionRegistry.<clinit>(FunctionRegistry.java:477)<br />
+at org.apache.hadoop.hive.ql.session.SessionState.<init>(SessionState.java:208)<br />
+at org.apache.hadoop.hive.cli.CliSessionState.<init>(CliSessionState.java:82)<br />
+at org.apache.hadoop.hive.cli.CliDriver.run(CliDriver.java:635)<br />
+at org.apache.hadoop.hive.cli.CliDriver.main(CliDriver.java:613)<br />
+at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)<br />
+at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:39)<br />
+at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:25)<br />
+at java.lang.reflect.Method.invoke(Method.java:597)<br />
+at org.apache.hadoop.util.RunJar.main(RunJar.java:156)</p>
+<p>解决：<br />
+参考：<a href="http://www.thebigdata.cn/Hadoop/5963.html" target="_blank">http://www.thebigdata.cn/Hadoop/5963.html</a> 其原因是安装的主机上先找到的是老版本的hadoop jar包，更新之。</p>
+<p>2.连接hiveserver2时，如果遇到：</p>
+<p>Could not establish connection to jdbc:hive2://192.168.10.22:10000/default: null<br />
+可以检查hive的日志相关信息。有一种可能时内存空间满，在/var/log/hive/hive-server2.out中看到相关信息。<br />
+处理方式当然是调大hive的HADOOP_HEAPSIZE。<br />
+还有应该注意hive-metastore是否正常连接。</p>
+<p>参考：<br />
+<a href="http://www.cloudera.com/content/cloudera-content/cloudera-docs/CDH4/latest/CDH4-Installation-Guide/cdh4ig_topic_18.html" target="_blank">http://www.cloudera.com/content/cloudera-content/cloudera-docs/CDH4/latest/CDH4-Installation-Guide/cdh4ig_topic_18.html</a></p>

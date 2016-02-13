@@ -1,0 +1,159 @@
+---
+layout: post
+status: publish
+published: true
+title: MySQL Slow log相关
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Slow log用来记录运行时间超过指定长度语句，以及记录使用了全表扫描、可能导致性能问题的语句等，对于分析SQL瓶颈很有用。本文介绍Slow
+  log相关的配置项、日常操作、第三方工具等。\r\n\r\n"
+wordpress_id: 254
+wordpress_url: http://www.sqlparty.com/?p=254
+date: '2013-08-02 22:11:41 +0800'
+date_gmt: '2013-08-02 14:11:41 +0800'
+categories:
+- 数据库
+tags:
+- 数据库
+- MySQL
+- slow-log
+---
+<p>Slow log用来记录运行时间超过指定长度语句，以及记录使用了全表扫描、可能导致性能问题的语句等，对于分析SQL瓶颈很有用。本文介绍Slow log相关的配置项、日常操作、第三方工具等。</p>
+<p><!--more--></p>
+<h2>1.配置项</h2><br />
+与Slow log相关的配置项包括：</p>
+<ul>
+<li><strong>slow-query-log</strong>=1 布尔型。定义是否启用慢查询日志，1启用。慢查询定义为运行时间超过long_query_time并且检查的记录数超过min_examined_row_limit的语句。</li>
+<li><strong>long-query-time</strong>=1 数字型。定义秒数，精度可以为微秒(记录到文件时，包含微秒部分，而记录到表时，只记录整数)，即取值可以如0.000005。其时间是实际运行时间，而不是CPU时间。</li>
+<li><strong>min_examined_row_limit</strong>=100 整型。定义检查的行数超过本参数值的，才计入慢查询日志。</li>
+<li><strong>slow_query_log_file</strong>=/db/log1/ch22_1db-slow.log 字符串，记录文件名。如果不指定本项，则默认为host_name-slow.log，保存在datadir中。</li>
+<li><strong>log-output</strong>=file 取值包括'file','table','none'中的一个或多个(用逗号分隔)，它的设置影响到一般查询日志和慢查询日志两种。file表示记录日志到文件(普通查询日志general_log_file，慢查询日志slow_query_log_file)，table表示存入表(普通查询日志mysql.general_log，慢查询日志mysql.slow_log)，如果设置中包括none，则不会记录这两种日志即使日志被启用！</li>
+<li><strong>log-slow-admin-statements</strong>=1 布尔型，定义是否记录慢管理型语句，如OPTIMIZE TABLE, ANALYZE TABLE和ALTER TABLE。</li>
+<li><strong>log-queries-not-using-indexes</strong>=1 布尔型。记录未使用索引的查询语句。</li>
+<li>&nbsp;<strong>log-slow-slave-statements</strong>=0 布尔型。默认情况下从库不会将主库上的慢查询记录到自己的慢查询日志中。启用本选项后，从库处理主库传过来的语句时也根据配置检查是否需要计入慢查询日志。无对应的系统变量。</li>
+<li><strong>log-short-format</strong>=0 布尔型。配置是否在二进制日志和慢查询日志中记录更少的信息。</li><br />
+</ul></p>
+<h2>2.何时记录</h2><br />
+要计入慢查询日志，必须满足如下要求：</p>
+<ol>
+<li>启用slow-query-log</li>
+<li>任何类型的语句，检查记录数大于等于min_examined_row_limit</li>
+<li>管理型语句，启用了log-slow-admin-statements，且运行时间超过long_query_time</li>
+<li>非管理型语句，运行时间超过long_query_time，或者启用log-queries-not-using-indexes且语句本身未用到索引。</li><br />
+</ol><br />
+而且，在查询缓存中命中，或者表中无记录或只有一条记录的，不会计入慢查询日志！</p>
+<p>服务器会在语句执行完成并且所有锁定都释放后才写入慢查询日志，所以，记录如日志的顺序与实际执行的顺序可能不同。</p>
+<h2>3.日常操作</h2><br />
+<strong>1)查看</strong><br />
+<strong> 表存储：</strong><br />
+<span style="color: #0000ff;">mysql> select * from mysql.slow_log \G</span><br />
+<span style="color: #0000ff;"> *************************** 1. row ***************************</span><br />
+<span style="color: #0000ff;"> start_time: 2013-03-12 11:27:02</span><br />
+<span style="color: #0000ff;"> user_host: opr[opr] @ [192.168.2.34]</span><br />
+<span style="color: #0000ff;"> query_time: 00:00:00</span><br />
+<span style="color: #0000ff;"> lock_time: 00:00:00</span><br />
+<span style="color: #0000ff;"> rows_sent: 287</span><br />
+<span style="color: #0000ff;"> rows_examined: 664</span><br />
+<span style="color: #0000ff;"> db: ddd</span><br />
+<span style="color: #0000ff;"> last_insert_id: 0</span><br />
+<span style="color: #0000ff;"> insert_id: 0</span><br />
+<span style="color: #0000ff;"> server_id: 1</span><br />
+<span style="color: #0000ff;"> sql_text: select adcategory0_.id as id40_, adcategory0_.code as code40_, a dcategory0_.level as level40_, adcategory0_.name as name40_, adcategory0_.parent _id as parent5_40_, adcategory0_.status as status40_ from category adcatego ry0_ where adcategory0_.status=0</span></p>
+<p><strong>文件存储：</strong><br />
+<span style="color: #0000ff;">shell>tail host_name-slow.log</span><br />
+<span style="color: #0000ff;"> SET timestamp=1363058636;</span><br />
+<span style="color: #0000ff;"> select this_.id as id51_0_, this_.name as name51_0_ from help_topic this_;</span><br />
+<span style="color: #0000ff;"> # User@Host: opr[opr] @ [192.168.2.34]</span><br />
+<span style="color: #0000ff;"> # Query_time: 0.000092 Lock_time: 0.000036 Rows_sent: 4 Rows_examined: 4</span><br />
+<span style="color: #0000ff;"> SET timestamp=1363058636;</span><br />
+<span style="color: #0000ff;"> select this_.id as id51_0_, this_.name as name51_0_ from help_topic this_;</span><br />
+<span style="color: #0000ff;"> # Time: 130312 11:23:59</span><br />
+<span style="color: #0000ff;"> # User@Host: opr[opr] @ [192.168.2.38]</span><br />
+<span style="color: #0000ff;"> # Query_time: 0.001742 Lock_time: 0.000084 Rows_sent: 33 Rows_examined: 65</span></p>
+<p><strong>工具：</strong><br />
+对于文件存储的情况，查看和分析慢查询日志，如果通过人工来做逐条查看耗时耗力，当前有了很多现成的工具协助进行归纳和分析。<br />
+<strong>a.官方工具mysqldumpslow</strong> 主要功能是, 统计不同慢sql的出现次数(Count), 执行最长时间(Time), 累计总耗费时间(Time), 等待锁的时间(Lock), 发送给客户端的行总数(Rows), 扫描的行总数(Rows), 用户以及sql语句本身(抽象了一下格式, 比如 limit 1, 20 用 limit N,N 表示)。<br />
+用法：<br />
+<span style="color: #0000ff;">Usage: mysqldumpslow [ OPTS... ] [ LOGS... ]</span></p>
+<p><span style="color: #0000ff;">Parse and summarize the MySQL slow query log. Options are</span></p>
+<p><span style="color: #0000ff;">--verbose verbose</span><br />
+<span style="color: #0000ff;"> --debug debug</span><br />
+<span style="color: #0000ff;"> --help write this text to standard output</span></p>
+<p><span style="color: #0000ff;">-v verbose</span><br />
+<span style="color: #0000ff;"> -d debug</span><br />
+<span style="color: #0000ff;"> -s ORDER what to sort by (al, at, ar, c, l, r, t), 'at' is default</span><br />
+<span style="color: #0000ff;"> al: average lock time</span><br />
+<span style="color: #0000ff;"> ar: average rows sent</span><br />
+<span style="color: #0000ff;"> at: average query time</span><br />
+<span style="color: #0000ff;"> c: count</span><br />
+<span style="color: #0000ff;"> l: lock time</span><br />
+<span style="color: #0000ff;"> r: rows sent</span><br />
+<span style="color: #0000ff;"> t: query time</span><br />
+<span style="color: #0000ff;"> -r reverse the sort order (largest last instead of first)</span><br />
+<span style="color: #0000ff;"> -t NUM just show the top n queries</span><br />
+<span style="color: #0000ff;"> -a don't abstract all numbers to N and strings to 'S'</span><br />
+<span style="color: #0000ff;"> -n NUM abstract numbers with at least n digits within names</span><br />
+<span style="color: #0000ff;"> -g PATTERN grep: only consider stmts that include this string</span><br />
+<span style="color: #0000ff;"> -h HOSTNAME hostname of db server for *-slow.log filename (can be wildcard),</span><br />
+<span style="color: #0000ff;"> default is '*', i.e. match all</span><br />
+<span style="color: #0000ff;"> -i NAME name of server instance (if using mysql.server startup script)</span><br />
+<span style="color: #0000ff;"> -l don't subtract lock time from total time</span></p>
+<p><strong>示例：</strong><br />
+<span style="color: #0000ff;">shell>mysqldumpslow -s c -t 5 ch22_1db-slow.log</span> #安装数量进行排序，取前五</p>
+<p><span style="color: #0000ff;">Reading mysql slow query log from ch22_1db-slow.log</span><br />
+<span style="color: #0000ff;"> Count: 889 Time=0.00s (0s) Lock=0.00s (0s) Rows=1.3 (1194), opr_xxx[opr]@[192.168.2.34]</span><br />
+<span style="color: #0000ff;"> select this_.id as id51_0_, this_.name as name51_0_ from help_topic this_</span></p>
+<p><span style="color: #0000ff;">Count: 396 Time=0.00s (0s) Lock=0.00s (0s) Rows=6.6 (2614), opr_xxx[opr]@[192.168.2.34]</span><br />
+<span style="color: #0000ff;"> select this_.id as id3_0_, this_.height as height3_0_, this_.status as status3_0_, this_.width as width3_0_ from ad_size this_ where this_.status=N</span></p>
+<p><span style="color: #0000ff;">Count: 386 Time=0.00s (0s) Lock=0.00s (0s) Rows=3.0 (1158), opr_xxx[opr]@[192.168.2.34]</span><br />
+<span style="color: #0000ff;"> select this_.id as id1_0_, this_.name as name1_0_ from ad_pattern this_</span></p>
+<p><span style="color: #0000ff;">Count: 232 Time=0.00s (0s) Lock=0.00s (0s) Rows=1.0 (232), 2users@2hosts</span><br />
+<span style="color: #0000ff;"> select category0_.id as id0_, category0_.code as code0_, category0_.level as level0_, category0_.name as name0_, category0_.parent_id as parent7_0_, category0_.status as status0_, category0_.url as url0_ from category category0_ where category0_.code='S'</span></p>
+<p><span style="color: #0000ff;">Count: 138 Time=0.00s (0s) Lock=0.00s (0s) Rows=2.2 (303), opr_xxx[opr]@[192.168.2.34]</span><br />
+<span style="color: #0000ff;"> select this_.id as id52_0_, this_.name as name52_0_ from help_topic this_</span></p>
+<p><strong>b.第三方工具mysqlsla</strong><br />
+网站：<a href="http://hackmysql.com/mysqlsla" target="_blank">http://hackmysql.com/mysqlsla</a><br />
+安装：<br />
+<span style="color: #0000ff;">shell>tar -zxvf mysqlsla-2.03.tar.gz</span><br />
+<span style="color: #0000ff;"> shell>cd mysqlsla-2.03</span><br />
+<span style="color: #0000ff;"> shell>perl Makefile.PL</span><br />
+<span style="color: #0000ff;"> shell>make</span><br />
+<span style="color: #0000ff;"> shell>make install</span><br />
+用法：<br />
+mysqlsla提供了很多选项，可以分析多种日志类型。这里主要针对慢查询日志，则使用-lt slow。具体请man mysqlsla或查看网站。<br />
+筛选，包括两种：元属性(Meta-Property，包括执行时间，检查记录数等，使用--meta-fileter/-mf 选项）和SQL(SELECT,UPDATE,NISERT,DROP等，使用--statement-filter/-sf 选项)语句。<br />
+示例：<br />
+<span style="color: #0000ff;">shell> mysqlsla -mf "rs>10,user=opr" -lt slow --sort c_sum --top 1 ch22_1db-slow.log</span><br />
+<span style="color: #0000ff;"> Report for slow logs: ch22_1db-slow.log</span><br />
+<span style="color: #0000ff;"> 237 queries total, 20 unique</span><br />
+<span style="color: #0000ff;"> Sorted by 'c_sum'</span><br />
+<span style="color: #0000ff;"> Grand Totals: Time 0 s, Lock 0 s, Rows sent 30.98k, Rows Examined 128.29k</span></p>
+<p><span style="color: #0000ff;">______________________________________________________________________ 001 ___</span><br />
+<span style="color: #0000ff;"> Count : 91 (38.40%)</span><br />
+<span style="color: #0000ff;"> Time : 68.306 ms total, 751 s avg, 701 s to 899 s max (35.58%)</span><br />
+<span style="color: #0000ff;"> 95% of Time : 64.041 ms total, 745 s avg, 701 s to 805 s max</span><br />
+<span style="color: #0000ff;"> Lock Time (s) : 5.131 ms total, 56 s avg, 40 s to 86 s max (30.07%)</span><br />
+<span style="color: #0000ff;"> 95% of Lock : 4.743 ms total, 55 s avg, 40 s to 73 s max</span><br />
+<span style="color: #0000ff;"> Rows sent : 287 avg, 287 to 287 max (84.31%)</span><br />
+<span style="color: #0000ff;"> Rows examined : 664 avg, 664 to 664 max (47.10%)</span><br />
+<span style="color: #0000ff;"> Database : xx</span><br />
+<span style="color: #0000ff;"> Users :</span><br />
+<span style="color: #0000ff;"> opr@ 192.168.2.34 : 100.00% (91) of query, 100.00% (237) of all users</span></p>
+<p><span style="color: #0000ff;">Query abstract:</span><br />
+<span style="color: #0000ff;"> SET timestamp=N; SELECT adcategory0_.id AS id40_, adcategory0_.code AS code40_, adcategory0_.level AS level40_, adcategory0_.name AS name40_, adcategory0_.parent_id AS parent5_40_, adcategory0_.status AS status40_ FROM comm_category adcategory0_ WHERE adcategory0_.status=N;</span></p>
+<p><span style="color: #0000ff;">Query sample:</span><br />
+<span style="color: #0000ff;"> SET timestamp=1363051891;</span><br />
+<span style="color: #0000ff;"> select adcategory0_.id as id40_, adcategory0_.code as code40_, adcategory0_.level as level40_, adcategory0_.name as name40_, adcategory0_.parent_id as parent5_40_, adcategory0_.status as status40_ from comm_category adcategory0_ where adcategory0_.status=0;</span></p>
+<p><strong>2)清空slow log</strong><br />
+表存储：<span style="color: #0000ff;">truncate table mysql.slow_log;</span><br />
+文件存储：<br />
+直接覆盖<br />
+shell>echo "" > host_name-slow.log<br />
+注意：flush [log type] logs可以指定刷新log。其中，二进制日志会新建文件，一般查询和慢查询文件只会关闭重开原文件。</p>
+<p>参考：<br />
+<a href="http://www.iteye.com/topic/242516" target="_blank">http://www.iteye.com/topic/242516</a></p>

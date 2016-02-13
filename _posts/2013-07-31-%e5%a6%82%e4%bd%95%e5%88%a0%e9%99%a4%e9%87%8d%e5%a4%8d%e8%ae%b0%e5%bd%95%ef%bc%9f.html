@@ -1,0 +1,108 @@
+---
+layout: post
+status: publish
+published: true
+title: 如何删除重复记录？
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "存在这样的表mytable，其包括如下三个字段：\r\n\r\n[sql]\r\nrowid int not null primary key,\r\ncol1
+  varchar(20) not null,\r\ncol2 varchar(2048) not null,\r\ncol3 tinyint not null\r\n[/sql]\r\n\r\n在30多万条的记录中有重复记录，当然，重复记录这里指除了主键以外的部分完全一样。通过怎样的SQL语句可以删除这些重复的记录？\r\n\r\n本题来源
+  <a title=\"How can I remove duplicate rows?\" href=\"http://stackoverflow.com/questions/18932/how-can-i-remove-duplicate-rows\"
+  target=\"_blank\">stackoverflow</a>\r\n\r\n"
+wordpress_id: 202
+wordpress_url: http://www.sqlparty.com/?p=202
+date: '2013-07-31 00:00:22 +0800'
+date_gmt: '2013-07-30 16:00:22 +0800'
+categories:
+- 题炼
+tags:
+- 数据库
+- left-join
+- join
+- delete
+---
+<p>存在这样的表mytable，其包括如下三个字段：</p>
+<p>[sql]<br />
+rowid int not null primary key,<br />
+col1 varchar(20) not null,<br />
+col2 varchar(2048) not null,<br />
+col3 tinyint not null<br />
+[/sql]</p>
+<p>在30多万条的记录中有重复记录，当然，重复记录这里指除了主键以外的部分完全一样。通过怎样的SQL语句可以删除这些重复的记录？</p>
+<p>本题来源 <a title="How can I remove duplicate rows?" href="http://stackoverflow.com/questions/18932/how-can-i-remove-duplicate-rows" target="_blank">stackoverflow</a></p>
+<p><!--more--></p>
+<div class="dailyanswer">
+有多种方法解决上面的问题。</p>
+<p>方法一、对重复字段进行分组，找出最大或者最小的id，只保留最大或最小id对应的记录，其余的删除。</p>
+<p><strong>写法1）子查询</strong></p>
+<p>[sql]<br />
+delete from mytable<br />
+where rowid not in<br />
+    (<br />
+        select min(rowid)<br />
+        from mytable<br />
+        group by col1, col2, col3<br />
+    );<br />
+[/sql]</p>
+<p><strong>写法2)利用外关联</strong></p>
+<p>[sql]<br />
+delete mytable<br />
+from mytable<br />
+left outer join<br />
+(<br />
+   select min(rowid) as rowid, col1, col2, col3<br />
+   from mytable<br />
+   group by col1, col2, col3<br />
+) as keeprows<br />
+on<br />
+   mytable.rowid = keeprows.rowid<br />
+where<br />
+   keeprows.rowid is null<br />
+[/sql]</p>
+<p><strong>写法3)利用分析函数，编号后删除</strong></p>
+<p>[sql]<br />
+delete from<br />
+(<br />
+    select rowid,<br />
+           col1,<br />
+           col2,<br />
+           col3,<br />
+           row_number() over(partition by col1, col2, col3 order by rowid ) as num<br />
+    from mytable<br />
+) T<br />
+where T.num > 1<br />
+[/sql]</p>
+<p><strong>方法二、利用self-join</strong></p>
+<p>可以如：</p>
+<p>[sql]<br />
+delete from dupes<br />
+from MyTable dupes, MyTable fullTable<br />
+where dupes.col1 = fullTable.col1<br />
+  and dupes.col2 = fullTable.col2<br />
+  and dupes.col3 = fullTable.col3<br />
+  and dupes.rowid > fullTable.rowid<br />
+[/sql]</p>
+<p>注意：以上诸多的方式更多应用在Oracle/SQLServer/DB2环境下，MySQL环境下，同一语句不能查询和更新同一张表，否则报错如下：</p>
+<p>SQL 错误 [1093] [HY000]: You can't specify target table 'xx' for update in FROM clause<br />
+You can't specify target table 'xx' for update in FROM clause</p>
+<p>这时可以使用创建临时表的方式处理，例如：</p>
+<p>[sql]<br />
+create temporary table tmp_del<br />
+as<br />
+select min(rowid) as rowid<br />
+from mytable<br />
+group by col1,col2,col3;</p>
+<p>delete from mytable<br />
+where rowid not in<br />
+	(<br />
+		select a.rowid<br />
+		from tmp_del a<br />
+	)<br />
+;<br />
+[/sql]<br />
+</div></p>

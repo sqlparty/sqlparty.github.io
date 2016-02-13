@@ -1,0 +1,65 @@
+---
+layout: post
+status: publish
+published: true
+title: Nagios插件的输出
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Nagios插件的输出是对应到stdout，不会获取stderr上的内容。\r\n输出的格式为：\r\nSERVICE STATUS: Information
+  text\r\n<strong>这是在stdout上输出的内容，判断状态是根据返回值！</strong>\r\n<strong> 返回值有如下：</strong>\r\n<strong>
+  0-OK</strong>\r\n<strong> 1-Warning</strong>\r\n<strong> 2-Critical</strong>\r\n<strong>
+  3-Unknown</strong>\r\n\r\n"
+wordpress_id: 209
+wordpress_url: http://www.sqlparty.com/?p=209
+date: '2013-07-30 22:26:13 +0800'
+date_gmt: '2013-07-30 14:26:13 +0800'
+categories:
+- 系统
+tags:
+- 系统
+- Nagios
+---
+<p>Nagios插件的输出是对应到stdout，不会获取stderr上的内容。<br />
+输出的格式为：<br />
+SERVICE STATUS: Information text<br />
+<strong>这是在stdout上输出的内容，判断状态是根据返回值！</strong><br />
+<strong> 返回值有如下：</strong><br />
+<strong> 0-OK</strong><br />
+<strong> 1-Warning</strong><br />
+<strong> 2-Critical</strong><br />
+<strong> 3-Unknown</strong></p>
+<p><!--more--></p>
+<p>常见的输出示例：<br />
+<span style="color: #0000ff;">shell>/usr/local/nagios/libexec/check_load -w 15,10,5 -c 30,25,20</span><br />
+<span style="color: #0000ff;"> OK - load average: 0.00, 0.07, 0.08|load1=0.000;15.000;30.000;0; load5=0.070;10.000;25.000;0; load15=0.080;5.000;20.000;0;</span><br />
+<span style="color: #0000ff;"> shell>/usr/local/nagios/libexec/check_disk -w 20% -c 10% -p /dev/sda3</span><br />
+<span style="color: #0000ff;"> DISK OK - free space: / 139759 MB (68% inode=99%);| /=63509MB;171465;192898;0;214332</span></p>
+<p><em>除了常规的输出内容以外，|后面的输出往往令人疑惑，其含义和作用是什么呢？</em></p>
+<p>|符号后面的内容是Nagios的性能数据，即perfdata！这样就可以收集不同时间点的性能信息，便于利用第三方工具进行基于时间的图表绘制，以便对数据进行进一步分析。<br />
+|后面的内容的格式为：<br />
+<span style="color: #0000ff;">'label'=value[UOM];[warn];[crit];[min];[max]</span><br />
+说明：<br />
+1）label=value配对 如果有多个，用空格拆分，如上述check_load的输出<br />
+2）[warn],[crit]指的是指定的两个阈值<br />
+3）[warn];[crit];[min];[max]可以为空<br />
+4）UOM, unit of measurement指的是如下一种：</p>
+<p>* 没有单位。如load<br />
+* s，秒。或者其他时间单位<br />
+* %，百分比。<br />
+* B，比特。或者KB，MB等<br />
+* c，一个连续的计数。</p>
+<p>5）如果UOM=%,那么min,max不需要</p>
+<p>示例剖析：<br />
+<span style="color: #0000ff;">shell>/usr/local/nagios/libexec/check_disk -w 20% -c 10% -p /</span><br />
+<span style="color: #0000ff;"> DISK OK - free space: / 139759 MB (68% inode=99%);| /=63509MB;171465;192898;0;214332</span><br />
+该命令的含义是：当路径/下可用容量只有20%时报警，只有10%时报错。<br />
+<span style="color: #0000ff;">/=63509MB</span>; 当前已用63509M<br />
+<span style="color: #0000ff;">171465</span>; 报警时已用空间达到的值171465M。这个值就是对应可用空间20%。<br />
+<span style="color: #0000ff;">192898</span>; 报错时已用空间达到的值192898M。这个值就是对应可用空间10%。<br />
+<span style="color: #0000ff;">0</span>; /空间最小值为0。<br />
+<span style="color: #0000ff;">214332</span> /空间最大值214332M。214332M*(1-20%)=171465M；214332M*(1-10%)=192898M</p>

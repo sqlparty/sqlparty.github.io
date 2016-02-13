@@ -1,0 +1,320 @@
+---
+layout: post
+status: publish
+published: true
+title: Hadoop默认端口应用一览
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "<div>\r\n\r\nHadoop集群的各部分一般都会使用到多个端口，有些是daemon之间进行交互之用，有些是用于RPC访问以及HTTP访问。而随着Hadoop周边组件的增多，完全记不住哪个端口对应哪个应用，特收集记录如此，以便查询。\r\n\r\n这里包含我们使用到的组件：HDFS,
+  YARN, HBase, Hive, ZooKeeper。\r\n<table class=\"table\">\r\n<tbody>\r\n<tr>\r\n<td>组件</td>\r\n<td>Daemon</td>\r\n<td>端口</td>\r\n<td>配置</td>\r\n<td>说明</td>\r\n</tr>\r\n<tr>\r\n<td>HDFS</td>\r\n<td>DataNode</td>\r\n<td>50010</td>\r\n<td>dfs.datanode.address</td>\r\n<td>datanode服务端口，用于数据传输</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>50075</td>\r\n<td>dfs.datanode.http.address</td>\r\n<td>http服务的端口</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>50475</td>\r\n<td>dfs.datanode.https.address</td>\r\n<td>\r\n<div>https服务的端口</div></td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>50020</td>\r\n<td>dfs.datanode.ipc.address</td>\r\n<td>ipc服务的端口</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td>NameNode</td>\r\n<td>50070</td>\r\n<td>dfs.namenode.http-address</td>\r\n<td>\r\n<div>http服务的端口</div></td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>50470</td>\r\n<td>dfs.namenode.https-address</td>\r\n<td>\r\n<div>https服务的端口</div></td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>8020</td>\r\n<td>fs.defaultFS</td>\r\n<td>接收Client连接的RPC端口，用于获取文件系统metadata信息。</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td>journalnode</td>\r\n<td>8485</td>\r\n<td>dfs.journalnode.rpc-address</td>\r\n<td>RPC服务</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>8480</td>\r\n<td>dfs.journalnode.http-address</td>\r\n<td>HTTP服务</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td>ZKFC</td>\r\n<td>8019</td>\r\n<td>dfs.ha.zkfc.port</td>\r\n<td>ZooKeeper
+  FailoverController，用于NN HA</td>\r\n</tr>\r\n<tr>\r\n<td>YARN</td>\r\n<td>ResourceManager</td>\r\n<td>8032</td>\r\n<td>yarn.resourcemanager.address</td>\r\n<td>RM的applications
+  manager(ASM)端口</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>8030</td>\r\n<td>yarn.resourcemanager.scheduler.address</td>\r\n<td>scheduler组件的IPC端口</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>8031</td>\r\n<td>yarn.resourcemanager.resource-tracker.address</td>\r\n<td>IPC</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>8033</td>\r\n<td>yarn.resourcemanager.admin.address</td>\r\n<td>IPC</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>8088</td>\r\n<td>yarn.resourcemanager.webapp.address</td>\r\n<td>http服务端口</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td>NodeManager</td>\r\n<td>8040</td>\r\n<td>yarn.nodemanager.localizer.address</td>\r\n<td>localizer
+  IPC</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>8042</td>\r\n<td>yarn.nodemanager.webapp.address</td>\r\n<td>\r\n<div>http服务端口</div></td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>8041</td>\r\n<td>yarn.nodemanager.address</td>\r\n<td>NM中container
+  manager的端口</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td>JobHistory Server</td>\r\n<td>10020</td>\r\n<td>mapreduce.jobhistory.address</td>\r\n<td>IPC</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>19888</td>\r\n<td>\r\n<div>mapreduce.jobhistory.webapp.address</div></td>\r\n<td>\r\n<div>http服务端口</div></td>\r\n</tr>\r\n<tr>\r\n<td>HBase</td>\r\n<td>Master</td>\r\n<td>60000</td>\r\n<td>hbase.master.port</td>\r\n<td>IPC</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>60010</td>\r\n<td>hbase.master.info.port</td>\r\n<td>http服务端口</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td>RegionServer</td>\r\n<td>60020</td>\r\n<td>hbase.regionserver.port</td>\r\n<td>IPC</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>60030</td>\r\n<td>hbase.regionserver.info.port</td>\r\n<td>\r\n<div>http服务端口</div></td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td>HQuorumPeer</td>\r\n<td>2181</td>\r\n<td>hbase.zookeeper.property.clientPort</td>\r\n<td>HBase-managed
+  ZK mode，使用独立的ZooKeeper集群则不会启用该端口。</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>2888</td>\r\n<td>hbase.zookeeper.peerport</td>\r\n<td>\r\n<div>HBase-managed
+  ZK mode，使用独立的ZooKeeper集群则不会启用该端口。</div></td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>3888</td>\r\n<td>hbase.zookeeper.leaderport</td>\r\n<td>\r\n<div>HBase-managed
+  ZK mode，使用独立的ZooKeeper集群则不会启用该端口。</div></td>\r\n</tr>\r\n<tr>\r\n<td>Hive</td>\r\n<td>Metastore</td>\r\n<td>9083</td>\r\n<td>\r\n<div>/etc/default/hive-metastore中export
+  PORT=<port>来更新默认端口</div></td>\r\n<td></td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td>HiveServer</td>\r\n<td>10000</td>\r\n<td>\r\n<div>/etc/hive/conf/hive-env.sh中export
+  HIVE_SERVER2_THRIFT_PORT=<port>来更新默认端口</div></td>\r\n<td></td>\r\n</tr>\r\n<tr>\r\n<td>ZooKeeper</td>\r\n<td>Server</td>\r\n<td>2181</td>\r\n<td>\r\n<div>/etc/zookeeper/conf/zoo.cfg中clientPort=<port></div></td>\r\n<td>对客户端提供服务的端口</td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>2888</td>\r\n<td>\r\n<div>/etc/zookeeper/conf/zoo.cfg中server.x=[hostname]:<span
+  style=\"color: #3665ee;\">nnnnn</span>[:nnnnn]，标蓝部分</div></td>\r\n<td>\r\n<div>follower用来连接到leader，只在leader上监听该端口。</div></td>\r\n</tr>\r\n<tr>\r\n<td></td>\r\n<td></td>\r\n<td>3888</td>\r\n<td>\r\n<div>/etc/zookeeper/conf/zoo.cfg中server.x=[hostname]:nnnnn[:<span
+  style=\"color: #3665ee;\">nnnnn</span>]，标蓝部分</div></td>\r\n<td>\r\n<div>用于leader选举的。只在electionAlg是1,2或3(默认)时需要。</div></td>\r\n</tr>\r\n</tbody>\r\n</table>\r\n"
+wordpress_id: 755
+wordpress_url: http://www.sqlparty.com/?p=755
+date: '2013-10-29 12:36:37 +0800'
+date_gmt: '2013-10-29 04:36:37 +0800'
+categories:
+- 大数据
+tags:
+- Hadoop
+---
+<div>
+<p>Hadoop集群的各部分一般都会使用到多个端口，有些是daemon之间进行交互之用，有些是用于RPC访问以及HTTP访问。而随着Hadoop周边组件的增多，完全记不住哪个端口对应哪个应用，特收集记录如此，以便查询。</p>
+<p>这里包含我们使用到的组件：HDFS, YARN, HBase, Hive, ZooKeeper。</p>
+<table class="table">
+<tbody>
+<tr>
+<td>组件</td></p>
+<td>Daemon</td></p>
+<td>端口</td></p>
+<td>配置</td></p>
+<td>说明</td><br />
+</tr></p>
+<tr>
+<td>HDFS</td></p>
+<td>DataNode</td></p>
+<td>50010</td></p>
+<td>dfs.datanode.address</td></p>
+<td>datanode服务端口，用于数据传输</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>50075</td></p>
+<td>dfs.datanode.http.address</td></p>
+<td>http服务的端口</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>50475</td></p>
+<td>dfs.datanode.https.address</td></p>
+<td>
+<div>https服务的端口</div></td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>50020</td></p>
+<td>dfs.datanode.ipc.address</td></p>
+<td>ipc服务的端口</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td>NameNode</td></p>
+<td>50070</td></p>
+<td>dfs.namenode.http-address</td></p>
+<td>
+<div>http服务的端口</div></td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>50470</td></p>
+<td>dfs.namenode.https-address</td></p>
+<td>
+<div>https服务的端口</div></td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>8020</td></p>
+<td>fs.defaultFS</td></p>
+<td>接收Client连接的RPC端口，用于获取文件系统metadata信息。</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td>journalnode</td></p>
+<td>8485</td></p>
+<td>dfs.journalnode.rpc-address</td></p>
+<td>RPC服务</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>8480</td></p>
+<td>dfs.journalnode.http-address</td></p>
+<td>HTTP服务</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td>ZKFC</td></p>
+<td>8019</td></p>
+<td>dfs.ha.zkfc.port</td></p>
+<td>ZooKeeper FailoverController，用于NN HA</td><br />
+</tr></p>
+<tr>
+<td>YARN</td></p>
+<td>ResourceManager</td></p>
+<td>8032</td></p>
+<td>yarn.resourcemanager.address</td></p>
+<td>RM的applications manager(ASM)端口</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>8030</td></p>
+<td>yarn.resourcemanager.scheduler.address</td></p>
+<td>scheduler组件的IPC端口</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>8031</td></p>
+<td>yarn.resourcemanager.resource-tracker.address</td></p>
+<td>IPC</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>8033</td></p>
+<td>yarn.resourcemanager.admin.address</td></p>
+<td>IPC</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>8088</td></p>
+<td>yarn.resourcemanager.webapp.address</td></p>
+<td>http服务端口</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td>NodeManager</td></p>
+<td>8040</td></p>
+<td>yarn.nodemanager.localizer.address</td></p>
+<td>localizer IPC</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>8042</td></p>
+<td>yarn.nodemanager.webapp.address</td></p>
+<td>
+<div>http服务端口</div></td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>8041</td></p>
+<td>yarn.nodemanager.address</td></p>
+<td>NM中container manager的端口</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td>JobHistory Server</td></p>
+<td>10020</td></p>
+<td>mapreduce.jobhistory.address</td></p>
+<td>IPC</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>19888</td></p>
+<td>
+<div>mapreduce.jobhistory.webapp.address</div></td></p>
+<td>
+<div>http服务端口</div></td><br />
+</tr></p>
+<tr>
+<td>HBase</td></p>
+<td>Master</td></p>
+<td>60000</td></p>
+<td>hbase.master.port</td></p>
+<td>IPC</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>60010</td></p>
+<td>hbase.master.info.port</td></p>
+<td>http服务端口</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td>RegionServer</td></p>
+<td>60020</td></p>
+<td>hbase.regionserver.port</td></p>
+<td>IPC</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>60030</td></p>
+<td>hbase.regionserver.info.port</td></p>
+<td>
+<div>http服务端口</div></td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td>HQuorumPeer</td></p>
+<td>2181</td></p>
+<td>hbase.zookeeper.property.clientPort</td></p>
+<td>HBase-managed ZK mode，使用独立的ZooKeeper集群则不会启用该端口。</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>2888</td></p>
+<td>hbase.zookeeper.peerport</td></p>
+<td>
+<div>HBase-managed ZK mode，使用独立的ZooKeeper集群则不会启用该端口。</div></td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>3888</td></p>
+<td>hbase.zookeeper.leaderport</td></p>
+<td>
+<div>HBase-managed ZK mode，使用独立的ZooKeeper集群则不会启用该端口。</div></td><br />
+</tr></p>
+<tr>
+<td>Hive</td></p>
+<td>Metastore</td></p>
+<td>9083</td></p>
+<td>
+<div>/etc/default/hive-metastore中export PORT=
+<port>来更新默认端口</div></td></p>
+<td></td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td>HiveServer</td></p>
+<td>10000</td></p>
+<td>
+<div>/etc/hive/conf/hive-env.sh中export HIVE_SERVER2_THRIFT_PORT=
+<port>来更新默认端口</div></td></p>
+<td></td><br />
+</tr></p>
+<tr>
+<td>ZooKeeper</td></p>
+<td>Server</td></p>
+<td>2181</td></p>
+<td>
+<div>/etc/zookeeper/conf/zoo.cfg中clientPort=
+<port></div></td></p>
+<td>对客户端提供服务的端口</td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>2888</td></p>
+<td>
+<div>/etc/zookeeper/conf/zoo.cfg中server.x=[hostname]:<span style="color: #3665ee;">nnnnn</span>[:nnnnn]，标蓝部分</div></td></p>
+<td>
+<div>follower用来连接到leader，只在leader上监听该端口。</div></td><br />
+</tr></p>
+<tr>
+<td></td></p>
+<td></td></p>
+<td>3888</td></p>
+<td>
+<div>/etc/zookeeper/conf/zoo.cfg中server.x=[hostname]:nnnnn[:<span style="color: #3665ee;">nnnnn</span>]，标蓝部分</div></td></p>
+<td>
+<div>用于leader选举的。只在electionAlg是1,2或3(默认)时需要。</div></td><br />
+</tr><br />
+</tbody><br />
+</table><br />
+<!--more--></p>
+<p>所有端口协议均基于TCP。</p>
+<p>对于存在Web UI（HTTP服务）的所有hadoop daemon，有如下url：</p>
+<p><strong>/logs</strong><br />
+日志文件列表，用于下载和查看</p>
+<p><strong>/logLevel</strong><br />
+允许你设定log4j的日志记录级别，类似于hadoop daemonlog</p>
+<p><strong>/stacks</strong><br />
+所有线程的stack trace，对于debug很有帮助</p>
+<p><strong>/jmx</strong><br />
+服务端的Metrics，以JSON格式输出。</p>
+<p>/jmx?qry=Hadoop:*会返回所有hadoop相关指标。<br />
+/jmx?get=MXBeanName::AttributeName 查询指定bean指定属性的值，例如/jmx?get=Hadoop:service=NameNode,name=NameNodeInfo::ClusterId会返回ClusterId。<br />
+这个请求的处理类：org.apache.hadoop.jmx.JMXJsonServlet</p>
+<p>而特定的Daemon又有特定的URL路径特定相应信息。</p>
+<p><strong>NameNode</strong>:http://:50070/</p>
+<p><strong>/dfshealth.jsp</strong><br />
+HDFS信息页面，其中有链接可以查看文件系统</p>
+<p>/dfsnodelist.jsp?whatNodes=(DEAD|LIVE)<br />
+显示DEAD或LIVE状态的datanode</p>
+<p><strong>/fsck</strong><br />
+运行fsck命令，不推荐在集群繁忙时使用！</p>
+<p><strong>DataNode</strong>:http://:50075/</p>
+<p><strong>/blockScannerReport</strong><br />
+每个datanode都会指定间隔验证块信息</p>
+<p>参考：<br />
+<a href="http://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-hdfs/hdfs-default.xml" target="_blank">http://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-hdfs/hdfs-default.xml</a><br />
+<a href="http://blog.cloudera.com/blog/2009/08/hadoop-default-ports-quick-reference/" target="_blank">http://blog.cloudera.com/blog/2009/08/hadoop-default-ports-quick-reference/</a></p>
+<p></div></p>

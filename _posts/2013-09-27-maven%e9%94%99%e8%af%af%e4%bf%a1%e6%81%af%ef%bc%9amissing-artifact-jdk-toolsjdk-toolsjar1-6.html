@@ -1,0 +1,78 @@
+---
+layout: post
+status: publish
+published: true
+title: Maven错误信息：Missing artifact jdk.tools:jdk.tools:jar:1.6
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "最近一直研究Hadoop的搭建、配置、管理层面的内容，越来越发现，如果缺乏应用开发以及源码阅读能力，在Hadoop的研究上很难更深一步（其实其他方面同样如此），在Jerry帮助下搭建了Eclipse+Maven进行Hadoop应用开发的环境，在pom.xml文件中指定依赖名称，就能方便地下载依赖包、查看源代码，Great！\r\n\r\n在Maven的使用中，出现如下错误信息Maven
+  Dependency Problem：\r\nMissing artifact jdk.tools:jdk.tools:jar:1.6\r\n\r\n这是什么原因呢？如何解决？\r\n\r\n"
+wordpress_id: 720
+wordpress_url: http://www.sqlparty.com/?p=720
+date: '2013-09-27 12:35:03 +0800'
+date_gmt: '2013-09-27 04:35:03 +0800'
+categories:
+- 大数据
+tags:
+- Hadoop
+- Maven
+- 开发
+---
+<p>最近一直研究Hadoop的搭建、配置、管理层面的内容，越来越发现，如果缺乏应用开发以及源码阅读能力，在Hadoop的研究上很难更深一步（其实其他方面同样如此），在Jerry帮助下搭建了Eclipse+Maven进行Hadoop应用开发的环境，在pom.xml文件中指定依赖名称，就能方便地下载依赖包、查看源代码，Great！</p>
+<p>在Maven的使用中，出现如下错误信息Maven Dependency Problem：<br />
+Missing artifact jdk.tools:jdk.tools:jar:1.6</p>
+<p>这是什么原因呢？如何解决？</p>
+<p><!--more--></p>
+<p>我这里的repository采用的是内部搭建的地址，依赖方面配置如下：<br />
+<span style="color: #0000ff;"><dependency></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <groupId>org.apache.hive</groupId></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <artifactId>hive-jdbc</artifactId></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <version>0.10.0-cdh4.3.0</version></span><br />
+<span style="color: #0000ff;"></dependency></span><br />
+<span style="color: #0000ff;"><dependency></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <groupId>org.apache.hbase</groupId></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <artifactId>hbase</artifactId></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <version>0.94.6-cdh4.3.0</version></span><br />
+<span style="color: #0000ff;"></dependency></span><br />
+<span style="color: #0000ff;"><dependency></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <groupId>org.apache.flume.flume-ng-sinks</groupId></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <artifactId>flume-hdfs-sink</artifactId></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <version>1.3.0-cdh4.3.0</version></span><br />
+<span style="color: #0000ff;"></dependency></span><br />
+<span style="color: #0000ff;"><dependency></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <groupId>org.apache.zookeeper</groupId></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <artifactId>zookeeper</artifactId></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <version>3.4.5-cdh4.3.0</version></span><br />
+<span style="color: #0000ff;"></dependency></span><br />
+<span style="color: #0000ff;"><dependency></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <groupId>org.apache.hadoop</groupId></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <artifactId>hadoop-mapreduce-client-app</artifactId></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <version>2.0.0-cdh4.3.0</version></span><br />
+<span style="color: #0000ff;"></dependency></span></p>
+<p>接着Maven就报错了，指出pom.xml中存在Maven Dependency Problem：</p>
+<p><span style="color: #ff0000;">Missing artifact jdk.tools:jdk.tools:jar:1.6</span></p>
+<p>Google一番后了解到，jdk.tools:jdk.tools是与JDK一起分发的一个JAR文件，可以如下方式加入到Maven项目中：<br />
+<span style="color: #0000ff;"><dependency></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <groupId>jdk.tools</groupId></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <artifactId>jdk.tools</artifactId></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <version>1.6</version></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <scope>system</scope></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <systemPath>${JAVA_HOME}/lib/tools.jar</systemPath></span><br />
+<span style="color: #0000ff;"></dependency></span></p>
+<p>详见<a href="http://maven.apache.org/general.html#tools-jar-dependency" target="_blank">Maven FAQ for adding dependencies to tools.jar</a></p>
+<p>也可以在本地仓库中手动安装tools.jar，如下<br />
+<span style="color: #0000ff;">mvn install:install-file -DgroupId=jdk.tools -DartifactId=jdk.tools -Dpackaging=jar -Dversion=1.6 -Dfile=tools.jar -DgeneratePom=true</span><br />
+然后在pom.xml中添加：<br />
+<span style="color: #0000ff;"><dependency></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <groupId>jdk.tools</groupId></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <artifactId>jdk.tools</artifactId></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; <version>1.6</version></span><br />
+<span style="color: #0000ff;"></dependency></span></p>
+<p>Done!</p>
+<p>参考：<br />
+<a href="http://stackoverflow.com/questions/11118070/buiding-hadoop-with-eclipse-maven-missing-artifact-jdk-toolsjdk-toolsjar1" target="_blank">http://stackoverflow.com/questions/11118070/buiding-hadoop-with-eclipse-maven-missing-artifact-jdk-toolsjdk-toolsjar1</a></p>

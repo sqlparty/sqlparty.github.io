@@ -1,0 +1,211 @@
+---
+layout: post
+status: publish
+published: true
+title: MySQL中的事件调度Event Scheduler
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "经常需要有一些定时任务在MySQL表上执行，例如统计、迁移、删除无用数据等。之前的作法是利用Linux cron定时运行脚本，但是发现这样的额外依赖有时并不方便，例如单机多实例部署时，就需要分别手动分别配置不同的cron任务，需要额外配置相应的用户和权限；新环境部署时容易遗漏cron任务等。\r\n\r\nMySQL提供了Event
+  Scheduler，与Linux下的crontab类似，可以根据时间调度来运行任务，运行一次或多次。\r\n\r\n完整的Event Schduler创建语句如下：\r\n\r\n<span
+  style=\"color: #0000ff;\">CREATE</span>\r\n<span style=\"color: #0000ff;\">&nbsp;&nbsp;&nbsp;
+  [DEFINER = { user | CURRENT_USER }]</span>\r\n<span style=\"color: #0000ff;\">&nbsp;&nbsp;&nbsp;
+  EVENT</span>\r\n<span style=\"color: #0000ff;\">&nbsp;&nbsp;&nbsp; [IF NOT EXISTS]</span>\r\n<span
+  style=\"color: #0000ff;\">&nbsp;&nbsp;&nbsp; event_name</span>\r\n<span style=\"color:
+  #0000ff;\">&nbsp;&nbsp;&nbsp; ON SCHEDULE <em>schedule</em></span>\r\n<span
+  style=\"color: #0000ff;\">&nbsp;&nbsp;&nbsp; [ON COMPLETION [NOT] PRESERVE]</span>\r\n<span
+  style=\"color: #0000ff;\">&nbsp;&nbsp;&nbsp; [ENABLE | DISABLE | DISABLE ON SLAVE]</span>\r\n<span
+  style=\"color: #0000ff;\">&nbsp;&nbsp;&nbsp; [COMMENT 'comment']</span>\r\n<span
+  style=\"color: #0000ff;\">&nbsp;&nbsp;&nbsp; DO event_body;</span>\r\n\r\n<span
+  style=\"color: #0000ff;\"><em>schedule</em>:</span>\r\n<span style=\"color:
+  #0000ff;\">&nbsp;&nbsp;&nbsp; AT timestamp [+ INTERVAL <em>interval</em>] ...</span>\r\n<span
+  style=\"color: #0000ff;\">&nbsp;&nbsp; | EVERY <em>interval</em></span>\r\n<span
+  style=\"color: #0000ff;\">&nbsp;&nbsp;&nbsp; [STARTS timestamp [+ INTERVAL <em>interval</em>]
+  ...]</span>\r\n<span style=\"color: #0000ff;\">&nbsp;&nbsp;&nbsp; [ENDS timestamp
+  [+ INTERVAL <em>interval</em>] ...]</span>\r\n\r\n<span style=\"color: #0000ff;\"><em>interval</em>:</span>\r\n<span
+  style=\"color: #0000ff;\">&nbsp;&nbsp;&nbsp; quantity {YEAR | QUARTER | MONTH |
+  DAY | HOUR | MINUTE |</span>\r\n<span style=\"color: #0000ff;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  WEEK | SECOND | YEAR_MONTH | DAY_HOUR | DAY_MINUTE |</span>\r\n<span style=\"color:
+  #0000ff;\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  DAY_SECOND | HOUR_MINUTE | HOUR_SECOND | MINUTE_SECOND}</span>\r\n"
+wordpress_id: 795
+wordpress_url: http://www.sqlparty.com/?p=795
+date: '2013-12-04 22:39:54 +0800'
+date_gmt: '2013-12-04 14:39:54 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+---
+<p>经常需要有一些定时任务在MySQL表上执行，例如统计、迁移、删除无用数据等。之前的作法是利用Linux cron定时运行脚本，但是发现这样的额外依赖有时并不方便，例如单机多实例部署时，就需要分别手动分别配置不同的cron任务，需要额外配置相应的用户和权限；新环境部署时容易遗漏cron任务等。</p>
+<p>MySQL提供了Event Scheduler，与Linux下的crontab类似，可以根据时间调度来运行任务，运行一次或多次。</p>
+<p>完整的Event Schduler创建语句如下：</p>
+<p><span style="color: #0000ff;">CREATE</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; [DEFINER = { user | CURRENT_USER }]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; EVENT</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; [IF NOT EXISTS]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; event_name</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; ON SCHEDULE <em>schedule</em></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; [ON COMPLETION [NOT] PRESERVE]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; [ENABLE | DISABLE | DISABLE ON SLAVE]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; [COMMENT 'comment']</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; DO event_body;</span></p>
+<p><span style="color: #0000ff;"><em>schedule</em>:</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; AT timestamp [+ INTERVAL <em>interval</em>] ...</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp; | EVERY <em>interval</em></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; [STARTS timestamp [+ INTERVAL <em>interval</em>] ...]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; [ENDS timestamp [+ INTERVAL <em>interval</em>] ...]</span></p>
+<p><span style="color: #0000ff;"><em>interval</em>:</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; quantity {YEAR | QUARTER | MONTH | DAY | HOUR | MINUTE |</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; WEEK | SECOND | YEAR_MONTH | DAY_HOUR | DAY_MINUTE |</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; DAY_SECOND | HOUR_MINUTE | HOUR_SECOND | MINUTE_SECOND}</span><br />
+<!--more--></p>
+<h2>一、调度Scheduler</h2><br />
+MySQL中的调度可以是只运行一次，也可以指定时间间隔重复运行。其定义是在event定义的ON SCHEDULE子句中。该子句格式如下：</p>
+<p><span style="color: #0000ff;">ON SCHEDULE</span><br />
+<span style="color: #0000ff;">AT timestamp [+ INTERVAL interval] ...</span><br />
+<span style="color: #0000ff;">| EVERY interval</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; [STARTS timestamp [+ INTERVAL interval] ...]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; [ENDS timestamp [+ INTERVAL interval] ...]</span></p>
+<p>其中，timestamp必须包括&rdquo;年月日时分秒&ldquo;，它参与表达式计算后，结果是datetime或者timestamp类型。</p>
+<p>而时间间隔interval可以如下：</p>
+<p><span style="color: #0000ff;"><数字>&nbsp; {YEAR | QUARTER | MONTH | DAY | HOUR | MINUTE |</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; WEEK | SECOND | YEAR_MONTH | DAY_HOUR | DAY_MINUTE |</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; DAY_SECOND | HOUR_MINUTE | HOUR_SECOND | MINUTE_SECOND}</span></p>
+<p>其含义很清晰，如YEAR 年；QUARTER 季度；YEAR_MONTH 年+月；MINUTE_SECOND 分钟+秒。</p>
+<p>补充：</p>
+<ol>
+<li>YEAR | QUARTER | MONTH | YEAR_MONTH 后台都转换成MONTH，其他时间间隔都转换成SECOND</li>
+<li>ON SCHEDULE中的时间使用创建时本会话中的时区信息time_zone，这个时区默认是服务端的全局time_zone，也可能后续手动更新掉。这些时间会转化成UTC时间，存储到mysql.event表中。</li><br />
+</ol></p>
+<h3>1.一次运行</h3><br />
+AT直接指定时间，或者使用时间表达式计算得出确定的时间点。</p>
+<p>示例：</p>
+<ol>
+<li><span style="color: #0000ff;">AT '2006-02-10 23:59:00'&nbsp;</span>&nbsp; 指定确切运行时间，本地时区。</li>
+<li><span style="color: #0000ff;">AT current_timestamp + INTERVAL '1:15' MINUTE_SECOND</span>&nbsp; 指定1分15秒后运行。</li><br />
+</ol></p>
+<h3>2.多次运行</h3><br />
+EVERY设置运行的时间间隔，这里不能再指定[+ INTERVAL interval]。</p>
+<p>指定STARTS、ENDS是可选的。</p>
+<ul>
+<li>STARTS是指定重复运行的第一次是什么时候。不指定的情况下，会在事件创建时运行第一次，即等价于STARTS CURRENT_TIMESTAMP！</li>
+<li>ENDS告知MySQL结束重复运行的时间点。不指定的情况下，MySQL会永远重复运行下去。</li><br />
+</ul><br />
+示例：</p>
+<ol>
+<li><span style="color: #0000ff;">EVERY 5 WEEK</span>&nbsp; 每5周运行一次，创建时运行第一次。</li>
+<li><span style="color: #0000ff;">EVERY 3 DAY STARTS '2013-12-4 09:10:00'&nbsp;</span> 从'2013-12-4 09:10:00'开始运行第一次，每隔3天运行一次。</li>
+<li><span style="color: #0000ff;">EVERY 2 MONTH STARTS CURRENT_TIMESTAMP + INTERVAL 10 MINUTE ENDS '2014-12-31 23:59:59'</span> 10分钟后开始到2014年底，每两个月运行一次。</li><br />
+</ol></p>
+<h2>二、事件Event</h2></p>
+<h3>1.启用Event Scheduler功能</h3><br />
+Event是由一个特定的Event Scheduler线程执行的，运行过程中可以通过show full processlist查看其当前状态信息，如：</p>
+<p><span style="color: #0000ff;">7384313&nbsp;&nbsp;&nbsp;&nbsp; event_scheduler&nbsp;&nbsp;&nbsp;&nbsp; localhost&nbsp;&nbsp;&nbsp;&nbsp; [NULL]&nbsp;&nbsp;&nbsp;&nbsp; Daemon&nbsp;&nbsp;&nbsp;&nbsp; 3&nbsp;&nbsp;&nbsp;&nbsp; Waiting on empty queue&nbsp;&nbsp;&nbsp;&nbsp; [NULL]</span></p>
+<p>默认事件调度Event Scheduler功能是未启用的，需要配置全局参数event_scheduler，本参数可以动态设置，即时生效。</p>
+<p>event_scheduler有如下三种取值：</p>
+<ul>
+<li>OFF/0 关闭，默认值。不运行Event Scheduler线程，也就无法进行事件调度。设置为ON可以立即启用。</li>
+<li>ON/1 启用。</li>
+<li>DISABLED 禁用。同样不运行Event Scheduler线程。只有在MySQL服务启动时设置才有用。当event_scheduler是ON或者OFF时，不能在运行时设置event_scheduler为DISABLED。如果启动时配置了event-scheduler=DISABLED，则运行时就不能设置为ON/OFF。换句话中，可以在MySQL服务启动时设置为DISABLED，然后完全禁用了event_scheduler，不能动态调整。</li><br />
+</ul><br />
+所以，要启用event_scheduler，运行时执行：</p>
+<p><span style="color: #0000ff;">set global event_scheduler=on</span></p>
+<p>要随MySQL服务一起启用，则在/etc/my.cnf中添加<br />
+<span style="color: #0000ff;">[mysqld]</span><br />
+<span style="color: #0000ff;">event-scheduler=on</span></p>
+<h3>2.CREATE EVENT</h3><br />
+创建Event，需要所创建event的数据库下的EVENT权限。</p>
+<p>一个event定义至少包括三部分：</p>
+<ol>
+<li><span style="color: #0000ff;">CREATE EVENT <event_name></span>。<event_name>在该库中唯一，不区分大小写，最大64个字符。</li>
+<li>一个<span style="color: #0000ff;">ON SCHEDULE</span>子句。决定了event执行的周期。</li>
+<li>一个<span style="color: #0000ff;">DO</span>子句。包含了事件的SQL操作集合。</li><br />
+</ol><br />
+其他event子句说明：</p>
+<ol>
+<li>&nbsp;<span style="color: #0000ff;">[DEFINER = { user | CURRENT_USER }]</span>&nbsp; 设置运行时进行权限验证的用户，如需指定则应使用'user'@'host'格式，并需要SUPER权限。不指定则为当前用户。</li>
+<li><span style="color: #0000ff;">[ON COMPLETION [NOT] PRESERVE]</span>&nbsp; 默认为ON COMPLETION NOT PRESERVE，即event在完成后即自动删除。指定ON COMPLETION PRESERVE使得完成后event依然保留。</li>
+<li><span style="color: #0000ff;">[ENABLE | DISABLE | DISABLE ON SLAVE]&nbsp;</span> 默认为ENABLE，即创建后立即启用。可以设置为DISABLE，创建后不启用，后续使用ALTER event来控制启动、停止。DISABLE ON SLAVE是Replication环境下Slave上的event的状态，表示是Master上创建，复制到SLAVE上的，在SLAVE上无需运行。因为event内的操作会通过binlog同步到slave。</li>
+<li><span style="color: #0000ff;">COMMENT</span> 注释。</li><br />
+</ol></p>
+<h3>3.Do子句</h3><br />
+在Do子句中实现事件的具体逻辑，几乎所有可以在存储程序中运行的MySQL语句都可以在event中使用。</p>
+<p>1）简单SQL示例：<br />
+<span style="color: #0000ff;">CREATE EVENT e_hourly</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; ON SCHEDULE</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; EVERY 1 HOUR</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; COMMENT 'Clears out sessions table each hour.'</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; DO</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; DELETE FROM site_activity.sessions;</span></p>
+<p>2）复杂SQL示例：<br />
+<span style="color: #0000ff;">delimiter |</span><br />
+<span style="color: #0000ff;">CREATE EVENT e</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; ON SCHEDULE</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; EVERY 5 SECOND</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; DO</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; BEGIN</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; DECLARE v INTEGER;</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN END;</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; SET v = 0;</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; WHILE v < 5 DO</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; INSERT INTO t1 VALUES (0);</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; UPDATE t2 SET s1 = s1 + 1;</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; SET v = v + 1;</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; END WHILE;</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; END |</span><br />
+<span style="color: #0000ff;">delimiter ;</span></p>
+<p>3）Do子句中SQL的限制</p>
+<p>基本上Do中可以使用任何在存储程序(Stored Routine)中允许的SQL语句，而存储程序中有些限制，event还有些额外的限制。</p>
+<p>Stored Routine中如下语句不允许：</p>
+<ol>
+<li>LOCK TABLES/UNLOCK TABLES</li>
+<li>LOAD DATA与LOAD TABLE</li>
+<li>支持动态SQL(PREPARE, EXECUTE, DEAALOCATE PREPARE)！但是PREPARE本身有些语句不允许执行。</li>
+<li>INSERT DELAYED不会生效</li><br />
+</ol><br />
+EVENT的限制：</p>
+<ol>
+<li>如果Do子句中包含ALTER EVENT子句，虽然能够创建，但是运行时会出错。</li>
+<li>不要在Do子句中使用SELECT或SHOW这样仅仅是查询的语句，因为其输出无法从外部获取到。可以使用SELECT ... INTO 这样的形式将查询结果保存起来。</li><br />
+</ol></p>
+<h3>4.ALTER EVENT</h3><br />
+语法：</p>
+<p><span style="color: #0000ff;">ALTER</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; [DEFINER = { user | CURRENT_USER }]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; EVENT event_name</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; [ON SCHEDULE schedule]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; [ON COMPLETION [NOT] PRESERVE]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; [RENAME TO new_event_name]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; [ENABLE | DISABLE | DISABLE ON SLAVE]</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; [COMMENT 'comment']</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; [DO event_body]</span></p>
+<p>可以看到基本支持CREATE EVENT所涉及的所有子句更新，还支持改名RENAME TO。具有event权限即可。</p>
+<p>RENAME TO支持移动EVENT到另一个数据库，如：</p>
+<p><span style="color: #0000ff;">ALTER EVENT olddb.myevent</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp; RENAME TO newdb.myevent;</span></p>
+<p>此时要求有连个数据库上的event。</p>
+<p>常用的还有：</p>
+<p>启用、停用EVENT&mdash;&mdash;ALTER EVENT myevent DISABLE/ENABLE，我们知道DISABLE ON SLAVE是Replication环境中SLAVE中event的状态，默认是自动设置的。有时需要手动设置。</p>
+<h3>5.查看EVENT</h3><br />
+有如下方式可以查看event的信息：</p>
+<ul>
+<li>mysql.event</li>
+<li>information_schema.events</li>
+<li>show events</li>
+<li>show create event</li><br />
+</ul></p>
+<h3>6.删除EVENT</h3><br />
+任何具有该数据库下的event权限的用户都可以删除event，不管是否是他拥有的event。</p>
+<p>删除命令：<span style="color: #0000ff;">DROP EVENT [IF EXISTS] <event name></span>。</p>
+<h2>三、event schedule其他注意点</h2></p>
+<ol>
+<li>MySQL保存了事件创建时的sql_mode作为其运行时的sql_mode;</li>
+<li>如果在一个调度区间内任务没有处理完成，新的调度依然会生成，这样就会出现同时又多个任务在运行的情况。如果要避免多个任务同时存在，可以使用GET_LOCK()函数或者行锁、表锁。</li><br />
+</ol><br />
+更多关于时区影响、event使用注意点，请参考文档：<br />
+<a href="http://dev.mysql.com/doc/refman/5.5/en/events.html" target="_blank">http://dev.mysql.com/doc/refman/5.5/en/events.html</a></p>

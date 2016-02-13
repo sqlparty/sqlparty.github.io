@@ -1,0 +1,80 @@
+---
+layout: post
+status: publish
+published: true
+title: Linux下源码安装python 2.7
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "有时候Linux上自带的Python版本不能满足我们的需要，需要自行安装新版本，这里介绍源码安装python 2.7的方式。\r\n\r\n"
+wordpress_id: 141
+wordpress_url: http://www.sqlparty.com/?p=141
+date: '2013-07-28 09:10:11 +0800'
+date_gmt: '2013-07-28 01:10:11 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- Pyton
+---
+<p>有时候Linux上自带的Python版本不能满足我们的需要，需要自行安装新版本，这里介绍源码安装python 2.7的方式。</p>
+<p><!--more--></p>
+<p>下载地址 <a href="http://www.python.org/ftp/python/2.7.3/Python-2.7.3.tgz" target="_blank">http://www.python.org/ftp/python/2.7.3/Python-2.7.3.tgz</a><br />
+拷贝至/db/soft目录下</p>
+<p>[shell]<br />
+root>cd /db/soft<br />
+root>tar -zxvf Python-2.7.3.tgz<br />
+root>cd Python-2.7.3<br />
+root>./configure #默认会将python安装目录配置为/usr/local目录下<br />
+root>make<br />
+root>make install #事实上只有这步需要root权限<br />
+root>python<br />
+Python 2.7.3 (default, Jan 6 2013, 09:44:50)<br />
+[GCC 4.1.2 20080704 (Red Hat 4.1.2-48)] on linux2<br />
+Type "help", "copyright", "credits" or "license" for more information.<br />
+>>><br />
+[/shell]</p>
+<p>OK!完成安装。</p>
+<p>安装上述步骤安装，默认PATH中已将最新python路径加入。</p>
+<p>常见问题<br />
+1.make 报错<br />
+python-2.7.3/Modules/_sqlite/connection.c: In function &lsquo;_pysqlite_set_result&rsquo;:<br />
+Python-2.7.3/Modules/_sqlite/connection.c:552: error: &lsquo;sqlite3_int64&rsquo; undeclared (first use in this function)<br />
+解决方案：<br />
+vi Python-2.7.3/Modules/_sqlite/connection.c<br />
+在<br />
+#include "cache.h"<br />
+#include "module.h"<br />
+#include "connection.h"<br />
+#include "statement.h"<br />
+#include "cursor.h"<br />
+#include "prepare_protocol.h"<br />
+#include "util.h"<br />
+#include "sqlitecompat.h"<br />
+#include "pythread.h"<br />
+#define ACTION_FINALIZE 1<br />
+#define ACTION_RESET 2<br />
+#if SQLITE_VERSION_NUMBER >= 3003008<br />
+#ifndef SQLITE_OMIT_LOAD_EXTENSION<br />
+#define HAVE_LOAD_EXTENSION<br />
+#endif<br />
+#endif<br />
+添加<br />
+#ifdef SQLITE_INT64_TYPE<br />
+typedef SQLITE_INT64_TYPE sqlite_int64;<br />
+typedef unsigned SQLITE_INT64_TYPE sqlite_uint64;<br />
+#elif defined(_MSC_VER) || defined(__BORLANDC__)<br />
+typedef __int64 sqlite_int64;<br />
+typedef unsigned __int64 sqlite_uint64;<br />
+#else<br />
+typedef long long int sqlite_int64;<br />
+typedef unsigned long long int sqlite_uint64;<br />
+#endif<br />
+typedef sqlite_int64 sqlite3_int64;<br />
+typedef sqlite_uint64 sqlite3_uint64;</p>
+<p>参考：<br />
+http://blog.hijiam.com/page/2</p>

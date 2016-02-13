@@ -1,0 +1,47 @@
+---
+layout: post
+status: publish
+published: true
+title: rpm包常用操作
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "rpm是RedHat下的软件包管理工具，经常会用到一些相关软件操作。记录于此备查。\r\n\r\n常用选项：\r\n-q 查询query\r\n-f
+  file_path&nbsp; 指定文件file路径\r\n-a 所有软件包\r\n-i&nbsp; 安装install\r\n-v 显示详细信息\r\n-h
+  与-v一起使用，显示软件包解压进度信息。\r\n-c 找出配置文件\r\n-U 升级软件\r\n-e 删除软件包\r\n-l 列出rpm包中的所有文件\r\n\r\n"
+wordpress_id: 747
+wordpress_url: http://www.sqlparty.com/?p=747
+date: '2013-10-21 21:26:02 +0800'
+date_gmt: '2013-10-21 13:26:02 +0800'
+categories:
+- 系统
+tags:
+- rpm
+---
+<p>rpm是RedHat下的软件包管理工具，经常会用到一些相关软件操作。记录于此备查。</p>
+<p>常用选项：<br />
+-q 查询query<br />
+-f file_path&nbsp; 指定文件file路径<br />
+-a 所有软件包<br />
+-i&nbsp; 安装install<br />
+-v 显示详细信息<br />
+-h 与-v一起使用，显示软件包解压进度信息。<br />
+-c 找出配置文件<br />
+-U 升级软件<br />
+-e 删除软件包<br />
+-l 列出rpm包中的所有文件</p>
+<p><!--more-->例：</p>
+<ol>
+<li><span style="color: #0000ff;">rpm -qf /usr/local/mysql/bin/mysqld</span> 查看文件/usr/local/mysql/bin/mysqld所属的已安装软件包</li>
+<li><span style="color: #0000ff;">rpm -qa | grep -i mysql</span>&nbsp; 查找所有与MySQL相关的已安装软件包</li>
+<li><span style="color: #0000ff;">rpm -ivh&nbsp; xx.rpm</span>&nbsp; 安装软件包，并显示进度和相关信息</li>
+<li><span style="color: #0000ff;">rpm -qc mysql</span> 查找mysql相关软件包的配置文件</li>
+<li><span style="color: #0000ff;">rpm -Uvh /tmp/rsync-3.0.9-2.el5.rfx.x86_64.rpm</span> 升级rpm包</li>
+<li><span style="color: #0000ff;">rpm -e --allmatches java-1.4.2-gcj-compat-devel-1.4.2.0-40jpp.115</span>&nbsp; 删除所有同名的包</li>
+<li><span style="color: #0000ff;">rpm -ql syscfg-4.3.0-4.33.4.el6.x86_64</span></li><br />
+</ol><br />
+如果配了软件源，可以通过yum search xxx来在线查询xxx相关的软件包，yum install则进行安装，会自动识别和安装依赖包。</p>

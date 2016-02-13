@@ -1,0 +1,193 @@
+---
+layout: post
+status: publish
+published: true
+title: MySQL Replication相关日常操作
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "汇总收集MySQL Replication复制环境下的常用操作，包括查询、管理、维护等。\r\n\r\n"
+wordpress_id: 275
+wordpress_url: http://www.sqlparty.com/?p=275
+date: '2013-08-03 21:26:48 +0800'
+date_gmt: '2013-08-03 13:26:48 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+- Replication
+---
+<p>汇总收集MySQL Replication复制环境下的常用操作，包括查询、管理、维护等。</p>
+<p><!--more--></p>
+<p><strong>1.[主]查看当前binlog对应文件和位置</strong><br />
+<span style="color: #0000ff;">mysql>show master status</span><br />
+所需权限：super或replication client。<br />
+例：<br />
+<span style="color: #0000ff;">mysql> show master status;</span><br />
+<span style="color: #0000ff;"> +---------------------+----------+--------------+------------------+</span><br />
+<span style="color: #0000ff;"> | File | Position | Binlog_Do_DB | Binlog_Ignore_DB |</span><br />
+<span style="color: #0000ff;"> +---------------------+----------+--------------+------------------+</span><br />
+<span style="color: #0000ff;"> | ar18_3db-bin.000010 | 1535521 | | |</span><br />
+<span style="color: #0000ff;"> +---------------------+----------+--------------+------------------+</span><br />
+<span style="color: #0000ff;"> 1 row in set (0.00 sec)</span></p>
+<p><strong>2.[主]查看binlog中事件</strong><br />
+语法：<span style="color: #0000ff;">SHOW BINLOG EVENTS</span><br />
+<span style="color: #0000ff;"> [IN 'log_name'] [FROM pos] [LIMIT [offset,] row_count]</span><br />
+如果不指定log_name，则从第一个开始。<br />
+所需权限：REPLICATION SLAVE<br />
+例：<br />
+<span style="color: #0000ff;">mysql> show binlog events in 'ar18_3db-bin.000010' from 1535521 limit 3 \G</span><br />
+<span style="color: #0000ff;"> *************************** 1. row ***************************</span><br />
+<span style="color: #0000ff;"> Log_name: ar18_3db-bin.000010</span><br />
+<span style="color: #0000ff;"> Pos: 1535521</span><br />
+<span style="color: #0000ff;"> Event_type: Query</span><br />
+<span style="color: #0000ff;"> Server_id: 3</span><br />
+<span style="color: #0000ff;"> End_log_pos: 1535594</span><br />
+<span style="color: #0000ff;"> Info: BEGIN</span><br />
+<span style="color: #0000ff;">*************************** 2. row ***************************</span><br />
+<span style="color: #0000ff;"> Log_name: ar18_3db-bin.000010</span><br />
+<span style="color: #0000ff;"> Pos: 1535594</span><br />
+<span style="color: #0000ff;"> Event_type: Query</span><br />
+<span style="color: #0000ff;"> Server_id: 3</span><br />
+<span style="color: #0000ff;"> End_log_pos: 1535853</span><br />
+<span style="color: #0000ff;"> Info: use `dynamixdb`; UPDATE `dynamixdb`.`pt_heartbeat` SET ts='2013-03-05T09:06:15.005240', file='ar18_3db-bin.000010', position='1535521', relay_master_log_file=NULL, exec_master_log_pos=NULL WHERE server_id='3'</span><br />
+<span style="color: #0000ff;"> *************************** 3. row ***************************</span><br />
+<span style="color: #0000ff;">Log_name: ar18_3db-bin.000010</span><br />
+<span style="color: #0000ff;"> Pos: 1535853</span><br />
+<span style="color: #0000ff;"> Event_type: Xid</span><br />
+<span style="color: #0000ff;"> Server_id: 3</span><br />
+<span style="color: #0000ff;"> End_log_pos: 1535880</span><br />
+<span style="color: #0000ff;"> Info: COMMIT /* xid=10730517 */</span><br />
+<span style="color: #0000ff;"> 3 rows in set (0.00 sec)</span><br />
+注：此命令适合查看少量事件，否则会给服务器造成较大压力。如果需要查看大量二进制日志内容，使用mysqlbinlog工具。</p>
+<p><strong>3.[主|从]查看复制相关进程运行情况</strong><br />
+所需权限：process<br />
+主服务器：<br />
+<span style="color: #0000ff;">mysql>show full processlist \G</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+<span style="color: #0000ff;"> *************************** 4. row ***************************</span><br />
+<span style="color: #0000ff;"> Id: 239870</span><br />
+<span style="color: #0000ff;"> User: repl</span><br />
+<span style="color: #0000ff;"> Host: 192.168.1.18:33280</span><br />
+<span style="color: #0000ff;"> db: NULL</span><br />
+<span style="color: #0000ff;"> Command: Binlog Dump</span><br />
+<span style="color: #0000ff;"> Time: 6833</span><br />
+<span style="color: #0000ff;"> State: Has sent all binlog to slave; waiting for binlog to be updated</span><br />
+<span style="color: #0000ff;"> Info: NULL</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+从服务器：<br />
+<span style="color: #0000ff;">mysql>show full processlist \G</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+<span style="color: #0000ff;"> *************************** 1. row ***************************</span><br />
+<span style="color: #0000ff;"> Id: 18</span><br />
+<span style="color: #0000ff;"> User: system user</span><br />
+<span style="color: #0000ff;"> Host:</span><br />
+<span style="color: #0000ff;"> db: NULL</span><br />
+<span style="color: #0000ff;"> Command: Connect</span><br />
+<span style="color: #0000ff;"> Time: 25714</span><br />
+<span style="color: #0000ff;"> State: Waiting for master to send event</span><br />
+<span style="color: #0000ff;"> Info: NULL</span><br />
+<span style="color: #0000ff;"> *************************** 2. row ***************************</span><br />
+<span style="color: #0000ff;"> Id: 20</span><br />
+<span style="color: #0000ff;"> User: system user</span><br />
+<span style="color: #0000ff;"> Host:</span><br />
+<span style="color: #0000ff;"> db: NULL</span><br />
+<span style="color: #0000ff;"> Command: Connect</span><br />
+<span style="color: #0000ff;"> Time: 200</span><br />
+<span style="color: #0000ff;"> State: Has read all relay log; waiting for the slave I/O thread to update it</span><br />
+<span style="color: #0000ff;"> Info: NULL</span><br />
+<span style="color: #0000ff;"> ...</span></p>
+<p><strong>4.[从]操作SLAVE启停</strong><br />
+语法：<br />
+<span style="color: #0000ff;">1)START SLAVE [IO_THREAD|SQL_THREAD]</span> 如果一个都不指定，则两个都启动；<br />
+<span style="color: #0000ff;">2)START SLAVE [SQL_THREAD] UNTIL</span><br />
+<span style="color: #0000ff;"> MASTER_LOG_FILE = 'log_name', MASTER_LOG_POS = log_pos</span><br />
+<span style="color: #0000ff;"> 3)START SLAVE [SQL_THREAD] UNTIL</span><br />
+<span style="color: #0000ff;"> RELAY_LOG_FILE = 'log_name', RELAY_LOG_POS = log_pos</span><br />
+在语法2),3)中，UNTIL作用是当SQL_THREAD运行到满足条件的位置时，停止SQL_THREAD运行。当未指定SQL_THREAD时，启动两个线程。当SQL_THREAD已经在运行时，忽略且报一个警告。<br />
+所需权限：super<br />
+注意：</p>
+<ul>
+<li>START SLAVE成功启动后，即使异常停止了也不会抛出错误信息。需要检查两个线程是否在正常运行，通过SHOW SLAVE STATUS。</li>
+<li>START SLAVE成功启动能保证Slave_SQL_Running=Yes，但是不能保证Slave_IO_Running=Yes。因为Slave_IO_Running=Yes含义指I/O线程正在运行而且已经连接，而START SLAVE不关注是否连接成功。</li><br />
+</ul><br />
+<strong>5.[从]查看从服务器(Slave)的状态</strong><br />
+所需权限：super或replication client。<br />
+<span style="color: #0000ff;">mysql> show slave status \G</span><br />
+<span style="color: #0000ff;"> *************************** 1. row ***************************</span><br />
+<span style="color: #0000ff;"> Slave_IO_State: Waiting for master to send event #同show processlist中I/O线程的State</span><br />
+<span style="color: #0000ff;"> Master_Host: 192.168.1.18</span><br />
+<span style="color: #0000ff;"> Master_User: repl</span><br />
+<span style="color: #0000ff;"> Master_Port: 3312</span><br />
+<span style="color: #0000ff;"> Connect_Retry: 60</span> #连接重试的间隔秒数<br />
+<span style="color: #0000ff;">Master_Log_File: ar18_3db-bin.000010</span> #I/O线程正在读取的主服务器的日志文件<br />
+<span style="color: #0000ff;">Read_Master_Log_Pos: 9717206</span> #I/O线程正在读取的主服务器的日志文件位置<br />
+<span style="color: #0000ff;">Relay_Log_File: ar18_2db-relay-bin.000013</span> #SQL线程正在读取的从服务器上的中继日志文件<br />
+<span style="color: #0000ff;">Relay_Log_Pos: 7099044</span> #SQL线程正在读取的从服务器上的中继日志文件位置<br />
+<span style="color: #0000ff;">Relay_Master_Log_File: ar18_3db-bin.000010</span> #SQL线程最近执行的事件对应的主服务器上的日志文件<br />
+<span style="color: #0000ff;">Slave_IO_Running: Yes</span> #Yes表示已运行且已连接，同show global status like 'Slave_running'<br />
+<span style="color: #0000ff;">Slave_SQL_Running: Yes</span> #Yes表示复制的SQL线程正在运行<br />
+<span style="color: #0000ff;">Replicate_Do_DB:</span> #--replicate-do-db配置的内容<br />
+<span style="color: #0000ff;">Replicate_Ignore_DB:</span> #--replicate-ignore-db配置的内容<br />
+<span style="color: #0000ff;">Replicate_Do_Table:</span><br />
+<span style="color: #0000ff;"> Replicate_Ignore_Table:</span><br />
+<span style="color: #0000ff;"> Replicate_Wild_Do_Table:</span><br />
+<span style="color: #0000ff;"> Replicate_Wild_Ignore_Table:</span> #--replicate-do-table,--replicate-ignore-table,--replicate-wild-do-table,--replicate-wild-ignore-table的配置<br />
+<span style="color: #0000ff;">Last_Errno: 0</span><br />
+<span style="color: #0000ff;"> Last_Error:</span> #如果Last_Errno不为0，则Last_Error显示相关错误信息，且该信息会写入错误日志<br />
+<span style="color: #0000ff;">Skip_Counter: 0</span> #<br />
+<span style="color: #0000ff;">Exec_Master_Log_Pos: 9717206</span> #SQL线程最近执行的事件对应的主服务器上的日志文件位置，(<strong>Relay_Master_Log_File,Exec_Master_Log_Pos</strong>)表示SQL线程的执行对应到Master的位置。<br />
+#这样通过Slave新建Slave后，可以设置change master to命令<br />
+<span style="color: #0000ff;">Relay_Log_Space: 8600133</span> #存在的所有中继日志的总大小<br />
+<span style="color: #0000ff;">Until_Condition: None</span> #Until_Condition, Until_Log_File, Until_Log_Pos指START SLAVE中使用的Until。Until_Condition为None表示未指定Until<br />
+<span style="color: #0000ff;">Until_Log_File:</span><br />
+<span style="color: #0000ff;"> Until_Log_Pos: 0</span><br />
+<span style="color: #0000ff;">Master_SSL_Allowed: No</span> #SSL相关内容显示Slave连接Master时使用SSL时的配置选项<br />
+<span style="color: #0000ff;">Master_SSL_CA_File:</span><br />
+<span style="color: #0000ff;"> Master_SSL_CA_Path:</span><br />
+<span style="color: #0000ff;"> Master_SSL_Cert:</span><br />
+<span style="color: #0000ff;"> Master_SSL_Cipher:</span><br />
+<span style="color: #0000ff;"> Master_SSL_Key:</span><br />
+<span style="color: #0000ff;">Seconds_Behind_Master: 0</span> #Slave落后于Master的秒数。实际上是比较SQL线程和I/O线程对应的时间，如果SQL线程赶上I/O线程，则为0。<br />
+#但是如果网络问题，I/O线程无法获取内容，可能这里始终为0，看不出问题所在。<br />
+#如果SQL线程停，则这里为NULL<br />
+<span style="color: #0000ff;">Master_SSL_Verify_Server_Cert: No</span><br />
+<span style="color: #0000ff;"> Last_IO_Errno: 0</span> #记录导致I/O线程停止的信息<br />
+<span style="color: #0000ff;">Last_IO_Error:</span><br />
+<span style="color: #0000ff;"> Last_SQL_Errno: 0</span> #记录导致SQL线程停止的信息<br />
+<span style="color: #0000ff;">Last_SQL_Error:</span><br />
+<span style="color: #0000ff;"> 1 row in set (0.00 sec)</span></p>
+<p><strong>6.[从]手动同步，直到与主服务器完成同步</strong><br />
+函数：MASTER_POS_WAIT(log_name,log_pos[,timeout])<br />
+本函数会阻塞，直到完成于主服务器的同步（同步到指定位置）。正常情况下，返回从服务器同步需要获取的event数。如果异常，则会报错或返回NULL。<br />
+例：<br />
+<span style="color: #0000ff;">mysql> select master_pos_wait('ar18_3db-bin.000010','10807152');</span><br />
+<span style="color: #0000ff;"> +---------------------------------------------------+</span><br />
+<span style="color: #0000ff;"> | master_pos_wait('ar18_3db-bin.000010','10807152') |</span><br />
+<span style="color: #0000ff;"> +---------------------------------------------------+</span><br />
+<span style="color: #0000ff;"> | 0 |</span><br />
+<span style="color: #0000ff;"> +---------------------------------------------------+</span><br />
+<span style="color: #0000ff;"> 1 row in set (0.00 sec)</span><br />
+延伸阅读： <a title="master_pos_wait函数与MySQL数据库主从复制切换" href="http://www.mysqlops.com/2012/10/09/master_pos_wait%e5%87%bd%e6%95%b0%e4%b8%8emysql%e4%b8%bb%e4%bb%8e%e5%88%87%e6%8d%a2.html" target="_blank">master_pos_wait函数与MySQL数据库主从复制切换</a></p>
+<p><strong>7.[从]设置跳过几个事件不执行</strong><br />
+<span style="color: #0000ff;">SET GLOBAL sql_slave_skip_counter = N</span><br />
+此命令在处理复制操作异常停止时很有用。只能在slave线程不运行时执行。该命令使用时，需要了解，binlog event被组织为一系列的事件组。每个事件组包括若干个事件。<br />
+对于支持事务的表(如InnoDB引擎表)，一个事件组对应一个事务；<br />
+对于不支持事务的表(如MyISAM表)，一个事件组对应单个SQL语句。<br />
+需要关注事件组，是因为，这里N如果正好跳在一个事件组中间，那么会跳过整个事件组，从下个事件组开始执行。<br />
+例：<br />
+有如下events，t1为MyISAM引擎，t2为InnoDB引擎，要想跳过前几条直接执行最后一条语句，设置N为2,3,4,5均可。<br />
+insert into t1 values(x1);<br />
+begin;<br />
+insert into t2 values(x2);<br />
+insert into t2 values(x3);<br />
+commit;<br />
+insert into t1 values(x4);</p>
+<p>注意：上例是基于statement模式下，如果模式更改为row模式，又有所不同：<br />
+1）row模式的binlog里，一个insert语句实际上是两个event（Table_map_event和 Row_log_event), 计算时应与statement不同。<br />
+2）在row模式下，不论引擎是否支持事务，一个insert语句都会加上BEGIN和commit，也即变成4个event。<br />
+延伸阅读：<a title="MySQL小误区：关于set global sql_slave_skip_counter=N 命令的一些点" href="http://dinglin.iteye.com/blog/1236330" target="_blank">MySQL小误区：关于set global sql_slave_skip_counter=N 命令的一些点</a></p>

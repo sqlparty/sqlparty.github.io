@@ -1,0 +1,67 @@
+---
+layout: post
+status: publish
+published: true
+title: 如何清空Linux的文件系统Cache
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Linux环境下free命令的典型输出如下：\r\n\r\n<span style=\"color: #0000ff;\">shell> free
+  -m</span>\r\n<span style=\"color: #0000ff;\"> total&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  used&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; free&nbsp;&nbsp;&nbsp;&nbsp; shared&nbsp;&nbsp;&nbsp;
+  buffers&nbsp;&nbsp;&nbsp;&nbsp; cached</span>\r\n<span style=\"color: #0000ff;\">
+  Mem:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 32063&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  31595&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 468&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 339&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 25661</span>\r\n<span
+  style=\"color: #0000ff;\"> -/+ buffers/cache:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  5594&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 26468</span>\r\n<span style=\"color: #0000ff;\">
+  Swap:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 63999&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 63998</span>\r\n\r\n其中cached部分，表示文件系统缓存的部分，在第二行中可以看到，这部分其实是属于free的内容，即实际并没有被使用，只是为了提高访问的命中率，提升性能之用。在特定环境中，我们可以考虑清空这部分缓存。如何操作呢？\r\n\r\n"
+wordpress_id: 757
+wordpress_url: http://www.sqlparty.com/?p=757
+date: '2013-10-30 12:37:51 +0800'
+date_gmt: '2013-10-30 04:37:51 +0800'
+categories:
+- 系统
+tags:
+- Linux
+---
+<p>Linux环境下free命令的典型输出如下：</p>
+<p><span style="color: #0000ff;">shell> free -m</span><br />
+<span style="color: #0000ff;"> total&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; used&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; free&nbsp;&nbsp;&nbsp;&nbsp; shared&nbsp;&nbsp;&nbsp; buffers&nbsp;&nbsp;&nbsp;&nbsp; cached</span><br />
+<span style="color: #0000ff;"> Mem:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 32063&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 31595&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 468&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 339&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 25661</span><br />
+<span style="color: #0000ff;"> -/+ buffers/cache:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5594&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 26468</span><br />
+<span style="color: #0000ff;"> Swap:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 63999&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 63998</span></p>
+<p>其中cached部分，表示文件系统缓存的部分，在第二行中可以看到，这部分其实是属于free的内容，即实际并没有被使用，只是为了提高访问的命中率，提升性能之用。在特定环境中，我们可以考虑清空这部分缓存。如何操作呢？</p>
+<p><!--more--></p>
+<p>首先，我们要知道，缓存中可能包含了还没有刷新的磁盘的更新内容，清空前应确保将"脏数据"刷新的磁盘，使用命令sync。</p>
+<p><em><strong>关于sync</strong></em></p>
+<p><em>用途:更新 i-node 表，并将缓冲文件写到硬盘中。</em></p>
+<p><em>功能：sync命令是在关闭Linux系统时使用的。 用户需要注意的是，不能用简单的关闭电源的方法关闭系统，因为Linux象其他Unix系统一样，在内存中缓存了许多数据，在关闭系统时需要进行内存数据与硬盘数据的同步校验，保证硬盘数据在关闭系统时是最新的，只有这样才能确保数据不会丢失。一般正常的关闭系统的过程是自动进行这些工作的，在系统运行过程中也会定时做这些工作，不需要用户干预。 sync命令是强制把内存中的数据写回硬盘，以免数据的丢失。用户可以在需要的时候使用此命令。</em></p>
+<p><em>sync 命令运行 sync 子例程。如果必须停止系统，则运行 sync 命令以确保文件系统的完整性。sync 命令将所有未写的系统缓冲区写到磁盘中，包含已修改的 i-node、已延迟的块 I/O 和读写映射文件。</em></p>
+<p>然后，就是清空Cache了，操作通过内核参数接口vm.drop_caches实现。</p>
+<p>有三个取值：</p>
+<p>=1 --> to free pagecache<br />
+=2 --> to free dentries and inodes<br />
+=3 --> to free pagecache, dentries and inodes</p>
+<p>设置的方法：</p>
+<p><span style="color: #0000ff;">sysctl -w vm.drop_caches=3</span></p>
+<p>或者</p>
+<p><span style="color: #0000ff;">echo 3 > /proc/sys/vm/drop_caches</span></p>
+<p>使用sysctl方法更加安全，推荐！</p>
+<p>所以，最终方案可以是：</p>
+<p><span style="color: #0000ff;">sync &amp;&amp; /sbin/sysctl -w vm.drop_caches=3</span></p>
+<p>效果：</p>
+<p><span style="color: #0000ff;">shell> sync &amp;&amp; /sbin/sysctl -w vm.drop_caches=3</span><br />
+<span style="color: #0000ff;"> vm.drop_caches = 3</span><br />
+<span style="color: #0000ff;"> shell> free -m</span><br />
+<span style="color: #0000ff;"> total&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; used&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; free&nbsp;&nbsp;&nbsp;&nbsp; shared&nbsp;&nbsp;&nbsp; buffers&nbsp;&nbsp;&nbsp;&nbsp; cached</span><br />
+<span style="color: #0000ff;"> Mem:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 32063&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4554&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 27509&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 211</span><br />
+<span style="color: #0000ff;"> -/+ buffers/cache:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4334&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 27728</span><br />
+<span style="color: #0000ff;"> Swap:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 63999&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 63998</span></p>
+<p>参考：<br />
+<a href="http://www.commandlinefu.com/commands/view/1026/empty-the-linux-buffer-cache" target="_blank">http://www.commandlinefu.com/commands/view/1026/empty-the-linux-buffer-cache</a></p>

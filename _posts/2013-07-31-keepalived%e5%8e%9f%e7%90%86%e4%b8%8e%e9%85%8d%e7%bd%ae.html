@@ -1,0 +1,276 @@
+---
+layout: post
+status: publish
+published: true
+title: keepalived原理与配置
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "keepalived是lvs的扩展项目，实现对服务器池对象的健康检查，进而实现对失效机器/服务的故障隔离、失败切换。\r\n\r\n由于keepalived依赖于lvs，所以往往网上的教程都提到lvs+keepalived实现高可用，其中lvs更多的是实现负载均衡，即将请求发送给具有相同内容的多个后台服务器，实现请求的均衡分布。实际上，要技术上实现虚拟服务器、故障隔离及失败切换，只需要keepalived和ipvs即可。ipvs是lvs的核心，IP
+  Virtual Server。如果没有负载均衡的需求，则有ipvs支持即可使用keepalived实现高可用，并不需要完整的lvs。\r\n\r\nkeepalived里面所有对lvs相关操作并不直接使用ipvsadm这样的客户端程序，而是直接使用ipvs提供的函数进行操作。\r\n\r\n"
+wordpress_id: 222
+wordpress_url: http://www.sqlparty.com/?p=222
+date: '2013-07-31 22:21:11 +0800'
+date_gmt: '2013-07-31 14:21:11 +0800'
+categories:
+- 系统
+tags:
+- keepalived
+---
+<p>keepalived是lvs的扩展项目，实现对服务器池对象的健康检查，进而实现对失效机器/服务的故障隔离、失败切换。</p>
+<p>由于keepalived依赖于lvs，所以往往网上的教程都提到lvs+keepalived实现高可用，其中lvs更多的是实现负载均衡，即将请求发送给具有相同内容的多个后台服务器，实现请求的均衡分布。实际上，要技术上实现虚拟服务器、故障隔离及失败切换，只需要keepalived和ipvs即可。ipvs是lvs的核心，IP Virtual Server。如果没有负载均衡的需求，则有ipvs支持即可使用keepalived实现高可用，并不需要完整的lvs。</p>
+<p>keepalived里面所有对lvs相关操作并不直接使用ipvsadm这样的客户端程序，而是直接使用ipvs提供的函数进行操作。</p>
+<p><!--more--></p>
+<h2>一、VRRP协议</h2><br />
+keepalived核心理念是VRRP(虚拟路由器冗余)协议，可以看做VRRP的一种实现。而了解VRRP的工作原理对于了解keepalived至关重要。</p>
+<p>在局域网中，两台主机AB之间要通信，都是通过设置静态路由，即配置默认网关(default gateway)，将消息发往路由器，由路由进行信息交换，即A->路由->B，或B->路由->A。无论局域网内哪两台主机通信都需要经过路由，这样很显然，路由器成为了单点。路由如果宕机，则整个网络间的通信就完全中断。</p>
+<p>VRRP的目的就是为了解决静态路由单点故障问题。VRRP通过竞选(election)协议动态地将路由任务交给局域网中虚拟路由器中的某台VRRP路由器。这里就包括两个概念：</p>
+<ol>
+<li>VRRP路由器 指一台实现了VRRP协议的物理路由器。一台VRRP路由器可以位于多个虚拟路由器。</li>
+<li>虚拟路由器 并不实际存在，是一个逻辑上的路由器。其对应有多台VRRP路由器的池(pool)。虚拟路由器为整个池对外提供一个统一的访问接口。对虚拟路由器的访问会被转到池中的某台物理VRRP路由器，这台处于工作状态的，被称为MASTER，其他的都是BACKUP。MASTER拥有虚拟路由器的IP地址，局域网内的主机就用这个虚拟IP地址作为静态路由地址。当MASTER宕机等无法提供服务时，其他BACKUP通过竞选，其中一个升级为MASTER，继续提供服务。虚拟路由器的标识称为VRID。</li><br />
+</ol><br />
+VRRP协议使用多播数据来传输VRRP数据，VRRP数据使用特殊的虚拟源MAC地址发送数据而不是自身网卡的MAC地址，VRRP运行时只有MASTER路由器定时发送VRRP通告信息，表示MASTER工作正常以及虚拟路由器IP(组)，BACKUP只接收VRRP数据，不发送数据，如果一定时间内没有接收到MASTER的通告信息，各BACKUP将宣告自己成为MASTER，发送通告信息，重新进行MASTER选举状态。</p>
+<p>VRRP协议包含如下三个状态：<br />
+<strong>初始化init</strong>：</p>
+<p>路由器启动时，如果路由器的优先级是255(最高优先级，路由器拥有路由器地址)，要发送VRRP通告信息，并发送广播ARP信息通告路由器IP地址对应的MAC地址为路由虚拟MAC，设置通告信息定时器准备定时发送VRRP通告信息，转为MASTER状态；否则进入BACKUP状态，设置定时器检查定时检查是否收到MASTER的通告信息。</p>
+<p><strong>主机master</strong>：</p>
+<p>主机状态下的路由器要完成如下功能：</p>
+<ul>
+<li>设置定时通告定时器；</li>
+<li>用VRRP虚拟MAC地址响应路由器IP地址的ARP请求；</li>
+<li>转发目的MAC是VRRP虚拟MAC的数据包；</li>
+<li>如果是虚拟路由器IP的拥有者，将接受目的地址是虚拟路由器IP的数据包，否则丢弃；</li>
+<li>当收到shutdown的事件时删除定时通告定时器，发送优先权级为0的通告包，转初始化状态；</li>
+<li>如果定时通告定时器超时时，发送VRRP通告信息；</li>
+<li>收到VRRP通告信息时，如果优先权为0，发送VRRP通告信息；否则判断数据的优先级是否高于本机，或相等而且实际IP地址大于本地实际IP，设置定时通告定时器，复位主机超时定时器，转BACKUP状态；否则的话，丢弃该通告包。</li><br />
+</ul><br />
+<strong>备机backup：</strong></p>
+<p>备机状态下的路由器要实现以下功能：</p>
+<ul>
+<li>设置主机超时定时器；</li>
+<li>不能响应针对虚拟路由器IP的ARP请求信息；</li>
+<li>丢弃所有目的MAC地址是虚拟路由器MAC地址的数据包；</li>
+<li>不接受目的是虚拟路由器IP的所有数据包；</li>
+<li>当收到shutdown的事件时删除主机超时定时器，转初始化状态；</li>
+<li>主机超时定时器超时的时候，发送VRRP通告信息，广播ARP地址信息，转MASTER状态；</li>
+<li>收到VRRP通告信息时，如果优先权为0，表示进入MASTER选举；否则判断数据的优先级是否高于本机，如果高的话承认MASTER有效，复位主机超时定时器；否则的话，丢弃该通告包。</li><br />
+</ul></p>
+<h2>二、体系结构</h2><br />
+<a href="http://www.sqlparty.com/wp-content/uploads/2013/07/keepalived.png"><img class="alignnone size-full wp-image-223" alt="keepalived" src="http://www.sqlparty.com/wp-content/uploads/2013/07/keepalived.png" width="571" height="392" /></a><br />
+上图是官网中对keepalived结构的描绘。<br />
+可以看到，大致可以分为两层：<br />
+<strong>1）用户空间user space</strong><br />
+WatchDog负责监控checkers和VRRP进程的状况；<br />
+Checkers负责真实服务器的健康检查healthchecking，是keepalived最主要的功能，即判断服务是否存活的能力。换句话说&mdash;可以没有VRRP Stack,但健康检查healthchecking是一定要有的。<br />
+VRRP Stack负责负载均衡器之间的失败切换FailOver.如果只用一个负载均衡器，则VRRP不是必须的。<br />
+IPVS wrapper 用来发送设定的规则到内核ipvs 代码。<br />
+Netlink Reflector 用来设定 vrrp 的vip地址等。<br />
+<strong>2）内核空间kernel space</strong><br />
+IPVS(IP Virtual Server)是整个负载均衡的基础。<br />
+NETLINK提供高级路由及其相关的网络功能。如果我们在负载均衡器上启用netfilter/iptable,将会直接影响它的性能。</p>
+<p>keepalived启动后会有三个进程：<br />
+1）父进程：内存管理，子进程管理等等<br />
+2）子进程：VRRP子进程<br />
+3）子进程：healthchecker子进程</p>
+<p>由上图可知，两个子进程都被系统WatchDog看管，两个子进程各自负责自己的事，healthchecker子进程复杂检查各自服务器的健康程度，例如HTTP，LVS等等，如果healthchecker子进程检查到MASTER上服务不可用了，就会通知本机上的兄弟VRRP子进程，让他删除通告，并且去掉虚拟IP，转换为BACKUP状态。</p>
+<h2>三、安装</h2><br />
+<span style="color: #0000ff;">shell>wget <a href="http://www.keepalived.org/software/keepalived-1.2.7.tar.gz" target="_blank">http://www.keepalived.org/software/keepalived-1.2.7.tar.gz</a></span><br />
+<span style="color: #0000ff;"> shell>tar -zxvf keepalived-1.2.7.tar.gz</span><br />
+<span style="color: #0000ff;"> shell>cd keepalived-1.2.7</span><br />
+<span style="color: #0000ff;"> shell>./configure --prefix=/usr/local/keepalived</span><br />
+因为keepalived运行在ipvs之上，所以ipvs必须已安装在服务器上。现在Linux各发行版中基本都包含了对ipvs的支持。<br />
+其他相关依赖（大部分是devel rpm包），缺啥补啥吧。<br />
+出现如下内容，说明configure正常完成：</p>
+<pre>
+ Keepalived configuration<br />
+ ------------------------<br />
+ Keepalived version : 1.2.7<br />
+ Compiler : gcc<br />
+ Compiler flags : -g -O2 -DETHERTYPE_IPV6=0x86dd<br />
+ Extra Lib : -lpopt -lssl -lcrypto<br />
+ Use IPVS Framework : Yes<br />
+ IPVS sync daemon support : Yes<br />
+ IPVS use libnl : No<br />
+ Use VRRP Framework : Yes<br />
+ Use VRRP VMAC : No<br />
+ SNMP support : No<br />
+ Use Debug flags : No</pre><br />
+<span style="color: #0000ff;">shell>make</span><br />
+<span style="color: #0000ff;"> shell>make install</span><br />
+验证安装的内容：<br />
+<span style="color: #0000ff;">shell>ls /usr/local/keepalived</span><br />
+<span style="color: #0000ff;"> bin etc sbin share</span><br />
+<span style="color: #0000ff;"> shell>ls -l /usr/local/keepalived/etc</span><br />
+<span style="color: #0000ff;"> 总计 24</span><br />
+<span style="color: #0000ff;"> drwxr-xr-x 3 root root 4096 03-27 08:31 keepalived</span><br />
+<span style="color: #0000ff;"> drwxr-xr-x 3 root root 4096 03-27 08:31 rc.d</span><br />
+<span style="color: #0000ff;"> drwxr-xr-x 2 root root 4096 03-27 08:31 sysconfig</span><br />
+安装目录下的一些文件和目录（如上述的keepalived，rc.d，sysconfig）下内容都需要拷贝到系统相关目录以便使用，操作如下：<br />
+<span style="color: #0000ff;"> shell>cp /usr/local/keepalived/sbin/keepalived /usr/sbin/</span> #安装可执行文件<br />
+<span style="color: #0000ff;"> shell>cp /usr/local/keepalived/etc/rc.d/init.d/keepalived /etc/init.d/</span> #注册为服务，便于用service命令控制。<br />
+<span style="color: #0000ff;"> shell>cp -R /usr/local/keepalived/etc/keepalived /etc/</span> #keepalived各种功能的实现是通过设置其配置文件/etc/keepalived/keepalived.conf来完成的。这里将配置文件(样例)拷贝至/etc/keepalived目录下。<br />
+<span style="color: #0000ff;"> shell>cp /usr/local/keepalived/etc/sysconfig/keepalived /etc/sysconfig/</span> #配置keepalived的启动选项。默认开启了-D，即记录详细的日志信息</p>
+<h2>四、配置</h2><br />
+keepalived的配置文件为/etc/keepalived/keepalived.conf或者用-f选项指定。<br />
+keepalived.conf可以包含三个文本块：<br />
+<strong>1.全局定义块【必须】</strong><br />
+包括两类：<br />
+全局定义(global definition)<br />
+静态路由配置(static ipaddress/routes)<br />
+<strong> 2.VRRP定义块【如果只有一个负载均衡器，则非必须】</strong><br />
+包括三类：<br />
+VRRP同步组(synchroization group) 同一个组内，有一个实例发生问题，就会切换。<br />
+VRRP实例(VRRP Instance) 就是指在其上开启了VRRP协议的逻辑实体。实例说明了VRRP的一些特性，比如主从、VRID等，可以在每个interface上开启一个实例。<br />
+VRRP脚本<br />
+<strong>3.lvs(虚拟服务器)定义块【如果不是用LVS实现负载均衡，则非必须】</strong><br />
+包括两类：<br />
+虚拟主机组(virtual server group)<br />
+虚拟主机(virtual server)<br />
+这些配置都会传递给ipvsadm作为参数。</p>
+<p>以下是<span style="color: #ff0000;">多处配置文件拼凑而成，仅作分析介绍使用</span>：</p>
+<pre>! Configuration File for keepalived<br />
+ #全局定义块<br />
+ global_defs { #global_defs全局配置标识<br />
+ notification_email { #表示keepalived在发生诸如切换操作时需要发送email通知，以及email发送给哪些邮件地址，邮件地址可以多个，每行一个。建议不用，用nagios统一报警、提醒。<br />
+ acassen@firewall.loc<br />
+ failover@firewall.loc<br />
+ sysadmin@firewall.loc<br />
+ }<br />
+ notification_email_from Alexandre.Cassen@firewall.loc #表示发送通知邮件的邮件账户<br />
+ smtp_server 192.168.200.1 #smtp服务器地址<br />
+ smtp_connect_timeout 30 #连接smtp连接超时时间<br />
+ router_id LVS_DEVEL #机器标识，在一个网络内，它应该是唯一的。<br />
+ }<br />
+static_ipaddress {<br />
+ 192.168.200.16 dev eth0 scope link<br />
+ 192.168.200.17 dev eth1 scope link<br />
+ 192.168.200.18 dev eth2<br />
+ }<br />
+ static_routes<br />
+ {<br />
+ src $SRC_IP to $DST_IP dev $SRC_DEVICE<br />
+ src $SRC_IP to $DST_IP via $GW dev $SRC_DEVICE<br />
+ }<br />
+ #这里实际上和系统里面命令配置IP地址和路由一样。一般这个区域不需要配置。这里实际上就是给服务器配置真实的IP地址和路由的，在复杂的环境下可能需要配置，一般不会用这个来配置，我们可以直接用vi /etc/sysconfig/network-script/ifcfg-eth1来配置。<br />
+#VRRP定义块<br />
+ vrrp_sync_group G1 {<br />
+ group {<br />
+ VI_2 #这里列出的实例名就是下面列出的实例名<br />
+ VI_3<br />
+ }<br />
+ notify_backup "/usr/local/bin/vrrp.back arg1 arg2" #当切换到Backup状态时，要执行的脚本<br />
+ notify_master "/usr/local/bin/vrrp.mast arg1 arg2" #当切换到Master状态时，要执行的脚本<br />
+ notify_fault "/usr/local/bin/vrrp.fault arg1 arg2"<br />
+ }<br />
+vrrp_script chk_http_port { #vrrp_script区域定义脚本名字和脚本执行的间隔和脚本执行的优先级<br />
+ script "/etc/keepalived/nginx_pid.sh" #脚本路径<br />
+ interval 2 #脚本执行间隔<br />
+ weight 2 #脚本结果导致的优先级变更：10表示优先级+10；-10则表示优先级-10<br />
+ }#定义完后，可以在实例(vrrp_instance)里面引用<br />
+vrrp_instance VI_1 {<br />
+ state MASTER #初始状态，要真正作为MASTER，要求priority高于BACKUP<br />
+ interface eth0 #实例绑定的网卡。因为在配置虚拟IP时必须是在已有的网卡上添加<br />
+ track_interface { #跟踪接口，设置额外的监控，里面任意一块网卡出现问题，都会进入故障(FAULT)状态。建议也用nagios替代<br />
+ eth0<br />
+ eth1<br />
+ } mcast_src_ip 192.168.10.26 #mcast src ip：发送多播数据包时的源IP地址，这里注意了，这里实际上就是在那个地址上发送VRRP通告，这个非常重要，一定要选择稳定的网卡端口来发送，这里相当于heartbeat的心跳端口，如果没有设置那么就用默认的绑定的网卡的IP，也就是interface指定的IP地址<br />
+ virtual_router_id 51 #设置VRID，这里非常重要，相同的VRID为一个组，他将决定多播的MAC地址。同一个vrrp 实例使用唯一的标识。即同一个vrrp_stance,MASTER和BACKUP的virtual_router_id是一致的，同时在整个vrrp内是唯一的。<br />
+ nopreempt #设置不抢占，设置nopreempt这个值后state就不起作用，主备由priority决定。通过设置nopreempt，可以实现MASTER宕机恢复后，不会从已升级为MASTER的备机那将MASTER状态抢过来，对于提供稳定服务有益。<br />
+ priority 100 #数值愈大，优先级越高。在同一个vrrp_instance里，MASTER 的优先级高于BACKUP。<br />
+ advert_int 1 #MASTER 与BACKUP负载均衡器之间同步检查的时间间隔，单位为秒。<br />
+ authentication {<br />
+ auth_type PASS<br />
+ auth_pass 1111<br />
+ } #验证authentication。包含验证类型和验证密码。类型主要有PASS、AH两种，通常使用的类型为PASS，据说AH使用时有问题。验证密码为明文，同一vrrp实例MASTER与BACKUP 使用相同的密码才能正常通信。<br />
+ track_script { #使用vrrp_script区域定义的脚本<br />
+ chk_http_port<br />
+ }<br />
+ virtual_ipaddress { #虚拟IP地址，他随着state的变化而增加删除，当state为master的时候就添加，当state为backup的时候删除，可以设置多个IP地址<br />
+ 192.168.200.16<br />
+ 192.168.200.17<br />
+ 192.168.200.18<br />
+ }<br />
+ virtual_routes { #原理和virtual ipaddress一样，只不过这里是增加和删除路由<br />
+ 192.168.110.0/24 via 192.168.200.254 dev eth1<br />
+ 192.168.111.0/24 dev eth2<br />
+ 192.168.112.0/24 via 192.168.100.254<br />
+ }<br />
+ }<br />
+#lvs定义块<br />
+ virtual_server 192.168.200.100 443 { #定义虚拟主机ip+端口<br />
+ delay_loop 6 #健康检查时间间隔，单位是秒。<br />
+ lb_algo rr #负载均衡调度算法，互联网应用常使用wlc或rr。<br />
+ lb_kind NAT #负载均衡转发规则。一般包括DR,NAT,TUN3种。<br />
+ nat_mask 255.255.255.0<br />
+ persistence_timeout 50 #会话保持时间，单位是秒。这个选项对动态网站很有用处：当用户从远程用帐号进行登陆网站时，有了这个会话保持功能，就能把用户的请求转发给同一个应用服务器。在这里，我们来做一个假设，假定现在有一个lvs 环境，使用DR转发模式，真实服务器有3个，负载均衡器不启用会话保持功能。当用户第一次访问的时候，他的访问请求被负载均衡器转给某个真实服务器，这样他看到一个登陆页面，第一次访问完毕；接着他在登陆框填写用户名和密码，然后提交；这时候，问题就可能出现了&mdash;登陆不能成功。因为没有会话保持，负载均衡器可能会把第2次的请求转发到其他的服务器。<br />
+ protocol TCP #转发协议protocol.一般有tcp 和udp两种<br />
+real_server 192.168.201.100 443 { #真实服务器real_server.也即服务器池。Real_server的值包括ip地址和端口号。<br />
+ weight 1 #权重weight.权重值是一个数字，数值越大，权重越高。使用不同的权重值的目的在于为不同性能的机器分配不同的负载，性能较好的机器，负载分担大些；反之，性能差的机器，则分担较少的负载，这样就可以合理的利用不同性能的机器资源。 0表示失效。<br />
+ SSL_GET { #配置健康检查的方式，可以是HTTP_GET|SSL_GET|TCP_CHECK|SMTP_CHECK|MISC_CHECK等。<br />
+ url { #健康检查的url，可以指定多个<br />
+ path /<br />
+ digest ff20ad2481f97b1754ef3e12ecd3a9cc #SSL检查后的摘要信息(genhash工具算出)<br />
+ }<br />
+ url {<br />
+ path /mrtg/<br />
+ digest 9b3a0c85a887a256d6939da88aabd8cd<br />
+ }<br />
+ connect_timeout 3 #连接超时时间<br />
+ nb_get_retry 3 #重连次数<br />
+ delay_before_retry 3 #重连间隔时间(秒)<br />
+ }<br />
+ }<br />
+ }<br />
+virtual_server 10.10.10.2 1358 {<br />
+ delay_loop 6<br />
+ lb_algo rr<br />
+ lb_kind NAT<br />
+ persistence_timeout 50<br />
+ protocol TCP<br />
+sorry_server 192.168.200.200 1358 #备用机，所有的real server失效后启用<br />
+real_server 192.168.200.2 1358 {<br />
+ weight 1<br />
+ HTTP_GET {<br />
+ url {<br />
+ path /testurl/test.jsp<br />
+ digest 640205b7b0fc66c1ea91c463fac6334d<br />
+ }<br />
+ url {<br />
+ path /testurl2/test.jsp<br />
+ digest 640205b7b0fc66c1ea91c463fac6334d<br />
+ }<br />
+ url {<br />
+ path /testurl3/test.jsp<br />
+ digest 640205b7b0fc66c1ea91c463fac6334d<br />
+ }<br />
+ connect_timeout 3<br />
+ nb_get_retry 3<br />
+ delay_before_retry 3<br />
+ }<br />
+ }<br />
+real_server 192.168.200.3 1358 {<br />
+ weight 1<br />
+ HTTP_GET {<br />
+ url {<br />
+ path /testurl/test.jsp<br />
+ digest 640205b7b0fc66c1ea91c463fac6334c<br />
+ }<br />
+ url {<br />
+ path /testurl2/test.jsp<br />
+ digest 640205b7b0fc66c1ea91c463fac6334c<br />
+ }<br />
+ connect_timeout 3<br />
+ nb_get_retry 3<br />
+ delay_before_retry 3<br />
+ }<br />
+ }<br />
+ }</pre><br />
+参考：<br />
+<a href="http://bbs.ywlm.net/thread-845-1-1.html" target="_blank">http://bbs.ywlm.net/thread-845-1-1.html</a><br />
+<a href="http://bbs.ywlm.net/thread-790-1-1.html" target="_blank">http://bbs.ywlm.net/thread-790-1-1.html</a><br />
+《keepalived权威指南》<br />
+<a href="http://blog.csdn.net/dog250/article/details/5303542" target="_blank">http://blog.csdn.net/dog250/article/details/5303542</a></p>

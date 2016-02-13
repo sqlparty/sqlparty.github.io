@@ -1,0 +1,58 @@
+---
+layout: post
+status: publish
+published: true
+title: Windows下MySQL单机多实例搭建
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "本文说明如何利用已安装的MySQL程序搭建多实例，并注册为服务。\r\n\r\n"
+wordpress_id: 212
+wordpress_url: http://www.sqlparty.com/?p=212
+date: '2013-07-30 22:36:40 +0800'
+date_gmt: '2013-07-30 14:36:40 +0800'
+categories:
+- 数据库
+tags:
+- 数据库
+- MySQL
+- Windows
+---
+<p>本文说明如何利用已安装的MySQL程序搭建多实例，并注册为服务。</p>
+<p><!--more--></p>
+<p>A.新建my.ini，配置新实例的相关选项，可以拷贝原my.ini再进行修改。必须保证与已有实例不一样的有：<br />
+1)port<br />
+2)datadir<br />
+这里假定新实例配置文件为<br />
+<span style="color: #0000ff;">C:\Program Files\MySQL\MySQL Server 5.1\my2.ini</span><br />
+其中:<br />
+<span style="color: #0000ff;">port = 3307</span><br />
+<span style="color: #0000ff;"> datadir = C:\Documents and Settings\All Users\Application Data\MySQL\MySQL Server 5.1\data2</span></p>
+<p>B.准备mysql系统数据库数据，这里直接拷贝原实例下mysql目录至新实例datadir目录下。注意，这样登录验证信息同原实例，因为验证信息均保持在mysql数据库中。</p>
+<p>C.启动实例：<br />
+<span style="color: #0000ff;">mysqld --defaults-file="C:\Program Files\MySQL\MySQL Server 5.1\my2.ini"</span><br />
+此次启动可以看到目录，C:\Documents and Settings\All Users\Application Data\MySQL\MySQL Server 5.1\data2下除了之前拷贝进来的mysql库，还生成了日志文件以及数据文件，pid文件等。<br />
+如果实例发生异常，检查错误日志文件内容。<br />
+对应关闭实例可以采用如下方式：<br />
+<span style="color: #0000ff;">mysqladmin -h 127.0.0.1 -u root -p -P 3307 shutdown</span></p>
+<p>D.测试连接<br />
+<span style="color: #0000ff;">mysql -h 127.0.0.1 -u root -p -P 3307</span><br />
+启动后，可以更新mysql库中认证信息，将原实例中内容更新掉，以满足新实例的初始化认证信息需要。</p>
+<p>【以下可选】<br />
+注册服务，配置随机启动<br />
+<span style="color: #0000ff;">C:\Documents and Settings\Administrator>mysqld --install mysql2 --defaults-file="C:\Program Files\MySQL\MySQL Server 5.1\my2.ini"</span><br />
+<span style="color: #0000ff;"> Service successfully installed.</span><br />
+这里mysql2是指定的服务名称，不要与已有服务名称同名即可。<br />
+默认注册的类型是&ldquo;自动&rdquo;，即随机启动，也可以用--install-manual注册为手动服务。<br />
+注册为服务以后，就可以使用net start/stop mysql2来控制实例的启停。如：<br />
+<span style="color: #0000ff;">C:\Documents and Settings\Administrator>net start mysql2</span><br />
+mysql2 服务正在启动 .<br />
+mysql2 服务已经启动成功。</p>
+<p>要删除已注册的服务，可以：<br />
+<span style="color: #0000ff;">mysqld --remove mysql2</span><br />
+或<br />
+<span style="color: #0000ff;">sc delete mysql2</span></p>

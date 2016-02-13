@@ -1,0 +1,57 @@
+---
+layout: post
+status: publish
+published: true
+title: 初识JSON
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "JSON是一种轻量级的数据交换方式，它基于JavaScript的一个子集。其具有标准化，简洁易用的特点，往往作为不同应用间数据交换的首选方式。\r\n\r\nJSON的基础结构就是JavaScript中的对象和数组，通过这两种结构的组合、嵌套，可以表示各种复杂的结构。\r\n\r\n1）<strong>对象</strong>：无序的\"名称/值对\"集合。一个对象以\"{\"（左括号）开始，\"}\"（右括号）结束，内含\"key:value\"对，用逗号\",\"划分，形式如{key:value,key:value,...}\r\n\r\n举例：\r\n{
+  \"firstName\": \"Brett\" }\r\n{ \"firstName\": \"Brett\", \"lastName\":\"McLaughlin\",
+  \"email\": \"aaaa\" }\r\n\r\n2）<strong>数组</strong>： 值（value）的有序集合。一个数组以\"[\"（左中括号）开始，\"]\"（右中括号）结束。值之间使用\",\"（逗号）分隔。\r\n\r\n<a
+  href=\"http://www.sqlparty.com/wp-content/uploads/2013/10/array.gif\"><img
+  class=\"alignnone size-full wp-image-740\" alt=\"array\" src=\"http://www.sqlparty.com/wp-content/uploads/2013/10/array.gif\"
+  width=\"598\" height=\"113\" /></a>\r\n\r\n"
+wordpress_id: 739
+wordpress_url: http://www.sqlparty.com/?p=739
+date: '2013-10-16 22:35:02 +0800'
+date_gmt: '2013-10-16 14:35:02 +0800'
+categories:
+- 开发
+tags:
+- json
+---
+<p>JSON是一种轻量级的数据交换方式，它基于JavaScript的一个子集。其具有标准化，简洁易用的特点，往往作为不同应用间数据交换的首选方式。</p>
+<p>JSON的基础结构就是JavaScript中的对象和数组，通过这两种结构的组合、嵌套，可以表示各种复杂的结构。</p>
+<p>1）<strong>对象</strong>：无序的"名称/值对"集合。一个对象以"{"（左括号）开始，"}"（右括号）结束，内含"key:value"对，用逗号","划分，形式如{key:value,key:value,...}</p>
+<p>举例：<br />
+{ "firstName": "Brett" }<br />
+{ "firstName": "Brett", "lastName":"McLaughlin", "email": "aaaa" }</p>
+<p>2）<strong>数组</strong>： 值（value）的有序集合。一个数组以"["（左中括号）开始，"]"（右中括号）结束。值之间使用","（逗号）分隔。</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/10/array.gif"><img class="alignnone size-full wp-image-740" alt="array" src="http://www.sqlparty.com/wp-content/uploads/2013/10/array.gif" width="598" height="113" /></a></p>
+<p><!--more--></p>
+<p><strong>什么是值(value)呢？</strong></p>
+<p>对象和数组的重要组成都是值(value)，而值的形式又多种多样，包括 双引号括起来的字符串（string）、数值(number)、true、false、 null、<strong>对象</strong>或者<strong>数组</strong>。这样，对象中可以嵌套数组，数组中同样可以存储对象，可以反复嵌套组合，形成了丰富的表达能力。</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/10/value.gif"><img class="alignnone size-full wp-image-741" alt="value" src="http://www.sqlparty.com/wp-content/uploads/2013/10/value.gif" width="598" height="278" /></a></p>
+<p>例如如下这个不同人员的清单，形成了对象内嵌数组，数组再嵌对象：</p>
+<p>{ "programmers": [<br />
+{ "firstName": "Brett", "lastName":"McLaughlin", "email": "aaaa" },<br />
+{ "firstName": "Jason", "lastName":"Hunter", "email": "bbbb" },<br />
+{ "firstName": "Elliotte", "lastName":"Harold", "email": "cccc" }<br />
+],<br />
+"authors": [<br />
+{ "firstName": "Isaac", "lastName": "Asimov", "genre": "science fiction" },<br />
+{ "firstName": "Tad", "lastName": "Williams", "genre": "fantasy" },<br />
+{ "firstName": "Frank", "lastName": "Peretti", "genre": "christian fiction" }<br />
+],<br />
+"musicians": [<br />
+{ "firstName": "Eric", "lastName": "Clapton", "instrument": "guitar" },<br />
+{ "firstName": "Sergei", "lastName": "Rachmaninoff", "instrument": "piano" }<br />
+] }</p>
+<p>与另一种流行的数据交换方式XML而言，JSON的可读性会弱很多，手工编写难度也大一些，但是表达相同的内容，使用的字符量可以少很多。</p>
+<p>参考：<br />
+<a href="http://baike.baidu.com/link?url=YVltZcg4T_ANx1AMFg4IYsEG-zVQfh9H-Ogf_ocQdLvQwjF5BvbYQwsNdcg9w_N6">http://baike.baidu.com/link?url=YVltZcg4T_ANx1AMFg4IYsEG-zVQfh9H-Ogf_ocQdLvQwjF5BvbYQwsNdcg9w_N6</a></p>

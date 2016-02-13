@@ -1,0 +1,158 @@
+---
+layout: post
+status: publish
+published: true
+title: Linux下配置Nginx自启动
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Nginx作为基本的服务，需要在Linux启动时实现自启动。通过编写脚本注册为服务即可，并且由于Nginx与keepalived实现了HA，所以需要关注两者自启动的顺序。\r\n\r\n"
+wordpress_id: 60
+wordpress_url: http://www.sqlparty.com/?p=60
+date: '2013-07-25 22:42:03 +0800'
+date_gmt: '2013-07-25 14:42:03 +0800'
+categories:
+- 系统
+tags:
+- 系统
+- Linux
+- Nginx
+---
+<p>Nginx作为基本的服务，需要在Linux启动时实现自启动。通过编写脚本注册为服务即可，并且由于Nginx与keepalived实现了HA，所以需要关注两者自启动的顺序。</p>
+<p><!--more--></p>
+<p><strong>1.脚本</strong></p>
+<p>[shell]<br />
+shell>vi /etc/init.d/nginx<br />
+#!/bin/sh<br />
+#<br />
+# nginx - this script starts and stops the nginx daemon<br />
+#<br />
+# chkconfig: 2345 15 85<br />
+# description: Nginx is an HTTP(S) server, HTTP(S) reverse \<br />
+# proxy and IMAP/POP3 proxy server<br />
+# processname: nginx<br />
+# config: /usr/local/nginx/conf/nginx.conf<br />
+# pidfile: /usr/local/nginx/logs/nginx.pid</p>
+<p># Source function library.<br />
+. /etc/rc.d/init.d/functions</p>
+<p># Source networking configuration.<br />
+. /etc/sysconfig/network</p>
+<p># Check that networking is up.<br />
+[ "$NETWORKING" = "no" ] &amp;&amp; exit 0</p>
+<p># Attention! Where nginx exists<br />
+nginx="/usr/local/nginx/sbin/nginx"<br />
+NGINX_CONF_FILE="/usr/local/nginx/conf/nginx.conf"</p>
+<p>prog=$(basename ${nginx})</p>
+<p>lockfile=/var/lock/subsys/nginx</p>
+<p>configtest() {<br />
+$nginx -t -c $NGINX_CONF_FILE<br />
+}</p>
+<p>start() {<br />
+[ -x $nginx ] || exit 5<br />
+[ -f $NGINX_CONF_FILE ] || exit 6<br />
+echo -n $"Starting $prog: "<br />
+daemon $nginx -c $NGINX_CONF_FILE<br />
+retval=$?<br />
+echo<br />
+[ $retval -eq 0 ] &amp;&amp; touch $lockfile<br />
+return $retval<br />
+}</p>
+<p>stop() {<br />
+echo -n $"Stopping $prog: "<br />
+killproc $prog -QUIT<br />
+retval=$?<br />
+echo<br />
+[ $retval -eq 0 ] &amp;&amp; rm -f $lockfile<br />
+return $retval<br />
+}</p>
+<p>restart() {<br />
+configtest || return $?<br />
+stop<br />
+start<br />
+}</p>
+<p>reload() {<br />
+configtest || return $?<br />
+echo -n $"Reloading $prog: "<br />
+killproc $nginx -HUP<br />
+RETVAL=$?<br />
+echo<br />
+}</p>
+<p>case "$1" in<br />
+start)<br />
+start<br />
+;;<br />
+stop)<br />
+stop<br />
+;;<br />
+restart)<br />
+restart<br />
+;;<br />
+reload)<br />
+reload<br />
+;;<br />
+status)<br />
+status $prog<br />
+RETVAL=$?<br />
+;;<br />
+*)<br />
+echo $"Usage: $0 {start|stop|status|restart|reload}"<br />
+exit 2<br />
+esac<br />
+exit $RETVAL<br />
+[/shell]</p>
+<p>在脚本中，需要关注的有：<br />
+<span style="color: #0000ff;">chkconfig: 2345 15 85</span> 是指定了chkconfig将其加入到自启动服务时的runlevel，启动顺序和关闭顺序。这里在2345下on，启动顺序为15，85为关闭顺序。<br />
+这里由于搭建了keepalived+Nginx做高可用，keepalived的自启动顺序为21，而keepalived会检测Nginx是否活动，即keepalived依赖于Nginx，所以启动顺序应该为先Nginx，后keepalived，通过chkconfig的指定顺序实现。</p>
+<p><strong>2.设置可执行</strong></p>
+<p>[shell]<br />
+shell>chmod a+x /etc/init.d/nginx<br />
+[/shell]</p>
+<p><strong>3.配置自启动</strong></p>
+<p>[shell]<br />
+shell>chkconfig --level 2345 nginx on<br />
+[/shell]</p>
+<p><strong>4.检查与keepalived的启动顺序</strong></p>
+<p>[shell]<br />
+shell>ls -lrtR /etc/rc.d | grep -E 'keepalived|nginx'<br />
+-rwxr-xr-x. 1 root root 1288 Mar 28 20:18 keepalived<br />
+-rwxr-xr-x. 1 root root 1649 May 23 13:48 nginx<br />
+lrwxrwxrwx. 1 root root 20 May 22 15:40 S21keepalived -> ../init.d/keepalived<br />
+lrwxrwxrwx. 1 root root 15 May 23 13:53 S15nginx -> ../init.d/nginx<br />
+lrwxrwxrwx. 1 root root 20 May 22 15:40 S21keepalived -> ../init.d/keepalived<br />
+lrwxrwxrwx. 1 root root 15 May 23 13:53 S15nginx -> ../init.d/nginx<br />
+lrwxrwxrwx. 1 root root 20 May 22 15:40 S21keepalived -> ../init.d/keepalived<br />
+lrwxrwxrwx. 1 root root 15 May 23 13:53 S15nginx -> ../init.d/nginx<br />
+lrwxrwxrwx. 1 root root 20 May 22 15:40 S21keepalived -> ../init.d/keepalived<br />
+lrwxrwxrwx. 1 root root 15 May 23 13:53 S15nginx -> ../init.d/nginx<br />
+[/shell]</p>
+<p>均是nginx先启动，OK</p>
+<p><strong>5.基本功能检查</strong></p>
+<p>[shell]<br />
+shell>service nginx status<br />
+nginx (pid 13286 13285 13284 13283 13282 13281 13280 13279 13277 13276 13275 13274 13273) 正在运行...<br />
+shell>service nginx stop<br />
+停止 nginx： [确定]<br />
+shell>service nginx status<br />
+nginx 已停<br />
+shell>service nginx restart<br />
+nginx: the configuration file /usr/local/nginx/conf/nginx.conf syntax is ok<br />
+nginx: configuration file /usr/local/nginx/conf/nginx.conf test is successful<br />
+停止 nginx： [失败]<br />
+正在启动 nginx： [确定]<br />
+shell>service nginx status<br />
+nginx (pid 13391 13390 13389 13388 13387 13386 13385 13384 13382 13381 13380 13379 13378) 正在运行...<br />
+shell>service nginx reload<br />
+nginx: the configuration file /usr/local/nginx/conf/nginx.conf syntax is ok<br />
+nginx: configuration file /usr/local/nginx/conf/nginx.conf test is successful<br />
+重新载入 nginx： [确定]<br />
+shell>service nginx status<br />
+nginx (pid 13435 13434 13433 13432 13431 13430 13429 13428 13427 13426 13425 13424 13378) 正在运行...<br />
+[/shell]</p>
+<p>检查无误，OK</p>
+<p><strong>参考</strong>：<br />
+http://hi.baidu.com/yafengyouxia/item/fbf9c302e0f3a113cc34ea86<br />
+http://articles.slicehost.com/2009/2/2/centos-adding-an-nginx-init-script</p>

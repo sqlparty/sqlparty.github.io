@@ -1,0 +1,82 @@
+---
+layout: post
+status: publish
+published: true
+title: Windows下Apache与PHP环境搭建与配置
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "在Windows下搭建PHP运行环境，Web服务器使用Apache。\r\n\r\n"
+wordpress_id: 471
+wordpress_url: http://www.sqlparty.com/?p=471
+date: '2013-08-20 22:00:28 +0800'
+date_gmt: '2013-08-20 14:00:28 +0800'
+categories:
+- 系统
+tags:
+- Windows
+- PHP
+---
+<p>在Windows下搭建PHP运行环境，Web服务器使用Apache。</p>
+<p><!--more--></p>
+<h2>一.安装</h2><br />
+统一安装路径为 D:/Server/</p>
+<h3>1.httpd安装</h3><br />
+安装文件： httpd-2.2.22-win32-x86-no_ssl.msi</p>
+<p>安装路径： D:\Server\Apache2_2\</p>
+<p>安装步骤较简单，需要设定域等，如果没有，随便设定即可。注意安装路径的选择。</p>
+<p>完成安装后， start，浏览器访问：http://localhost/，如果出现 &rdquo;<strong>It works!</strong> &rdquo;，说明安装成功。</p>
+<h3>2.PHP安装</h3><br />
+安装文件： php-5.4.5-Win32-VC9-x86.zip</p>
+<p>直接解压缩到安装路径： D:\Server\php5_4_4\</p>
+<p>解压完成即可。双击 php.exe，无报错信息即可。</p>
+<h2>二.配置</h2></p>
+<h3>1.网站根目录配置</h3><br />
+将网站的根目录配置为 D:\Server\wwwroot\<br />
+修改配置文件 D:\Server\Apache2_2\conf\httpd.conf<br />
+<span style="color: #0000ff;">DocumentRoot "D:/Server/wwwroot"</span><br />
+以及<br />
+<span style="color: #0000ff;">#</span><br />
+<span style="color: #0000ff;"># This should be changed to whatever you set DocumentRoot to.</span><br />
+<span style="color: #0000ff;">#</span><br />
+<span style="color: #0000ff;"><Directory "D:/Server/wwwroot"></span><br />
+<span style="color: #0000ff;">&hellip;</span></p>
+<h3>2.PHP配置</h3><br />
+修改配置文件 D:\Server\php5_4_4\php.ini。该文件可由该路径下的 php.ini-development或php.ini-production 文件修改而来。<br />
+<span style="color: #0000ff;">doc_root = "D:/Server/wwwroot"</span><br />
+<span style="color: #0000ff;">extension_dir = "D:/Server/php5_4_4/ext"</span></p>
+<p>将需要启用的 extension前的分号去掉。</p>
+<h3>3.httpd与PHP访问配置</h3><br />
+修改 D:\Server\Apache2_2\conf\httpd.conf</p>
+<p>在最后添加<br />
+<span style="color: #0000ff;">LoadModule php5_module "D:/Server/php5_4_4/php5apache2_2.dll"</span><br />
+<span style="color: #0000ff;">LoadFile "D:/Server/php5_4_4/libeay32.dll"</span><br />
+<span style="color: #0000ff;">LoadFile "D:/Server/php5_4_4/ssleay32.dll"</span><br />
+<span style="color: #0000ff;">PHPIniDir "D:/Server/php5_4_4"</span><br />
+<span style="color: #0000ff;">AddType application/x-httpd-php .php</span><br />
+<span style="color: #0000ff;">AddType application/x-httpd-php-source .phps</span><br />
+<span style="color: #0000ff;">AddType application/x-httpd-php .htm</span></p>
+<h3>4.测试</h3><br />
+重启 httpd后，访问http://localhost/ ，依然是 &rdquo;It works! &rdquo;，说明 httpd无误。<br />
+在D:\Server\wwwroot\下新建 index.php，包括内容如下：<br />
+<span style="color: #0000ff;"><?php phpinfo(); ?></span><br />
+再次访问 http://localhost/<br />
+看到如下信息，说明 PHP无误。</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/php.png"><img class="alignnone  wp-image-472" alt="php" src="http://www.sqlparty.com/wp-content/uploads/2013/08/php.png" width="781" height="547" /></a></p>
+<div>
+<p style="color: #000000; font-family: Tahoma; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; orphans: 2; text-indent: 0mm; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; font-size: medium; margin: 5.98mm 0mm 5.8mm; line-height: 31px;" align="justify"><span style="color: #010101; font-family: 宋体; font-size: x-large;"><span style="font-size: 22pt;"><b>三</b></span></span><span style="color: #010101; font-family: Calibri; font-size: x-large;"><span style="font-size: 22pt;"><b>.</b></span></span><span style="color: #010101; font-family: 宋体; font-size: x-large;"><span style="font-size: 22pt;"><b>常见问题</b></span></span></p></p>
+<div style="color: #000000; font-family: Tahoma; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: 2; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; font-size: medium;" align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">1.</span></span><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">双击</span></span><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">php.exe</span></span><span>&nbsp;</span><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">报&ldquo;并行&rdquo;错误</span></span></div></p>
+<div style="color: #000000; font-family: Tahoma; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: 2; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; font-size: medium;" align="justify"><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">需先安装</span></span><span>&nbsp;</span><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">vcredist2008.exe</span></span><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">。</span></span></div></p>
+<div style="color: #000000; font-family: Tahoma; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: 2; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; font-size: medium;" align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">&nbsp;</span></span></div></p>
+<div style="color: #000000; font-family: Tahoma; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: 2; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; font-size: medium;" align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">2.</span></span><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">虽然做了配置，但是</span></span><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">php</span></span><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">依然报</span></span><span>&nbsp;</span><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">php_curl.dll</span></span><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">无法找到</span></span></div></p>
+<div style="color: #000000; font-family: Tahoma; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: 2; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; font-size: medium;" align="justify"><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">原因</span></span><span>&nbsp;</span><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">:</span></span><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">并不是所有的</span></span><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">dll</span></span><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">文件直接打开就可以了，有的是要依赖一些文件的，比如这个</span></span><span>&nbsp;</span><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">php_curl.dll</span></span><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">就依赖两个文件（</span></span><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">ssleay32.dll</span></span><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">和</span></span><span>&nbsp;</span><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">libeay32.dll</span></span><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">）如果这两个文件没有配置对那么就会提示找不到此动态库，这两个文件在</span></span><span>&nbsp;</span><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">php</span></span><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">的目录下面。</span></span></div></p>
+<div style="color: #000000; font-family: Tahoma; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: 2; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; font-size: medium;" align="justify"><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">解决办法：在</span></span><span>&nbsp;</span><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">Apache</span></span><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">的</span></span><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">httpd.conf</span></span><span>&nbsp;</span><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">的文件中配置一下：</span></span></div></p>
+<div style="color: #000000; font-family: Tahoma; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: 2; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; font-size: medium;" align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">LoadFile "D:/webserver/php/ssleay32.dll"</span></span></div></p>
+<div style="color: #000000; font-family: Tahoma; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: 2; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; font-size: medium;" align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">LoadFile "D:/webserver/php/libeay32.dll"</span></span></div></p>
+<div style="color: #000000; font-family: Tahoma; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: 2; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; font-size: medium;" align="justify"><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">然后重启一下</span></span><span>&nbsp;</span><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">apache</span></span><span style="color: #010101; font-family: 宋体; font-size: small;"><span style="font-size: 10pt;">服务即可。</span></span></div></p>
+<div style="color: #000000; font-family: Tahoma; font-style: normal; font-variant: normal; font-weight: normal; letter-spacing: normal; line-height: normal; orphans: 2; text-indent: 0px; text-transform: none; white-space: normal; widows: 2; word-spacing: 0px; -webkit-text-size-adjust: auto; -webkit-text-stroke-width: 0px; font-size: medium;" align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;"><span style="font-size: 10pt;">&nbsp;</span></span></div><br />
+</div></p>

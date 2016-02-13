@@ -1,0 +1,129 @@
+---
+layout: post
+status: publish
+published: true
+title: Nagios监控Windows主机
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "<h2>介绍</h2>\r\nNagios可以监控Windows主机的本地服务和特性，包括：\r\n<ul>\r\n\t<li>内存占用率</li>\r\n\t<li>CPU负载</li>\r\n\t<li>Disk利用率</li>\r\n</ul>\r\n对Windows机器的监控私有服务需要在机器上安装代理程序。代理将会在检测插件与Nagios服务之间起网关代理作用。如果没有在机器上安装代理的话，Nagios将无法对Windows私有服务或属性等进行监控。\r\n在下面例子中，将在Windows机器上安装NSClient++外部构件并使用check_nt插件检测和与NSClient++构件进行通讯。默认情况下check_nt插件已经安装到了Nagios服务器上。\r\n如果愿意，可以用其他的Windows代理(象NC_Net)替代NSClient++构件所起的作用－只是要稍稍改一下对应的命令和服务定义等。下面将只是讨论安装了NSClient++外部构件的情况。\r\n\r\n"
+wordpress_id: 373
+wordpress_url: http://www.sqlparty.com/?p=373
+date: '2013-08-09 09:36:25 +0800'
+date_gmt: '2013-08-09 01:36:25 +0800'
+categories:
+- 系统
+tags:
+- Windows
+- Nagios
+---
+<h2>介绍</h2><br />
+Nagios可以监控Windows主机的本地服务和特性，包括：</p>
+<ul>
+<li>内存占用率</li>
+<li>CPU负载</li>
+<li>Disk利用率</li><br />
+</ul><br />
+对Windows机器的监控私有服务需要在机器上安装代理程序。代理将会在检测插件与Nagios服务之间起网关代理作用。如果没有在机器上安装代理的话，Nagios将无法对Windows私有服务或属性等进行监控。<br />
+在下面例子中，将在Windows机器上安装NSClient++外部构件并使用check_nt插件检测和与NSClient++构件进行通讯。默认情况下check_nt插件已经安装到了Nagios服务器上。<br />
+如果愿意，可以用其他的Windows代理(象NC_Net)替代NSClient++构件所起的作用－只是要稍稍改一下对应的命令和服务定义等。下面将只是讨论安装了NSClient++外部构件的情况。</p>
+<p><!--more--></p>
+<h2>Nagios配置</h2><br />
+首次监控一台Winodws机器时需要对Nagios做点额外的工作。记住，仅仅是监控<strong>第一台</strong>Windows机器时需要做这些工作。<br />
+编辑Nagios的主配置文件 /usr/local/nagios/etc/nagios.cfg，把下面这行最前面的#号去掉：</p>
+<p>#cfg_file=/usr/local/nagios/etc/objects/windows.cfg</p>
+<p>这个操作是让Nagios起用/usr/local/nagios/etc/objects/windows.cfg这个配置文件里的对象定义。在这个配置文件里可以加些Windows的主机与服务对象定义。该配置文件里已经包含有几个样例主机、主机组及服务对象定义。对于第一台Windows机器，可以只是简单地修改里面已经有的主机与服务对象定义而不要新创建一个。</p>
+<h2>安装Windows代理程序</h2><br />
+在用Nagios监控Windows机器的私有服务之前，需要先在机器上安装代理程序。推荐使用NSClient++外部构件，它可以在​<a href="http://sourceforge.net/projects/nscplus" target="_blank">http://sourceforge.net/projects/nscplus</a> 或者<a href="http://nsclient.org/nscp/" target="_blank"> ​http://nsclient.org/nscp/</a>找到 。<br />
+下载&ldquo;NSClient++-0.3.9-Win32.zip&rdquo;，完成后操作步骤如下:</p>
+<p><strong>&nbsp;1）解压至&ldquo;D:\NSClient++&rdquo;</strong></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/windows_nagios_1.png"><img class="alignnone size-full wp-image-374" alt="windows_nagios_1" src="http://www.sqlparty.com/wp-content/uploads/2013/08/windows_nagios_1.png" width="682" height="401" /></a></p>
+<h2>命令提示符下，安装服务</h2><br />
+<span style="color: #0000ff;">D:\NSClient++>nsclient++ /install</span></p>
+<p><strong>2）修改配置文件nsc.ini</strong></p>
+<div>
+<table class="table">
+<tbody>
+<tr>
+<td rowspan="1" colspan="1"><strong>部分</strong></td></p>
+<td rowspan="1" colspan="1"><strong>内容</strong></td><br />
+</tr></p>
+<tr>
+<td rowspan="1" colspan="1">modules</td></p>
+<td rowspan="1" colspan="1">将列出模块程序的注释标识去掉，除了CheckWMI.dll和RemoteConfiguration.dll</td><br />
+</tr></p>
+<tr>
+<td rowspan="1" colspan="1">Settings</td></p>
+<td rowspan="1" colspan="1">将'password'选项注释标识去掉，并设置秘密，作用是nagios连接过来时提供密码</td><br />
+</tr></p>
+<tr>
+<td rowspan="1" colspan="1">Settings</td></p>
+<td rowspan="1" colspan="1">将'allowed_hosts'选项注释标识去掉，加上运行nagios的监控主机的ip。如果置空，则允许任何主机连接</td><br />
+</tr></p>
+<tr>
+<td rowspan="1" colspan="1">NSClient</td></p>
+<td rowspan="1" colspan="1">将'port'选项注释标识去掉，并设置成'12489'(默认端口)</td><br />
+</tr><br />
+</tbody><br />
+</table><br />
+</div><br />
+<a href="http://www.sqlparty.com/wp-content/uploads/2013/08/windows_nagios_3.png"><img class="alignnone size-full wp-image-377" alt="windows_nagios_3" src="http://www.sqlparty.com/wp-content/uploads/2013/08/windows_nagios_3.png" width="232" height="310" /></a></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/windows_nagios_4.png"><img class="alignnone size-full wp-image-375" alt="windows_nagios_4" src="http://www.sqlparty.com/wp-content/uploads/2013/08/windows_nagios_4.png" width="345" height="186" /></a></p>
+<p><strong>3) 启动服务</strong></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/windows_nagios_5.png"><img class="alignnone size-full wp-image-380" alt="windows_nagios_5" src="http://www.sqlparty.com/wp-content/uploads/2013/08/windows_nagios_5.png" width="564" height="475" /></a></p>
+<p>点登录标签，勾选&ldquo;允许服务与桌面交互&rdquo;</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/windows_nagios_6.png"><img class="alignnone size-full wp-image-381" alt="windows_nagios_6" src="http://www.sqlparty.com/wp-content/uploads/2013/08/windows_nagios_6.png" width="431" height="471" /></a></p>
+<p><strong>4）开放端口</strong></p>
+<p>检查端口是否正常工作：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/windows_nagios_7.png"><img class="alignnone size-full wp-image-382" alt="windows_nagios_7" src="http://www.sqlparty.com/wp-content/uploads/2013/08/windows_nagios_7.png" width="585" height="256" /></a></p>
+<p>注意：防火墙也要打开tcp 12498端口，否则nagios检查此服务时会报socket超时错误。<br />
+接下来，就等待nagios发出某个监控请求，然后它执行请求，将监控的结果发回给nagios监控主机。</p>
+<h2>Nagios中对Windows监控服务的配置</h2><br />
+nagios中需要配置监控哪个主机，哪些监控项，这里配置如下： define host{ use windows-server ; Inherit default values from a template host_name CHNET_2004 alias My Windows Server ; A longer name associated with the host address 192.168.182.1 ; IP address of the host }</p>
+<pre>define hostgroup{<br />
+ hostgroup_name windows-servers ; The name of the hostgroup<br />
+ alias Windows Servers ; Long name of the group<br />
+ }<br />
+define service{<br />
+ use generic-service<br />
+ hostgroup_name windows-servers<br />
+ service_description NSClient++ Version<br />
+ check_command check_nt!CLIENTVERSION<br />
+ }<br />
+define service{<br />
+ use generic-service<br />
+ hostgroup_name windows-servers<br />
+ service_description Uptime<br />
+ check_command check_nt!UPTIME<br />
+ }<br />
+define service{<br />
+ use generic-service<br />
+ hostgroup_name windows-servers<br />
+ service_description CPU Load<br />
+ check_command check_nt!CPULOAD!-l 5,80,90<br />
+ }<br />
+define service{<br />
+ use generic-service<br />
+ hostgroup_name windows-servers<br />
+ service_description Memory Usage<br />
+ check_command check_nt!MEMUSE!-w 80 -c 90<br />
+ }<br />
+define service{<br />
+ use generic-service<br />
+ hostgroup_name windows-servers<br />
+ service_description C:\ Drive Space<br />
+ check_command check_nt!USEDDISKSPACE!-l c -w 80 -c 90<br />
+ }</pre><br />
+如果想指定保存在Windows机器上NSClient++配置文件里的口令，可以修改check_nt命令定义，让它带着口令。编辑方式打开/usr/local/nagios/etc/commands.cfg文件。<br />
+修改check_nt命令的定义，带上"-s "命令参数，如下：</p>
+<pre> # 'check_nt' command definition<br />
+ define command{<br />
+ command_name check_nt<br />
+ command_line $USER1$/check_nt -H $HOSTADDRESS$ -p 12489 -s abc -v $ARG1$ $ARG2$<br />
+ }</pre><br />
+这样，通过nagios的web端，可以监控到以上指定的项目（会pending一段时间来初始化）:</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/windows_nagios_8.png"><img class="alignnone size-full wp-image-383" alt="windows_nagios_8" src="http://www.sqlparty.com/wp-content/uploads/2013/08/windows_nagios_8.png" width="986" height="579" /></a></p>

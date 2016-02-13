@@ -1,0 +1,299 @@
+---
+layout: post
+status: publish
+published: true
+title: sysbench用法
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "sysbench是一款基准测试工具，可以用来进行CPU、内存、磁盘I/O、线程、数据库的性能测试。对于MySQL DBA而言可以用来对数据库以及周边相关指标进行基准测试。其特征如下：\r\n<ul>\r\n\t<li>无需进行复杂配置，甚至一些测试不需要安装MySQL服务器。</li>\r\n\t<li>简单而强大，不对外依赖任何库。</li>\r\n\t<li>使用类似于MySQL
+  InnoDB引擎的方式访问磁盘。</li>\r\n\t<li>其目的是根据数据库系统相关的重要因素获取系统性能的整体认识，如文件I/O，OS调度，内存分配，传输速度，POSIX线程以及数据库本身。</li>\r\n\t<li>支持Lua语言(
+  ​http://www.lua.org )，方便测试各类场景。</li>\r\n</ul>\r\n官网：<a title=\"sysbench\"
+  href=\"https://launchpad.net/sysbench\" target=\"_blank\">https://launchpad.net/sysbench</a>\r\n\r\n"
+wordpress_id: 702
+wordpress_url: http://www.sqlparty.com/?p=702
+date: '2013-09-22 22:31:57 +0800'
+date_gmt: '2013-09-22 14:31:57 +0800'
+categories:
+- 系统
+tags:
+- sysbench
+---
+<p>sysbench是一款基准测试工具，可以用来进行CPU、内存、磁盘I/O、线程、数据库的性能测试。对于MySQL DBA而言可以用来对数据库以及周边相关指标进行基准测试。其特征如下：</p>
+<ul>
+<li>无需进行复杂配置，甚至一些测试不需要安装MySQL服务器。</li>
+<li>简单而强大，不对外依赖任何库。</li>
+<li>使用类似于MySQL InnoDB引擎的方式访问磁盘。</li>
+<li>其目的是根据数据库系统相关的重要因素获取系统性能的整体认识，如文件I/O，OS调度，内存分配，传输速度，POSIX线程以及数据库本身。</li>
+<li>支持Lua语言( ​http://www.lua.org )，方便测试各类场景。</li><br />
+</ul><br />
+官网：<a title="sysbench" href="https://launchpad.net/sysbench" target="_blank">https://launchpad.net/sysbench</a></p>
+<p><!--more--></p>
+<h2>一、安装</h2></p>
+<h3>1.环境</h3><br />
+<span style="color: #0000ff;">shell>uname -a</span><br />
+<span style="color: #0000ff;">Linux redhat1 2.6.32-71.el6.i686 #1 SMP Wed Sep 1 01:26:34 EDT 2010 i686 i686 i386 GNU/Linux</span></p>
+<p>数据库服务器：<br />
+<span style="color: #0000ff;">mysql> select version();</span><br />
+<span style="color: #0000ff;">+------------+</span><br />
+<span style="color: #0000ff;">| version()&nbsp; |</span><br />
+<span style="color: #0000ff;">+------------+</span><br />
+<span style="color: #0000ff;">| 5.1.63-log |</span><br />
+<span style="color: #0000ff;">+------------+</span><br />
+<span style="color: #0000ff;">1 row in set (0.00 sec)</span></p>
+<h3>2.安装步骤</h3><br />
+<span style="color: #0000ff;">shell>cd <sys_bench_dir></span><br />
+<span style="color: #0000ff;">shell>./autogen.sh</span> #与configure相关，通常此步骤可跳过<br />
+<span style="color: #0000ff;">shell>./configure</span><br />
+<span style="color: #0000ff;">shell>make</span><br />
+注：本步骤容易报错，如果错误如下&ldquo;gcc: /usr/lib/mysql/libmysqlclient_r.so: No such file or directory&rdquo;。<br />
+解决方案是：下载并安装相应的shared-compat包，如果之前有安装shared包会报冲突，则先rpm -e xxxxsharexxxx。<br />
+然后rpm -ivh xxxxshared-compatxxxx，如果发现make中查找的路径不是shared-compat包安装的路径，那么直接拷贝库文件到make查找的目录。<br />
+如cp /usr/lib/*mysql* /usr/lib/mysql</p>
+<p><span style="color: #0000ff;">shell>make install</span><br />
+<span style="color: #0000ff;">shell>make clean</span> #[可选]将configure和编译时产生的中间文件删除。<br />
+<span style="color: #0000ff;">shell>sysbench help</span>&nbsp; #能正常返回就说明安装完成！</p>
+<h3>3.使用</h3><br />
+<strong>3.1.help信息</strong></p>
+<p><span style="color: #0000ff;">shell>sysbench help</span><br />
+<span style="color: #0000ff;">sysbench 0.4.13:&nbsp; multi-threaded system evaluation benchmark</span></p>
+<p><span style="color: #0000ff;">Usage:</span><br />
+<span style="color: #0000ff;">&nbsp; sysbench [general-options]... --test=<test-name> [test-options]... command</span></p>
+<p><span style="color: #0000ff;">General options:</span><br />
+<span style="color: #0000ff;">&nbsp; --num-threads=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; number of threads to use [1]</span><br />
+<span style="color: #0000ff;">&nbsp; --max-requests=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; limit for total number of requests [10000]</span><br />
+<span style="color: #0000ff;">&nbsp; --max-time=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; limit for total execution time in seconds [0]</span><br />
+<span style="color: #0000ff;">&nbsp; --forced-shutdown=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; amount of time to wait after --max-time before forcing shutdown [off]</span><br />
+<span style="color: #0000ff;">&nbsp; --thread-stack-size=SIZE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; size of stack per thread [32K]</span><br />
+<span style="color: #0000ff;">&nbsp; --init-rng=[on|off]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; initialize random number generator [off]</span><br />
+<span style="color: #0000ff;">&nbsp; --seed-rng=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; seed for random number generator, ignored when 0 [0]</span><br />
+<span style="color: #0000ff;">&nbsp; --tx-rate=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; target transaction rate (tps) [0]</span><br />
+<span style="color: #0000ff;">&nbsp; --tx-jitter=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; target transaction variation, in microseconds [0]</span><br />
+<span style="color: #0000ff;">&nbsp; --intermediate-result-timer=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; intermediate result timer, 0 is off [0]</span><br />
+<span style="color: #0000ff;">&nbsp; --test=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; test to run</span><br />
+<span style="color: #0000ff;">&nbsp; --debug=[on|off]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; print more debugging info [off]</span><br />
+<span style="color: #0000ff;">&nbsp; --validate=[on|off]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; perform validation checks where possible [off]</span><br />
+<span style="color: #0000ff;">&nbsp; --help=[on|off]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; print help and exit</span><br />
+<span style="color: #0000ff;">&nbsp; --version=[on|off]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; print version and exit</span></p>
+<p><span style="color: #0000ff;">Compiled-in tests:</span><br />
+<span style="color: #0000ff;">&nbsp; fileio - File I/O test</span><br />
+<span style="color: #0000ff;">&nbsp; cpu - CPU performance test</span><br />
+<span style="color: #0000ff;">&nbsp; memory - Memory functions speed test</span><br />
+<span style="color: #0000ff;">&nbsp; threads - Threads subsystem performance test</span><br />
+<span style="color: #0000ff;">&nbsp; mutex - Mutex performance test</span><br />
+<span style="color: #0000ff;">&nbsp; oltp - OLTP test</span></p>
+<p><span style="color: #0000ff;">Commands: prepare run cleanup help version</span></p>
+<p><span style="color: #0000ff;">See 'sysbench --test=<name> help' for a list of options for each test.</span></p>
+<p><strong>3.2.测试cpu</strong></p>
+<p><strong>3.2.1.help信息</strong></p>
+<p><span style="color: #0000ff;">shell>sysbench --test=cpu help</span><br />
+<span style="color: #0000ff;">sysbench 0.4.13:&nbsp; multi-threaded system evaluation benchmark</span></p>
+<p><span style="color: #0000ff;">cpu options:</span><br />
+<span style="color: #0000ff;">&nbsp; --cpu-max-prime=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; upper limit for primes generator [10000]</span><br />
+<span style="color: #0000ff;">3.2.2.命令</span><br />
+<span style="color: #0000ff;">shell> sysbench --test=cpu --cpu-max-prime=10000 run</span><br />
+<span style="color: #0000ff;">sysbench 0.4.13:&nbsp; multi-threaded system evaluation benchmark</span></p>
+<p><span style="color: #0000ff;">Running the test with following options:</span><br />
+<span style="color: #0000ff;">Number of threads: 1</span><br />
+<span style="color: #0000ff;">Random number generator seed is 0 and will be ignored</span></p>
+<p><span style="color: #0000ff;">Doing CPU performance benchmark</span></p>
+<p><span style="color: #0000ff;">Threads started!</span><br />
+<span style="color: #0000ff;">Done.</span></p>
+<p><span style="color: #0000ff;">Maximum prime number checked in CPU test: 10000</span></p>
+<p><span style="color: #0000ff;">Test execution summary:</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; total time:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 12.8558s</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; total number of events:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10000</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; total time taken by event execution: 12.8462</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; per-request statistics:</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; min:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1.15ms</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; avg:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1.28ms</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; max:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 16.63ms</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; approx.&nbsp; 95 percentile:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1.51ms</span></p>
+<p><span style="color: #0000ff;">Threads fairness:</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; events (avg/stddev):&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10000.0000/0.00</span><br />
+<span style="color: #0000ff;">execution time (avg/stddev):&nbsp;&nbsp; 12.8462/0.00</span></p>
+<p><strong>3.3.测试fileio</strong></p>
+<p><strong>3.3.1.help信息</strong></p>
+<p><span style="color: #0000ff;">sysbench --test=fileio help</span><br />
+<span style="color: #0000ff;">sysbench 0.4.13:&nbsp; multi-threaded system evaluation benchmark</span></p>
+<p><span style="color: #0000ff;">fileio options:</span><br />
+<span style="color: #0000ff;">&nbsp; --file-num=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; number of files to create [128]</span><br />
+<span style="color: #0000ff;">&nbsp; --file-block-size=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; block size to use in all IO operations [16384]</span><br />
+<span style="color: #0000ff;">&nbsp; --file-total-size=SIZE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; total size of files to create [2G]</span><br />
+<span style="color: #0000ff;">&nbsp; --file-test-mode=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; test mode {seqwr, seqrewr, seqrd, rndrd, rndwr, rndrw}</span><br />
+<span style="color: #0000ff;">&nbsp; --file-io-mode=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; file operations mode {sync,async,fastmmap,slowmmap} [sync]</span><br />
+<span style="color: #0000ff;">&nbsp; --file-extra-flags=STRING&nbsp;&nbsp;&nbsp;&nbsp; additional flags to use on opening files {sync,dsync,direct} []</span><br />
+<span style="color: #0000ff;">&nbsp; --file-fsync-freq=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; do fsync() after this number of requests (0 - don't use fsync()) [100]</span><br />
+<span style="color: #0000ff;">&nbsp; --file-fsync-all=[on|off]&nbsp;&nbsp;&nbsp;&nbsp; do fsync() after each write operation [off]</span><br />
+<span style="color: #0000ff;">&nbsp; --file-fsync-end=[on|off]&nbsp;&nbsp;&nbsp;&nbsp; do fsync() at the end of test [on]</span><br />
+<span style="color: #0000ff;">&nbsp; --file-fsync-mode=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; which method to use for synchronization {fsync, fdatasync} [fsync]</span><br />
+<span style="color: #0000ff;">&nbsp; --file-merged-requests=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; merge at most this number of IO requests if possible (0 - don't merge) [0]</span><br />
+<span style="color: #0000ff;">&nbsp; --file-rw-ratio=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; reads/writes ratio for combined test [1.5]</span></p>
+<p><strong>3.3.2命令</strong></p>
+<p><strong>3.3.2.1.准备测试文件</strong></p>
+<p><span style="color: #0000ff;">shell>sysbench --test=fileio --file-total-size=500M prepare</span></p>
+<p><strong>3.3.2.2.基准测试</strong></p>
+<p><span style="color: #0000ff;">shell>sysbench --test=fileio --file-test-mode=rndrw --file-total-size=500M --init-rng=on --max-time=60 --max-requests=0 run </span><br />
+<span style="color: #0000ff;">sysbench 0.4.13:&nbsp; multi-threaded system evaluation benchmark</span></p>
+<p><span style="color: #0000ff;">Running the test with following options:</span><br />
+<span style="color: #0000ff;">Number of threads: 1</span><br />
+<span style="color: #0000ff;">Initializing random number generator from timer.</span></p>
+<p><span style="color: #0000ff;">Random number generator seed is 0 and will be ignored</span></p>
+<p><span style="color: #0000ff;">Extra file open flags: 0</span><br />
+<span style="color: #0000ff;">128 files, 3.9062Mb each</span><br />
+<span style="color: #0000ff;">500Mb total file size</span><br />
+<span style="color: #0000ff;">Block size 16Kb</span><br />
+<span style="color: #0000ff;">Number of random requests for random IO: 0</span><br />
+<span style="color: #0000ff;">Read/Write ratio for combined random IO test: 1.50</span><br />
+<span style="color: #0000ff;">Periodic FSYNC enabled, calling fsync() each 100 requests.</span><br />
+<span style="color: #0000ff;">Calling fsync() at the end of test, Enabled.</span><br />
+<span style="color: #0000ff;">Using synchronous I/O mode</span><br />
+<span style="color: #0000ff;">Doing random r/w test</span><br />
+<span style="color: #0000ff;">Threads started!</span><br />
+<span style="color: #0000ff;">Time limit exceeded, exiting...</span><br />
+<span style="color: #0000ff;">Done.</span></p>
+<p><span style="color: #0000ff;">Operations performed:&nbsp; 74248 Read, 49498 Write, 158336 Other = 282082 Total</span><br />
+<span style="color: #0000ff;">Read 1.1329Gb&nbsp; Written 773.41Mb&nbsp; Total transferred 1.8882Gb&nbsp; (32.217Mb/sec)</span><br />
+<span style="color: #0000ff;">&nbsp;2061.90 Requests/sec executed</span></p>
+<p><span style="color: #0000ff;">Test execution summary:</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; total time:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 60.0156s</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; total number of events:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 123746</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; total time taken by event execution: 43.0992</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; per-request statistics:</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; min:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0.00ms</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; avg:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0.35ms</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; max:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 590.32ms</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; approx.&nbsp; 95 percentile:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0.44ms</span></p>
+<p><span style="color: #0000ff;">Threads fairness:</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; events (avg/stddev):&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 123746.0000/0.00</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; execution time (avg/stddev):&nbsp;&nbsp; 43.0992/0.00</span></p>
+<p><strong>3.3.2.3.删除测试文件</strong></p>
+<p><span style="color: #0000ff;">shell>sysbench --test=fileio --file-total-size=500M cleanup</span></p>
+<p><strong>3.4测试oltp</strong></p>
+<p><strong>3.4.1.help信息</strong></p>
+<p><span style="color: #0000ff;">shell>sysbench --test=oltp help</span><br />
+<span style="color: #0000ff;">sysbench 0.4.13:&nbsp; multi-threaded system evaluation benchmark</span></p>
+<p><span style="color: #0000ff;">oltp options:</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-test-mode=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; test type to use {simple,complex,nontrx,sp} [complex]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-reconnect-mode=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; reconnect mode {session,transaction,query,random} [session]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-sp-name=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; name of store procedure to call in SP test mode []</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-read-only=[on|off]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; generate only 'read' queries (do not modify database) [off]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-skip-trx=[on|off]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; skip BEGIN/COMMIT statements [off]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-range-size=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; range size for range queries [100]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-point-selects=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; number of point selects [10]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-simple-ranges=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; number of simple ranges [1]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-sum-ranges=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; number of sum ranges [1]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-order-ranges=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; number of ordered ranges [1]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-distinct-ranges=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; number of distinct ranges [1]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-index-updates=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; number of index update [1]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-non-index-updates=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; number of non-index updates [1]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-nontrx-mode=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; mode for non-transactional test {select, update_key, update_nokey, insert, delete} [select]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-auto-inc=[on|off]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; whether AUTO_INCREMENT (or equivalent) should be used on id column [on]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-connect-delay=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; time in microseconds to sleep after connection to database [10000]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-user-delay-min=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; minimum time in microseconds to sleep after each request [0]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-user-delay-max=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; maximum time in microseconds to sleep after each request [0]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-table-name=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; name of test table [sbtest]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-table-size=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; number of records in test table [10000]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-dist-type=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; random numbers distribution {uniform,gaussian,special} [special]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-dist-iter=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; number of iterations used for numbers generation [12]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-dist-pct=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; percentage of values to be treated as 'special' (for special distribution) [1]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-dist-res=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; percentage of 'special' values to use (for special distribution) [75]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-point-select-mysql-handler=[on|off]Use MySQL HANDLER for point select [off]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-point-select-all-cols=[on|off]&nbsp;&nbsp;&nbsp; select all columns for the point-select query [off]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-secondary=[on|off]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Use a secondary index in place of the PRIMARY index [off]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-num-partitions=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Number of partitions used for test table [0]</span><br />
+<span style="color: #0000ff;">&nbsp; --oltp-num-tables=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Number of test tables [1]</span></p>
+<p><span style="color: #0000ff;">General database options:</span></p>
+<p><span style="color: #0000ff;">&nbsp; --db-driver=STRING&nbsp; specifies database driver to use ('help' to get list of available drivers)</span><br />
+<span style="color: #0000ff;">&nbsp; --db-ps-mode=STRING prepared statements usage mode {auto, disable} [auto]</span></p>
+<p><span style="color: #0000ff;">Compiled-in database drivers:</span><br />
+<span style="color: #0000ff;">&nbsp; mysql - MySQL driver</span></p>
+<p><span style="color: #0000ff;">mysql options:</span><br />
+<span style="color: #0000ff;">&nbsp; --mysql-host=[LIST,...]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; MySQL server host [localhost]</span><br />
+<span style="color: #0000ff;">&nbsp; --mysql-port=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; MySQL server port [3306]</span><br />
+<span style="color: #0000ff;">&nbsp; --mysql-socket=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; MySQL socket</span><br />
+<span style="color: #0000ff;">&nbsp; --mysql-user=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; MySQL user [sbtest]</span><br />
+<span style="color: #0000ff;">&nbsp; --mysql-password=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; MySQL password []</span><br />
+<span style="color: #0000ff;">&nbsp; --mysql-db=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; MySQL database name [sbtest]</span><br />
+<span style="color: #0000ff;">&nbsp; --mysql-table-engine=STRING&nbsp;&nbsp; storage engine to use for the test table {myisam,innodb,bdb,heap,ndbcluster,federated} [innodb]</span><br />
+<span style="color: #0000ff;">&nbsp; --mysql-engine-trx=STRING&nbsp;&nbsp;&nbsp;&nbsp; whether storage engine used is transactional or not {yes,no,auto} [auto]</span><br />
+<span style="color: #0000ff;">&nbsp; --mysql-ssl=[on|off]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; use SSL connections, if available in the client library [off]</span><br />
+<span style="color: #0000ff;">&nbsp; --myisam-max-rows=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; max-rows parameter for MyISAM tables [1000000]</span><br />
+<span style="color: #0000ff;">&nbsp; --mysql-create-options=STRING additional options passed to CREATE TABLE []</span></p>
+<p><strong>3.4.2.命令</strong></p>
+<p><strong>3.4.2.1.准备表数据</strong></p>
+<p><span style="color: #0000ff;">shell>sysbench --test=oltp --oltp-table-size=100000 --mysql-db=test --mysql-user=sup --mysql-password=redhat1 prepare</span><br />
+<span style="color: #0000ff;">sysbench 0.4.13:&nbsp; multi-threaded system evaluation benchmark</span></p>
+<p><span style="color: #0000ff;">No DB drivers specified, using mysql</span><br />
+<span style="color: #0000ff;">Creating table 'sbtest'...</span><br />
+<span style="color: #0000ff;">Creating 100000 records in table 'sbtest'...</span></p>
+<p><strong>3.4.2.2.基准测试</strong></p>
+<p>只读模式，8线程并发，持续60秒<br />
+<span style="color: #0000ff;">shell>sysbench --test=oltp --oltp-table-size=100000 --mysql-db=test --mysql-user=sup --mysql-password=redhat1 --max-time=60 --oltp-read-only=on --max-requests=0 --num-threads=8 run</span><br />
+<span style="color: #0000ff;">sysbench 0.4.13:&nbsp; multi-threaded system evaluation benchmark</span></p>
+<p><span style="color: #0000ff;">No DB drivers specified, using mysql</span><br />
+<span style="color: #0000ff;">Running the test with following options:</span><br />
+<span style="color: #0000ff;">Number of threads: 8</span><br />
+<span style="color: #0000ff;">Random number generator seed is 0 and will be ignored</span></p>
+<p><span style="color: #0000ff;">Doing OLTP test.</span><br />
+<span style="color: #0000ff;">Running mixed OLTP test</span><br />
+<span style="color: #0000ff;">Doing read-only test</span><br />
+<span style="color: #0000ff;">Using Special distribution (12 iterations,&nbsp; 1 pct of values are returned in 75 pct cases)</span><br />
+<span style="color: #0000ff;">Using "BEGIN" for starting transactions</span><br />
+<span style="color: #0000ff;">Using auto_inc on the id column</span><br />
+<span style="color: #0000ff;">Using 1 test tables</span><br />
+<span style="color: #0000ff;">Threads started!</span><br />
+<span style="color: #0000ff;">Time limit exceeded, exiting...</span><br />
+<span style="color: #0000ff;">(last message repeated 7 times)</span><br />
+<span style="color: #0000ff;">Done.</span></p>
+<p><span style="color: #0000ff;">OLTP test statistics:</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; queries performed:</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; read:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 578746</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; write:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; other:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 82678</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; total:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 661424</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; transactions:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 41339&nbsp; (688.91 per sec.)</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; deadlocks:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (0.00 per sec.)</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; read/write requests:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 578746 (9644.77 per sec.)</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; other operations:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 82678&nbsp; (1377.82 per sec.)</span></p>
+<p><span style="color: #0000ff;">Test execution summary:</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; total time:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 60.0062s</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; total number of events:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 41339</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; total time taken by event execution: 479.6799</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; per-request statistics:</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; min:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1.28ms</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; avg:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 11.60ms</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; max:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 42.54ms</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; approx.&nbsp; 95 percentile:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 15.15ms</span></p>
+<p><span style="color: #0000ff;">Threads fairness:</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; events (avg/stddev):&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5167.3750/72.07</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; execution time (avg/stddev):&nbsp;&nbsp; 59.9600/0.01</span></p>
+<p><strong>3.4.2.3.删除表</strong></p>
+<p><span style="color: #0000ff;">sysbench --test=oltp --oltp-table-size=100000 --mysql-db=test --mysql-user=sup --mysql-password=redhat1 cleanup</span></p>
+<p><strong>3.5.测试memory</strong></p>
+<p><span style="color: #0000ff;">shell>sysbench --test=memory help</span><br />
+<span style="color: #0000ff;">sysbench 0.4.13:&nbsp; multi-threaded system evaluation benchmark</span></p>
+<p><span style="color: #0000ff;">memory options:</span><br />
+<span style="color: #0000ff;">&nbsp; --memory-block-size=SIZE&nbsp;&nbsp;&nbsp; size of memory block for test [1K]</span><br />
+<span style="color: #0000ff;">&nbsp; --memory-total-size=SIZE&nbsp;&nbsp;&nbsp; total size of data to transfer [100G]</span><br />
+<span style="color: #0000ff;">&nbsp; --memory-scope=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; memory access scope {global,local} [global]</span><br />
+<span style="color: #0000ff;">&nbsp; --memory-hugetlb=[on|off]&nbsp;&nbsp; allocate memory from HugeTLB pool [off]</span><br />
+<span style="color: #0000ff;">&nbsp; --memory-oper=STRING&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; type of memory operations {read, write, none} [write]</span><br />
+<span style="color: #0000ff;">&nbsp; --memory-access-mode=STRING memory access mode {seq,rnd} [seq]</span></p>
+<p><strong>3.6.测试threads</strong></p>
+<p><span style="color: #0000ff;">shell>sysbench --test=threads help</span><br />
+<span style="color: #0000ff;">sysbench 0.4.13:&nbsp; multi-threaded system evaluation benchmark</span></p>
+<p><span style="color: #0000ff;">threads options:</span><br />
+<span style="color: #0000ff;">&nbsp; --thread-yields=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; number of yields to do per request [1000]</span><br />
+<span style="color: #0000ff;">&nbsp; --thread-locks=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; number of locks per thread [8]</span></p>
+<p><strong>3.7.测试mutex</strong></p>
+<p><span style="color: #0000ff;">shell>sysbench --test=mutex help</span><br />
+<span style="color: #0000ff;">sysbench 0.4.13:&nbsp; multi-threaded system evaluation benchmark</span></p>
+<p><span style="color: #0000ff;">mutex options:</span><br />
+<span style="color: #0000ff;">&nbsp; --mutex-num=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; total size of mutex array [4096]</span><br />
+<span style="color: #0000ff;">&nbsp; --mutex-locks=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; number of mutex locks to do per thread [50000]</span><br />
+<span style="color: #0000ff;">&nbsp; --mutex-loops=N&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; number of empty loops to do inside mutex lock [10000]</span></p>

@@ -1,0 +1,65 @@
+---
+layout: post
+status: publish
+published: true
+title: Linux下无法ssh到远程：Connection to host closed
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "近日在操作远程主机时遇到问题，欲ssh，却报错如下：\r\n<em>Last login: Thu Jun 6 19:27:41 2013 from
+  192.168.10.199</em>\r\n<em> Connection to 192.168.10.199 closed.</em>\r\n\r\n"
+wordpress_id: 233
+wordpress_url: http://www.sqlparty.com/?p=233
+date: '2013-08-01 21:53:44 +0800'
+date_gmt: '2013-08-01 13:53:44 +0800'
+categories:
+- 系统
+tags:
+- 问题集
+- Linux
+- ssh
+- limit
+---
+<p>近日在操作远程主机时遇到问题，欲ssh，却报错如下：<br />
+<em>Last login: Thu Jun 6 19:27:41 2013 from 192.168.10.199</em><br />
+<em> Connection to 192.168.10.199 closed.</em></p>
+<p><!--more--></p>
+<p>尝试用ssh -v方式，打出很多信息，如：<br />
+<span style="color: #0000ff;">debug1: Next authentication method: publickey</span><br />
+<span style="color: #0000ff;"> debug1: Trying private key: /root/.ssh/identity</span><br />
+<span style="color: #0000ff;"> debug1: Trying private key: /root/.ssh/id_rsa</span><br />
+<span style="color: #0000ff;"> debug1: Trying private key: /root/.ssh/id_dsa</span><br />
+<span style="color: #0000ff;"> debug1: Next authentication method: password</span><br />
+<span style="color: #0000ff;"> root@192.168.10.199's password:</span><br />
+<span style="color: #0000ff;"> debug1: Authentication succeeded (password).</span><br />
+<span style="color: #0000ff;"> debug1: channel 0: new [client-session]</span><br />
+<span style="color: #0000ff;"> debug1: Requesting no-more-sessions@openssh.com</span><br />
+<span style="color: #0000ff;"> debug1: Entering interactive session.</span><br />
+<span style="color: #0000ff;"> debug1: Sending environment.</span><br />
+<span style="color: #0000ff;"> debug1: Sending env LANG = zh_CN.UTF-8</span><br />
+<span style="color: #0000ff;"> Last login: Thu Jun 6 18:14:05 2013 from 192.168.10.154</span><br />
+<span style="color: #0000ff;"> debug1: client_input_channel_req: channel 0 rtype exit-status reply 0</span><br />
+<span style="color: #0000ff;"> debug1: client_input_channel_req: channel 0 rtype eow@openssh.com reply 0</span><br />
+<span style="color: #0000ff;"> debug1: channel 0: free: client-session, nchannels 1</span><br />
+<span style="color: #0000ff;"> Connection to 192.168.10.199 closed.</span><br />
+<span style="color: #0000ff;"> Transferred: sent 1744, received 2072 bytes, in 0.0 seconds</span><br />
+<span style="color: #0000ff;"> Bytes per second: sent 206442.2, received 245268.5</span><br />
+<span style="color: #0000ff;"> debug1: Exit status 254</span></p>
+<p>google一番，未果，猛然发现有一个ssh终端是连着的（无奈开的窗口太多了。。），果断进去看看日志。<br />
+在/var/log/message中没有找到与之相关的内容，在/var/log/下发现secure最近也在记录日志，打开看看。</p>
+<p>发现，每新建立一个ssh连接，其返还如上的信息，同时/var/log/message下出现如下信息：<br />
+<span style="color: #0000ff;">Jun 6 19:09:52 XX sshd[28097]: Accepted password for root from 192.168.10.118 port 47658 ssh2</span><br />
+<span style="color: #0000ff;"> Jun 6 19:09:52 XX sshd[28097]: pam_limits(sshd:session): Could not set limit for 'nofile': Operation not permitted</span><br />
+<span style="color: #0000ff;"> Jun 6 19:09:52 XX sshd[28097]: pam_unix(sshd:session): session opened for user root by (uid=0)</span><br />
+<span style="color: #0000ff;"> Jun 6 19:09:52 XX sshd[28097]: error: PAM: pam_open_session(): Permission denied</span></p>
+<p>回想起下午确实对nofile进行了调整，在/etc/security/limit.d/90-nproc.conf中添加了<br />
+* soft nofile 2048000<br />
+* hard nofile 2048000<br />
+这个值貌似过大了，对于有多个用户的Linux系统，每个用户允许这么大，总共fs.file-max才300多万，PAM无法操作这个限制。但是干脆就不让登录了也太野蛮了。。</p>
+<p>果断去掉一个零，新连接就能够正常登录了！</p>
+<p>以上悲剧因对参数调整理解不够深刻而起，警示我加强对Linux的学习。也提示我在正式的环境下，任何参数的调整都应慎重，先在测试机演练，确定无误后再做正式调整。</p>
+<p><span style="color: #0000ff;">ps:如果出现这种情况，实在无法登录，正常重启也无法解决，那么需要以安全模式（单用户模式）登录Linux，修改该类参数后再恢复正常登录！</span></p>

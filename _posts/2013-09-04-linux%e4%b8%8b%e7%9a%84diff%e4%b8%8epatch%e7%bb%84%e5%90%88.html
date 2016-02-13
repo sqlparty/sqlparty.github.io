@@ -1,0 +1,147 @@
+---
+layout: post
+status: publish
+published: true
+title: Linux下的diff与patch组合
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Linux下，很多开源项目的源码维护使用diff与patch组合的方式。diff来获取新旧文件之间的变化，而patch利用diff来修正旧文件，使得旧文件能够只更新变化的部分，升级至新文件。典型应用是Linux内核源码的更新。\r\n\r\n本文重点介绍diff和patch的使用以及两者的配合使用。\r\n\r\n"
+wordpress_id: 574
+wordpress_url: http://www.sqlparty.com/?p=574
+date: '2013-09-04 15:38:05 +0800'
+date_gmt: '2013-09-04 07:38:05 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- diff
+- patch
+---
+<p>Linux下，很多开源项目的源码维护使用diff与patch组合的方式。diff来获取新旧文件之间的变化，而patch利用diff来修正旧文件，使得旧文件能够只更新变化的部分，升级至新文件。典型应用是Linux内核源码的更新。</p>
+<p>本文重点介绍diff和patch的使用以及两者的配合使用。</p>
+<p><!--more--></p>
+<h2>1.diff</h2><br />
+基本用法：<span style="color: #0000ff;">diff [options] from-file to-file</span></p>
+<p>diff可以用来比较文件或者目录。</p>
+<p>diff包括三种格式：</p>
+<ol>
+<li>正常格式 normal diff</li>
+<li>上下文格式 context diff</li>
+<li>合并格式 unified diff</li><br />
+</ol><br />
+diff主要参数有：</p>
+<ul>
+<li>-a&nbsp; 将所有文件当作文本文件来处理。</li>
+<li>-b或&ndash;ignore-space-change 忽略空格造成的不同。</li>
+<li>-B或&ndash;ignore-blank-lines 忽略空行造成的不同。</li>
+<li>-c&nbsp; 使用上下文格式输出格式。</li>
+<li>-H&nbsp; 利用试探法加速对大文件的搜索。</li>
+<li>-i&nbsp; 忽略大小写的变化。</li>
+<li>-n或--rcs&nbsp; 输出RCS格式。</li>
+<li>-N或--new-file 在比较目录时，若文件A仅出现在某个目录中，会显示：Only in目录;文件A若使用-N参数，则diff会将文件A与一个空白的文件比较。</li>
+<li>-r或&ndash;recursive 比较子目录中的文件。</li>
+<li>-u,-U<列数>或&ndash;unified=<列数> 以合并格式来显示文件内容的不同。</li><br />
+</ul><br />
+示例依据以下两个文件，a.txt与b.txt：</p>
+<p><span style="color: #0000ff;">shell>cat a.txt</span><br />
+<span style="color: #0000ff;"> line1 line_to_del</span><br />
+<span style="color: #0000ff;"> line2 line_to_del</span><br />
+<span style="color: #0000ff;"> line3 line_to_remain</span><br />
+<span style="color: #0000ff;"> line4 line_to_modify</span><br />
+<span style="color: #0000ff;"> line5 line_to_remain</span><br />
+<span style="color: #0000ff;"> shell>cat b.txt</span><br />
+<span style="color: #0000ff;"> line3 line_to_remain</span><br />
+<span style="color: #0000ff;"> line4 line_tsldkfjio_modify abc</span><br />
+<span style="color: #0000ff;"> line5 line_to_remain</span><br />
+<span style="color: #0000ff;"> line6 line_new_insert</span></p>
+<h3>1.1 正常格式 normal diff</h3><br />
+<span style="color: #0000ff;">shell>diff a.txt b.txt</span><br />
+<span style="color: #0000ff;"> 1,2d0</span><br />
+<span style="color: #0000ff;"> < line1 line_to_del</span><br />
+<span style="color: #0000ff;"> < line2 line_to_del</span><br />
+<span style="color: #0000ff;"> 4c2</span><br />
+<span style="color: #0000ff;"> < line4 line_to_modify</span><br />
+<span style="color: #0000ff;"> ---</span><br />
+<span style="color: #0000ff;"> > line4 line_tsldkfjio_modify abc</span><br />
+<span style="color: #0000ff;"> 5a4</span><br />
+<span style="color: #0000ff;"> > line6 line_new_insert</span></p>
+<p>分析上述命令的输出：</p>
+<p>1,2c1和4c2和5a4都是指定变动的位置，它分成三个部分：中间字母c表示change，即内容改变；a表示addition，即内容增加；d表示deletion，即内容删除。而左侧对应from-file(这里为a.txt)的行号，"1,2"表示范围。右侧对应to-file(这里为b.txt)的行号。</p>
+<ul>
+<li>< line1 line_to_del表示from-file变化的内容</li>
+<li>--- 分隔 from-file和to-file的文件内容</li>
+<li>> line4 line_tsldkfjio_modify abc 表示to-file变化的内容</li><br />
+</ul></p>
+<h3>1.2 上下文格式 context diff</h3><br />
+<span style="color: #0000ff;">shell>diff -c a.txt b.txt</span><br />
+<span style="color: #0000ff;"> *** a.txt Mon May 20 16:40:49 2013</span><br />
+<span style="color: #0000ff;"> --- b.txt Mon May 20 16:40:35 2013</span><br />
+<span style="color: #0000ff;"> ***************</span><br />
+<span style="color: #0000ff;"> *** 1,5 ****</span><br />
+<span style="color: #0000ff;"> - line1 line_to_del</span><br />
+<span style="color: #0000ff;"> - line2 line_to_del</span><br />
+<span style="color: #0000ff;"> line3 line_to_remain</span><br />
+<span style="color: #0000ff;"> ! line4 line_to_modify</span><br />
+<span style="color: #0000ff;"> line5 line_to_remain</span><br />
+<span style="color: #0000ff;"> --- 1,4 ----</span><br />
+<span style="color: #0000ff;"> line3 line_to_remain</span><br />
+<span style="color: #0000ff;"> ! line4 line_tsldkfjio_modify abc</span><br />
+<span style="color: #0000ff;"> line5 line_to_remain</span><br />
+<span style="color: #0000ff;"> + line6 line_new_insert</span></p>
+<p>分析上述命令的输出：</p>
+<p>最前两行显示文件基本情况：文件名和时间信息。***表示from-file，---表示to-file。<br />
+***************将文件的基本情况与变动内容分隔开。<br />
+接下来*** 1,5 ****显示from-file，即a.txt。不仅会显示变动行，还包括变动行前后3行。<br />
+每一行最前面有个标记位，如果为空，表示该行无变化；如果是感叹号(!)，表示有改动；如果是减号(-)，表示该行被删除；如果是加号(+)，表示该行新增。<br />
+再后面--- 1,4 ----显示to-file，即b.txt。格式同上所述。</p>
+<h3>1.3 合并格式 unified diff</h3><br />
+如果两个文件相似度高，差异点零散，那么上下文格式的diff，将显示大量重复内容，不方面观察。而合并格式的diff，将from-file和to-file的上下文合并在一起显示。<br />
+<span style="color: #0000ff;">shell>diff -u a.txt b.txt</span><br />
+<span style="color: #0000ff;"> --- a.txt 2013-05-20 16:40:49.000000000 +0800</span><br />
+<span style="color: #0000ff;"> +++ b.txt 2013-05-20 16:40:35.000000000 +0800</span><br />
+<span style="color: #0000ff;"> @@ -1,5 +1,4 @@</span><br />
+<span style="color: #0000ff;"> -line1 line_to_del</span><br />
+<span style="color: #0000ff;"> -line2 line_to_del</span><br />
+<span style="color: #0000ff;"> line3 line_to_remain</span><br />
+<span style="color: #0000ff;"> -line4 line_to_modify</span><br />
+<span style="color: #0000ff;"> +line4 line_tsldkfjio_modify abc</span><br />
+<span style="color: #0000ff;"> line5 line_to_remain</span><br />
+<span style="color: #0000ff;"> +line6 line_new_insert</span></p>
+<p>分析上述命令的输出：</p>
+<p>前两行是文件的基本信息，---表示from-file，+++表示to-file</p>
+<p>@@作为开始和结束，将变动的位置括起来，减号表示from-file，1表示第一行，5表示连续5行。同样加号表示to-file。</p>
+<p>同样上下文也会显示3行。它将两个文件的上下文，合并显示在一起，所以叫做"合并格式"。</p>
+<h3>1.4 典型应用</h3><br />
+比较两个目录：<br />
+<span style="color: #0000ff;">diff -Nur linux-2.4.15 linux > linuxupdate.diff</span></p>
+<p>使用合并格式(-u)，(-r)递归比较linux-2.4.15和linux两个目录，如果某个文件只在一个目录中有，那么将它与空文件进行比较(-N)。如果所有文件都当做文本文件，还可以添加-a选项。</p>
+<h2>2.patch</h2><br />
+patch和diff并没有必然的关联。patch支持多种diff输出格式，可以通过读取patch命令文件(可以从标准输入)，对目标文件进行修改。通常先用diff命令比较新老版本，patch命令文件则采用diff的输出文件，从而将原版本更新至新版本。</p>
+<h3>2.1基本用法</h3><br />
+<span style="color: #0000ff;">patch [options] [originalfile] [patchfile]</span></p>
+<p>如果patchfile为空则从标准输入读取patchfile内容；<br />
+如果originalfile为空则从patchfile（肯定来自标准输入）中读取打补丁的文件名；<br />
+如果需要修改的是目录，一般都必须在patchfile中记录目录下的各个文件名。</p>
+<h3>2.2常用选项</h3><br />
+<strong>-b</strong> 更新前先备份原有文件，拷贝成.orgi。</p>
+<p><strong>-N</strong> 忽略反向的打补丁或者重复打同一补丁。有时人为失误，将diff设置为new->old，这样可以避免类似情况的发生。</p>
+<p><strong>-pNUM</strong>或者同义的<strong>--strip=Num</strong>，含义是忽略patchfile中找到的文件名前第Num个斜杠/前的信息。连续或者紧邻的多个/作为一个处理。该选项设置了patchfile中文件名被处理的方式，这样可以避免不同前缀目录造成的干扰。例如：<br />
+/u/howard/src/blurfl/blurfl.c 是patchfile中的一个文件名<br />
+那么-p0取整个路径，-p1取u/howard/src/blurfl/blurfl.c，而-p4取blurfl/blurfl.c。如果完全不指定-p，则只取blurfl.c！</p>
+<p>多数情况下，patch用以下简单方式使用：<span style="color: #0000ff;">patch -pNum < patchfile</span></p>
+<h3>2.3示例</h3><br />
+cacti-plugin-0.8.7g-PA-v2.9.diff文件中包含文件名信息如：<br />
+--- cacti-0.8.7g/auth_changepassword.php 2010-07-09 18:33:46.000000000 -0400<br />
++++ cacti-0.8.7g-PA-v2.9/auth_changepassword.php 2010-10-17 20:09:52.000000000 -0400<br />
+而升级的方式：<br />
+<span style="color: #0000ff;">shell> cd /var/www/html/cacti</span><br />
+<span style="color: #0000ff;"> shell> patch -b -p1 -N < /db/soft/cacti-plugin-arch/cacti-plugin-0.8.7g-PA-v2.9.diff</span></p>
+<p>参考：<br />
+<a href="http://www.ibm.com/developerworks/cn/linux/l-diffp/http://" target="_blank">http://www.ibm.com/developerworks/cn/linux/l-diffp/</a><br />
+<a href="http://www.ruanyifeng.com/blog/2012/08/how_to_read_diff.html" target="_blank">http://www.ruanyifeng.com/blog/2012/08/how_to_read_diff.html</a><br />
+<a href="http://www.9usb.net/200903/linux-diff.html" target="_blank">http://www.9usb.net/200903/linux-diff.html</a></p>

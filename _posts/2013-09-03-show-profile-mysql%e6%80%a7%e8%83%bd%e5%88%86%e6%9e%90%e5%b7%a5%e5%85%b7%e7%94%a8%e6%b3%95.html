@@ -1,0 +1,232 @@
+---
+layout: post
+status: publish
+published: true
+title: SHOW PROFILE-MySQL性能分析工具用法
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "SHOW PROFILE和SHOW PROFILES命令可以用来分析当前会话中语句执行的资源消耗情况。其是否启用是根据会话级的变量profiling，默认是关闭的。\r\n<h2>开启与关闭</h2>\r\nmysql>
+  SET profiling=1;或 SET profiling=on;\r\n\r\n默认即是关闭状态。开启后关闭可以如下：\r\n\r\nmysql> SET
+  profiling=0;或 SET profiling=on;\r\n<h2>用法</h2>\r\n<span style=\"color: #0000ff;\">SHOW
+  PROFILE [type [, type] ... ]</span>\r\n<span style=\"color: #0000ff;\"> [FOR
+  QUERY n]</span>\r\n<span style=\"color: #0000ff;\"> [LIMIT row_count [OFFSET
+  offset]]</span>\r\n\r\n<span style=\"color: #0000ff;\">type:</span>\r\n<span
+  style=\"color: #0000ff;\"> ALL</span>\r\n<span style=\"color: #0000ff;\"> |
+  BLOCK IO</span>\r\n<span style=\"color: #0000ff;\"> | CONTEXT SWITCHES</span>\r\n<span
+  style=\"color: #0000ff;\"> | CPU</span>\r\n<span style=\"color: #0000ff;\">
+  | IPC</span>\r\n<span style=\"color: #0000ff;\"> | MEMORY</span>\r\n<span
+  style=\"color: #0000ff;\"> | PAGE FAULTS</span>\r\n<span style=\"color: #0000ff;\">
+  | SOURCE</span>\r\n<span style=\"color: #0000ff;\"> | SWAPS</span>\r\n\r\nSHOW
+  PROFILES显示最近发给服务器的多条语句，条数根据会话变量profiling_history_size定义，默认是15，最大值为100。设为0等价于关闭分析功能。\r\n\r\nSHOW
+  PROFILE FOR QUERY n，这里的n就是对应SHOW PROFILES输出中的Query_ID。\r\n\r\n"
+wordpress_id: 503
+wordpress_url: http://www.sqlparty.com/?p=503
+date: '2013-09-03 12:31:01 +0800'
+date_gmt: '2013-09-03 04:31:01 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+- show-profile
+- query-cache
+---
+<p>SHOW PROFILE和SHOW PROFILES命令可以用来分析当前会话中语句执行的资源消耗情况。其是否启用是根据会话级的变量profiling，默认是关闭的。</p>
+<h2>开启与关闭</h2><br />
+mysql> SET profiling=1;或 SET profiling=on;</p>
+<p>默认即是关闭状态。开启后关闭可以如下：</p>
+<p>mysql> SET profiling=0;或 SET profiling=on;</p>
+<h2>用法</h2><br />
+<span style="color: #0000ff;">SHOW PROFILE [type [, type] ... ]</span><br />
+<span style="color: #0000ff;"> [FOR QUERY n]</span><br />
+<span style="color: #0000ff;"> [LIMIT row_count [OFFSET offset]]</span></p>
+<p><span style="color: #0000ff;">type:</span><br />
+<span style="color: #0000ff;"> ALL</span><br />
+<span style="color: #0000ff;"> | BLOCK IO</span><br />
+<span style="color: #0000ff;"> | CONTEXT SWITCHES</span><br />
+<span style="color: #0000ff;"> | CPU</span><br />
+<span style="color: #0000ff;"> | IPC</span><br />
+<span style="color: #0000ff;"> | MEMORY</span><br />
+<span style="color: #0000ff;"> | PAGE FAULTS</span><br />
+<span style="color: #0000ff;"> | SOURCE</span><br />
+<span style="color: #0000ff;"> | SWAPS</span></p>
+<p>SHOW PROFILES显示最近发给服务器的多条语句，条数根据会话变量profiling_history_size定义，默认是15，最大值为100。设为0等价于关闭分析功能。</p>
+<p>SHOW PROFILE FOR QUERY n，这里的n就是对应SHOW PROFILES输出中的Query_ID。</p>
+<p><!--more--></p>
+<p>例如：</p>
+<p>[sql]<br />
+mysql> show profiles;<br />
++----------+-------------+---------------------------------------+<br />
+| Query_ID | Duration    | Query                                 |<br />
++----------+-------------+---------------------------------------+<br />
+|        1 |  0.00037700 | alter table table1 drop column c3 int |<br />
+|        2 | 70.37123800 | alter table table1 drop column c3     |<br />
+|        3 |  0.00124500 | show tables                           |<br />
+|        4 |  0.00569800 | select * from table1 where id=2       |<br />
+|        5 |  0.00068500 | select count(1) from tables1          |<br />
+|        6 |  0.00197900 | select count(1) from table1           |<br />
+|        7 |  0.00105900 | alter table tables1 drop c1           |<br />
+|        8 |  0.00800200 | alter table table1 drop c1            |<br />
++----------+-------------+---------------------------------------+<br />
+8 rows in set (0.00 sec)</p>
+<p>mysql> SHOW PROFILE FOR QUERY 2;  #查看alter table table1 drop column c3的分析<br />
++------------------------------+-----------+<br />
+| Status                       | Duration  |<br />
++------------------------------+-----------+<br />
+| starting                     |  0.000183 |<br />
+| checking permissions         |  0.000057 |<br />
+| checking permissions         |  0.000059 |<br />
+| init                         |  0.000060 |<br />
+| Opening tables               |  0.000071 |<br />
+| System lock                  |  0.000062 |<br />
+| setup                        |  0.000080 |<br />
+| creating table               |  0.005052 |<br />
+| After create                 |  0.000220 |<br />
+| copy to tmp table            |  0.000244 |<br />
+| rename result table          | 70.364027 |<br />
+| end                          |  0.000575 |<br />
+| Waiting for query cache lock |  0.000062 |<br />
+| end                          |  0.000075 |<br />
+| query end                    |  0.000057 |<br />
+| closing tables               |  0.000061 |<br />
+| freeing items                |  0.000080 |<br />
+| logging slow query           |  0.000056 |<br />
+| logging slow query           |  0.000098 |<br />
+| cleaning up                  |  0.000059 |<br />
++------------------------------+-----------+<br />
+20 rows in set (0.00 sec)<br />
+[/sql]</p>
+<p>如果没有指定FOR QUERY，那么输出最近一条语句的信息。</p>
+<p>LIMIT部分的用法与SELECT中LIMIT子句一致，不赘述。</p>
+<p>type是可选的，取值范围可以如下：</p>
+<ul>
+<li>ALL 显示所有性能信息</li>
+<li>BLOCK IO 显示块IO操作的次数</li>
+<li>CONTEXT SWITCHES 显示上下文切换次数，不管是主动还是被动</li>
+<li>CPU 显示用户CPU时间、系统CPU时间</li>
+<li>IPC 显示发送和接收的消息数量</li>
+<li>MEMORY [暂未实现]</li>
+<li>PAGE FAULTS 显示页错误数量</li>
+<li>SOURCE 显示源码中的函数名称与位置</li>
+<li>SWAPS 显示SWAP的次数</li><br />
+</ul><br />
+例：</p>
+<p>[sql]<br />
+mysql> show profile cpu for query 2;<br />
++------------------------------+-----------+----------+------------+<br />
+| Status                       | Duration  | CPU_user | CPU_system |<br />
++------------------------------+-----------+----------+------------+<br />
+| starting                     |  0.000183 | 0.000000 |   0.000000 |<br />
+| checking permissions         |  0.000057 | 0.000000 |   0.000000 |<br />
+| checking permissions         |  0.000059 | 0.000000 |   0.000000 |<br />
+| init                         |  0.000060 | 0.000000 |   0.000000 |<br />
+| Opening tables               |  0.000071 | 0.000000 |   0.000000 |<br />
+| System lock                  |  0.000062 | 0.000000 |   0.000000 |<br />
+| setup                        |  0.000080 | 0.000000 |   0.001000 |<br />
+| creating table               |  0.005052 | 0.003000 |   0.001000 |<br />
+| After create                 |  0.000220 | 0.000000 |   0.000000 |<br />
+| copy to tmp table            |  0.000244 | 0.000000 |   0.000000 |<br />
+| rename result table          | 70.364027 | 7.470864 |  41.612674 |<br />
+| end                          |  0.000575 | 0.000000 |   0.001000 |<br />
+| Waiting for query cache lock |  0.000062 | 0.000000 |   0.000000 |<br />
+| end                          |  0.000075 | 0.000000 |   0.000000 |<br />
+| query end                    |  0.000057 | 0.000000 |   0.000000 |<br />
+| closing tables               |  0.000061 | 0.000000 |   0.000000 |<br />
+| freeing items                |  0.000080 | 0.000000 |   0.000000 |<br />
+| logging slow query           |  0.000056 | 0.000000 |   0.000000 |<br />
+| logging slow query           |  0.000098 | 0.000000 |   0.000000 |<br />
+| cleaning up                  |  0.000059 | 0.000000 |   0.000000 |<br />
++------------------------------+-----------+----------+------------+<br />
+20 rows in set (0.00 sec)<br />
+[/sql]</p>
+<p><strong>ps:</strong><br />
+SHOW PROFILE ALL FOR QUERY 2;的信息还可以通过SELECT * FROM information_schema.profiling WHERE query_id = 2 ORDER BY seq;获取。</p>
+<h2>作用范围</h2><br />
+这个命令只是在本会话内起作用，即无法分析本会话外的语句。</p>
+<p>开启分析功能后，所有本会话中的语句都被分析（甚至包括执行错误的语句），除了SHOW PROFILE和SHOW PROFILES两句本身。</p>
+<p>应用示例：使用SHOW PROFILE分析查询缓存命中的性能优势。</p>
+<p>[sql]<br />
+mysql> set profiling=1;<br />
+Query OK, 0 rows affected (0.00 sec)</p>
+<p>mysql> select count(1) as cnt from tran_excution;<br />
++-------+<br />
+| cnt   |<br />
++-------+<br />
+| 14225 |<br />
++-------+<br />
+1 row in set (0.00 sec)<br />
+[/sql]</p>
+<p>由于已经启用了查询缓存，相同查询（非分区表）可以直接在查询缓存中命中。</p>
+<p>[sql]<br />
+mysql> select count(1) as cnt from tran_excution;<br />
++-------+<br />
+| cnt   |<br />
++-------+<br />
+| 14225 |<br />
++-------+<br />
+1 row in set (0.00 sec)</p>
+<p>mysql> show profiles;<br />
++----------+------------+-------------------------------------------+<br />
+| Query_ID | Duration   | Query                                     |<br />
++----------+------------+-------------------------------------------+<br />
+|        1 | 0.00442400 | select count(1) as cnt from tran_excution |<br />
+|        2 | 0.00018000 | select count(1) as cnt from tran_excution |<br />
++----------+------------+-------------------------------------------+<br />
+2 rows in set (0.00 sec)<br />
+[/sql]</p>
+<p>我们仔细看下两个同样的语句的分析。</p>
+<p>[sql]<br />
+mysql> show profile source for query 1;<br />
++--------------------------------+----------+-----------------------+---------------+-------------+<br />
+| Status                         | Duration | Source_function       | Source_file   | Source_line |<br />
++--------------------------------+----------+-----------------------+---------------+-------------+<br />
+| starting                       | 0.000048 | NULL                  | NULL          |        NULL |<br />
+| Waiting for query cache lock   | 0.000013 | try_lock              | sql_cache.cc  |         454 |<br />
+| checking query cache for query | 0.000040 | send_result_to_client | sql_cache.cc  |        1561 |<br />
+| checking permissions           | 0.000023 | check_access          | sql_parse.cc  |        4751 |<br />
+| Opening tables                 | 0.000040 | open_tables           | sql_base.cc   |        4831 |<br />
+| System lock                    | 0.000020 | mysql_lock_tables     | lock.cc       |         299 |<br />
+| Waiting for query cache lock   | 0.000037 | try_lock              | sql_cache.cc  |         454 |<br />
+| init                           | 0.000020 | mysql_select          | sql_select.cc |        2579 |<br />
+| optimizing                     | 0.000015 | optimize              | sql_select.cc |         865 |<br />
+| statistics                     | 0.000017 | optimize              | sql_select.cc |        1056 |<br />
+| preparing                      | 0.000016 | optimize              | sql_select.cc |        1078 |<br />
+| executing                      | 0.000015 | exec                  | sql_select.cc |        1836 |<br />
+| Sending data                   | 0.003875 | exec                  | sql_select.cc |        2380 |<br />
+| end                            | 0.000018 | mysql_select          | sql_select.cc |        2615 |<br />
+| query end                      | 0.000015 | mysql_execute_command | sql_parse.cc  |        4440 |<br />
+| closing tables                 | 0.000016 | mysql_execute_command | sql_parse.cc  |        4492 |<br />
+| freeing items                  | 0.000016 | mysql_parse           | sql_parse.cc  |        5640 |<br />
+| Waiting for query cache lock   | 0.000012 | try_lock              | sql_cache.cc  |         454 |<br />
+| freeing items                  | 0.000032 | NULL                  | NULL          |        NULL |<br />
+| Waiting for query cache lock   | 0.000017 | try_lock              | sql_cache.cc  |         454 |<br />
+| freeing items                  | 0.000016 | NULL                  | NULL          |        NULL |<br />
+| storing result in query cache  | 0.000017 | end_of_result         | sql_cache.cc  |        1020 |<br />
+| logging slow query             | 0.000018 | log_slow_statement    | sql_parse.cc  |        1461 |<br />
+| logging slow query             | 0.000050 | log_slow_statement    | sql_parse.cc  |        1470 |<br />
+| cleaning up                    | 0.000018 | dispatch_command      | sql_parse.cc  |        1417 |<br />
++--------------------------------+----------+-----------------------+---------------+-------------+<br />
+25 rows in set (0.00 sec)</p>
+<p>mysql> show profile source for query 2;<br />
++--------------------------------+----------+-----------------------+--------------+-------------+<br />
+| Status                         | Duration | Source_function       | Source_file  | Source_line |<br />
++--------------------------------+----------+-----------------------+--------------+-------------+<br />
+| starting                       | 0.000051 | NULL                  | NULL         |        NULL |<br />
+| Waiting for query cache lock   | 0.000014 | try_lock              | sql_cache.cc |         454 |<br />
+| checking query cache for query | 0.000016 | send_result_to_client | sql_cache.cc |        1561 |<br />
+| checking privileges on cached  | 0.000013 | send_result_to_client | sql_cache.cc |        1652 |<br />
+| checking permissions           | 0.000015 | check_access          | sql_parse.cc |        4751 |<br />
+| sending cached result to clien | 0.000036 | send_result_to_client | sql_cache.cc |        1749 |<br />
+| logging slow query             | 0.000017 | log_slow_statement    | sql_parse.cc |        1461 |<br />
+| cleaning up                    | 0.000018 | dispatch_command      | sql_parse.cc |        1417 |<br />
++--------------------------------+----------+-----------------------+--------------+-------------+<br />
+8 rows in set (0.00 sec)<br />
+[/sql]</p>
+<p>可以清晰地看到缓存中命中时，大大节省了后台的开销。当然缓存的使用也需要根据各种场景（表的数据规模，更新频率等）考察使用，并不是启用缓存就一定能够提高查询效率。这里仅仅作为SHOW PROFILE的一个应用示例。</p>
+<p>参考：<br />
+<a href="http://dev.mysql.com/doc/refman/5.5/en/show-profile.html" target="_blank">http://dev.mysql.com/doc/refman/5.5/en/show-profile.html</a><br />
+<a href="http://ronaldbradford.com/blog/tag/show-profile/" target="_blank">http://ronaldbradford.com/blog/tag/show-profile/</a></p>

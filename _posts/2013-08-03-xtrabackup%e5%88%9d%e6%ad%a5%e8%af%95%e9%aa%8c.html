@@ -1,0 +1,447 @@
+---
+layout: post
+status: publish
+published: true
+title: XtraBackup初步试验
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "XtraBackup备份工具的介绍以及原理参见&ldquo;<a title=\"XtraBackup原理与程序说明\" href=\"http://www.sqlparty.com/xtrabackup%e5%8e%9f%e7%90%86%e4%b8%8e%e7%a8%8b%e5%ba%8f%e8%af%b4%e6%98%8e/\"
+  target=\"_blank\">XtraBackup原理与程序说明</a>&rdquo;\r\n\r\n本文介绍对该工具的试验，包括备份（完全备份、部分备份）和还原等操作。\r\n\r\n"
+wordpress_id: 265
+wordpress_url: http://www.sqlparty.com/?p=265
+date: '2013-08-03 16:01:26 +0800'
+date_gmt: '2013-08-03 08:01:26 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+- XtraBackup
+- Percona
+---
+<p>XtraBackup备份工具的介绍以及原理参见&ldquo;<a title="XtraBackup原理与程序说明" href="http://www.sqlparty.com/xtrabackup%e5%8e%9f%e7%90%86%e4%b8%8e%e7%a8%8b%e5%ba%8f%e8%af%b4%e6%98%8e/" target="_blank">XtraBackup原理与程序说明</a>&rdquo;</p>
+<p>本文介绍对该工具的试验，包括备份（完全备份、部分备份）和还原等操作。</p>
+<p><!--more--></p>
+<h2>1.安装</h2><br />
+通过官方下载页面<a href="http://www.percona.com/downloads/XtraBackup/" target="_blank"> http://www.percona.com/downloads/XtraBackup/</a> 下载二进制包进行。这里下载percona-xtrabackup-2.0.6-521.tar.gz包。<br />
+<span style="color: #0000ff;">shell>tar -xzvf percona-xtrabackup-2.0.6-521.tar.gz</span><br />
+<span style="color: #0000ff;"> shell>ln -s /db/script/armyknife/percona-xtrabackup-2.0.6 xtrabackup</span><br />
+<span style="color: #0000ff;"> shell>ls -l /db/script/armyknife/xtrabackup/bin</span><br />
+<span style="color: #0000ff;"> total 40276</span><br />
+<span style="color: #0000ff;"> -rwxr-xr-x. 1 mysql mysql 108823 Mar 20 05:29 innobackupex</span><br />
+<span style="color: #0000ff;"> lrwxrwxrwx. 1 mysql mysql 12 Apr 28 13:22 innobackupex-1.5.1 -> innobackupex</span><br />
+<span style="color: #0000ff;"> -rwxr-xr-x. 1 mysql mysql 2258560 Mar 20 05:29 xbstream</span><br />
+<span style="color: #0000ff;"> -rwxr-xr-x. 1 mysql mysql 12530688 Mar 20 05:24 xtrabackup</span><br />
+<span style="color: #0000ff;"> -rwxr-xr-x. 1 mysql mysql 10641245 Mar 20 05:29 xtrabackup_51</span><br />
+<span style="color: #0000ff;"> -rwxr-xr-x. 1 mysql mysql 15693986 Mar 20 05:17 xtrabackup_55</span><br />
+<span style="color: #0000ff;"> shell>vi ~/.bash_profile</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+<span style="color: #0000ff;"> export PATH=/db/script/armyknife/xtrabackup/bin:$PATH</span><br />
+<span style="color: #0000ff;"> shell>source ~/.bash_profile</span></p>
+<h2>2.备份与恢复</h2><br />
+根据我们日常备份和恢复的需求，使用xtrabackup需要实现：<br />
+1）整个实例备份，即备份所有库<br />
+2）备份单个库<br />
+3）备份单个表</p>
+<p>备份都应是在线操作，备份快照对应的binlog坐标应被记录。<br />
+备份本身还应支持全备和增备。<br />
+以下根据我们自身的要求，来测试xtrabackup的备份功能。</p>
+<p>测试实例包含mysql,performance_schema和testdb三个库。<br />
+testdb中含表t1。<br />
+<span style="color: #0000ff;">mysql> select * from t1;</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> | id |</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> | 1 |</span><br />
+<span style="color: #0000ff;"> | 2 |</span><br />
+<span style="color: #0000ff;"> | 3 |</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> 3 rows in set (0.00 sec)</span></p>
+<p><strong>a)备份实例下所有库</strong><br />
+<span style="color: #0000ff;">shell>mkdir -p /db/backup/test/20130507</span><br />
+<span style="color: #0000ff;"> shell>innobackupex --host=192.168.10.178 --port=3300 --user=backup --password=23khfisF --defaults-file=/etc/my7.cnf --slave-info --no-timestamp /db/backup/test/20130507/all/</span> #最后指定的备份目录必须不存在。<br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;"> innobackupex: Created backup directory /db/backup/test/20130507/all</span><br />
+<span style="color: #0000ff;"> 130507 13:53:10 innobackupex: Starting mysql with options: --defaults-file='/etc/my7.cnf' --password=xxxxxxxx --user='backup' --host='192.168.10.178' --port='3300' --unbuffered --</span><br />
+<span style="color: #0000ff;"> 130507 13:53:10 innobackupex: Connected to database with mysql child process (pid=29711)</span><br />
+<span style="color: #0000ff;"> 130507 13:53:12 innobackupex: Connection to database server closed</span></p>
+<p><span style="color: #0000ff;">130507 13:53:12 innobackupex: Starting ibbackup with command: xtrabackup_55 --defaults-file="/etc/my7.cnf" --defaults-group="mysqld" --backup --suspend-at-end --target-dir=/db/backup/test/20130507/all --tmpdir=/db/tmp7</span><br />
+<span style="color: #0000ff;"> innobackupex: Waiting for ibbackup (pid=29722) to suspend</span><br />
+<span style="color: #0000ff;"> innobackupex: Suspend file '/db/backup/test/20130507/all/xtrabackup_suspended'</span></p>
+<p><span style="color: #0000ff;">xtrabackup_55 version 2.0.6 for Percona Server 5.5.16 Linux (x86_64) (revision id: undefined)</span><br />
+<span style="color: #0000ff;"> xtrabackup: uses posix_fadvise().</span><br />
+<span style="color: #0000ff;"> xtrabackup: cd to /db/data7</span><br />
+<span style="color: #0000ff;"> xtrabackup: Target instance is assumed as followings.</span><br />
+<span style="color: #0000ff;"> xtrabackup: innodb_data_home_dir = ./</span><br />
+<span style="color: #0000ff;"> xtrabackup: innodb_data_file_path = ibdata1:10M:autoextend</span><br />
+<span style="color: #0000ff;"> xtrabackup: innodb_log_group_home_dir = /db/log7</span><br />
+<span style="color: #0000ff;"> xtrabackup: innodb_log_files_in_group = 2</span><br />
+<span style="color: #0000ff;"> xtrabackup: innodb_log_file_size = 1073741824</span><br />
+<span style="color: #0000ff;"> xtrabackup: using O_DIRECT</span><br />
+<span style="color: #0000ff;"> >> log scanned up to (1766161)</span><br />
+<span style="color: #0000ff;"> [01] Copying ./ibdata1 to /db/backup/test/20130507/all/ibdata1</span><br />
+<span style="color: #0000ff;"> [01] ...done</span><br />
+<span style="color: #0000ff;"> [01] Copying ./testdb/t1.ibd to /db/backup/test/20130507/all/./testdb/t1.ibd</span><br />
+<span style="color: #0000ff;"> [01] ...done</span></p>
+<p><span style="color: #0000ff;">130507 13:53:13 innobackupex: Continuing after ibbackup has suspended</span><br />
+<span style="color: #0000ff;"> 130507 13:53:13 innobackupex: Starting mysql with options: --defaults-file='/etc/my7.cnf' --password=xxxxxxxx --user='backup' --host='192.168.10.178' --port='3300' --unbuffered --</span><br />
+<span style="color: #0000ff;"> 130507 13:53:13 innobackupex: Connected to database with mysql child process (pid=29741)</span><br />
+<span style="color: #0000ff;"> 130507 13:53:15 innobackupex: Starting to lock all tables...</span><br />
+<span style="color: #0000ff;"> >> log scanned up to (1766161)</span><br />
+<span style="color: #0000ff;"> >> log scanned up to (1766161)</span><br />
+<span style="color: #0000ff;"> 130507 13:53:26 innobackupex: All tables locked and flushed to disk</span><br />
+<span style="color: #0000ff;"> >> log scanned up to (1766161)</span></p>
+<p><span style="color: #0000ff;">130507 13:53:28 innobackupex: Starting to backup non-InnoDB tables and files</span><br />
+<span style="color: #0000ff;"> innobackupex: in subdirectories of '/db/data7'</span><br />
+<span style="color: #0000ff;"> innobackupex: Backing up file '/db/data7/testdb/db.opt'</span><br />
+<span style="color: #0000ff;"> innobackupex: Backing up file '/db/data7/testdb/t1.frm'</span><br />
+<span style="color: #0000ff;"> innobackupex: Backing up files '/db/data7/mysql/*.{frm,MYD,MYI,MAD,MAI,MRG,TRG,TRN,ARM,ARZ,CSM,CSV,opt,par}' (72 files)</span><br />
+<span style="color: #0000ff;"> innobackupex: Backing up files '/db/data7/performance_schema/*.{frm,MYD,MYI,MAD,MAI,MRG,TRG,TRN,ARM,ARZ,CSM,CSV,opt,par}' (18 files)</span><br />
+<span style="color: #0000ff;"> 130507 13:53:28 innobackupex: Finished backing up non-InnoDB tables and files</span></p>
+<p><span style="color: #0000ff;">130507 13:53:28 innobackupex: Waiting for log copying to finish</span></p>
+<p><span style="color: #0000ff;">xtrabackup: The latest check point (for incremental): '1766161'</span><br />
+<span style="color: #0000ff;"> xtrabackup: Stopping log copying thread.</span><br />
+<span style="color: #0000ff;"> .>> log scanned up to (1766161)</span></p>
+<p><span style="color: #0000ff;">xtrabackup: Transaction log of lsn (1766161) to (1766161) was copied.</span><br />
+<span style="color: #0000ff;"> 130507 13:53:31 innobackupex: All tables unlocked</span><br />
+<span style="color: #0000ff;"> 130507 13:53:31 innobackupex: Connection to database server closed</span></p>
+<p><span style="color: #0000ff;">innobackupex: Backup created in directory '/db/backup/test/20130507/all'</span><br />
+<span style="color: #0000ff;"> innobackupex: MySQL binlog position: filename 'sm_7db-bin.000006', position 2794</span><br />
+<span style="color: #0000ff;"> innobackupex: MySQL slave binlog position: master host '', filename '', position</span><br />
+<span style="color: #0000ff;"> 130507 13:53:31 innobackupex: completed OK!</span></p>
+<p>从上述输出，可以看出备份执行的大致过程：</p>
+<ol>
+<li>innobackupex尝试连接数据库，确认可连接；</li>
+<li>由于未指定应用程序，连接数据库确认MySQL服务器的版本，以便确定使用哪个二进制文件进行后续操作；</li>
+<li>由确定的程序（这里为xtrabackup_55，带上获取到的或默认的选项内容）执行，备份事务型存储引擎表；</li>
+<li>事务型存储引擎表备份完成后，执行FLUSH TABLES WITH READ LOCK，锁定所有表，刷新数据到磁盘；</li>
+<li>拷贝剩余的文件；</li>
+<li>释放表锁；</li>
+<li>打印出binlog相关信息；</li>
+<li>看到innobackupex: completed OK!，确定顺利完成备份。</li><br />
+</ol><br />
+查看生成的备份文件<br />
+<span style="color: #0000ff;">shell>ls -lrt /db/backup/test/20130507/all</span><br />
+<span style="color: #0000ff;"> total 18468</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 263 May 7 13:53 backup-my.cnf</span> #启动实例所需的最基础的[mysqld]的InnoDB配置<br />
+<span style="color: #0000ff;">-rw-r-----. 1 mysql mysql 18874368 May 7 13:53 ibdata1</span> #数据文件<br />
+<span style="color: #0000ff;">-rw-r--r--. 1 mysql mysql 25 May 7 13:53 xtrabackup_binlog_info</span> #快照生成时对应的binlog坐标（文件名称+位置），信息取自SHOW MASTER STATUS<br />
+<span style="color: #0000ff;">-rw-r--r--. 1 mysql mysql 53 May 7 13:53 xtrabackup_slave_info</span> #作为slave，对应到master的信息<br />
+<span style="color: #0000ff;">drwx------. 2 mysql mysql 4096 May 7 13:53 testdb</span> #数据文件夹<br />
+<span style="color: #0000ff;">drwxr-xr-x. 2 mysql mysql 4096 May 7 13:53 mysql</span> #数据文件夹<br />
+<span style="color: #0000ff;">drwxr-xr-x. 2 mysql mysql 4096 May 7 13:53 performance_schema</span> #数据文件夹<br />
+<span style="color: #0000ff;">-rw-r-----. 1 mysql mysql 2560 May 7 13:53 xtrabackup_logfile</span> #拷贝过程中的事务日志<br />
+<span style="color: #0000ff;">-rw-r-----. 1 mysql mysql 77 May 7 13:53 xtrabackup_checkpoints</span> #记录备份信息，包括类型(全备、增备)，状态，lsn信息等。这些信息可以用于全备后对应的增备。<br />
+<span style="color: #0000ff;">-rw-r--r--. 1 mysql mysql 13 May 7 13:53 xtrabackup_binary</span> #记录备份时使用的二进制程序<br />
+<span style="color: #0000ff;">shell>cd /db/backup/test/20130507/all</span><br />
+<span style="color: #0000ff;"> shell>cat backup-my.cnf</span><br />
+<span style="color: #0000ff;"> # This MySQL options file was generated by innobackupex.</span><br />
+<span style="color: #0000ff;"> # The MySQL server</span><br />
+<span style="color: #0000ff;"> [mysqld]</span><br />
+<span style="color: #0000ff;"> innodb_data_file_path=ibdata1:10M:autoextend</span><br />
+<span style="color: #0000ff;"> innodb_log_files_in_group=2</span><br />
+<span style="color: #0000ff;"> innodb_log_file_size=1073741824</span><br />
+<span style="color: #0000ff;"> innodb_fast_checksum=0</span><br />
+<span style="color: #0000ff;"> innodb_page_size=16384</span><br />
+<span style="color: #0000ff;"> innodb_log_block_size=512</span><br />
+<span style="color: #0000ff;"> shell>cat xtrabackup_binlog_info</span><br />
+<span style="color: #0000ff;"> sm_7db-bin.000006 2794</span><br />
+<span style="color: #0000ff;"> shell>cat xtrabackup_slave_info</span> #由于该库不是slave，所以没有有效master信息<br />
+<span style="color: #0000ff;">CHANGE MASTER TO MASTER_LOG_FILE='', MASTER_LOG_POS=</span><br />
+<span style="color: #0000ff;"> shell>cat xtrabackup_checkpoints</span><br />
+<span style="color: #0000ff;"> backup_type = full-backuped</span><br />
+<span style="color: #0000ff;"> from_lsn = 0</span><br />
+<span style="color: #0000ff;"> to_lsn = 1766161</span><br />
+<span style="color: #0000ff;"> last_lsn = 1766161</span><br />
+<span style="color: #0000ff;"> shell>cat xtrabackup_binary</span><br />
+<span style="color: #0000ff;"> xtrabackup_55</span></p>
+<p><strong>b)恢复完全备份</strong><br />
+备份完成后，插入了些数据到t1表中<br />
+<span style="color: #0000ff;">mysql> select * from t1;</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> | id |</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> | 1 |</span><br />
+<span style="color: #0000ff;"> | 2 |</span><br />
+<span style="color: #0000ff;"> | 3 |</span><br />
+<span style="color: #0000ff;"> | 5 |</span><br />
+<span style="color: #0000ff;"> | 6 |</span><br />
+<span style="color: #0000ff;"> | 7 |</span><br />
+<span style="color: #0000ff;"> | 8 |</span><br />
+<span style="color: #0000ff;"> | 9 |</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> 8 rows in set (0.00 sec)</span><br />
+现在想恢复到完整备份时的数据，所有库。</p>
+<p>首先需要prepare，将备份数据进行一致性处理，使其可用。<br />
+<span style="color: #0000ff;">shell>innobackupex --apply-log /db/backup/test/20130507/all</span> #可以添加y--use-memory=2GB加速prepare过程<br />
+prepare完成后，再查看下备份文件<br />
+<span style="color: #0000ff;">shell>ls -lrt</span><br />
+<span style="color: #0000ff;"> total 2117676</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 263 May 7 13:53 backup-my.cnf</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 25 May 7 13:53 xtrabackup_binlog_info</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 53 May 7 13:53 xtrabackup_slave_info</span><br />
+<span style="color: #0000ff;"> drwx------. 2 mysql mysql 4096 May 7 13:53 testdb</span><br />
+<span style="color: #0000ff;"> drwxr-xr-x. 2 mysql mysql 4096 May 7 13:53 mysql</span><br />
+<span style="color: #0000ff;"> drwxr-xr-x. 2 mysql mysql 4096 May 7 13:53 performance_schema</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 13 May 7 13:53 xtrabackup_binary</span><br />
+<span style="color: #0000ff;"> -rw-r-----. 1 mysql mysql 2097152 May 7 14:10 xtrabackup_logfile</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 1073741824 May 7 14:11 ib_logfile1</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 32 May 7 14:11 xtrabackup_binlog_pos_innodb</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 1073741824 May 7 14:11 ib_logfile0</span><br />
+<span style="color: #0000ff;"> -rw-r-----. 1 mysql mysql 18874368 May 7 14:11 ibdata1</span><br />
+<span style="color: #0000ff;"> -rw-r-----. 1 mysql mysql 77 May 7 14:11 xtrabackup_checkpoints</span><br />
+根据更新时间的不同，可以看到新生成了三个文件，更新了三个文件。</p>
+<p>新生成的文件包括：</p>
+<p>1.<strong>ib_logfile0、ib_logfile1</strong>是根据backup-my.cnf生成的InnoDB日志文件；<br />
+2.<strong>xtrabackup_binlog_pos_innodb</strong>是二进制日志坐标信息，根据备份期间的事务日志进行日志校准，这个只在数据库实例下只有InnoDB或XtraDB两种类型表更新的情况下才准确。</p>
+<p>更新的文件包括：<br />
+1.<strong>xtrabackup_logfile</strong><br />
+2.<strong>ibdata1</strong>将备份期间的变化写入数据文件<br />
+3.<strong>xtrabackup_checkpoints</strong>记录的是当前状态，查看内容<br />
+backup_type = full-prepared<br />
+from_lsn = 0<br />
+to_lsn = 1766161<br />
+last_lsn = 1766161<br />
+发现type变成了full-prepared。</p>
+<p><strong>进行恢复操作</strong><br />
+<span style="color: #0000ff;">shell>innobackupex --copy-back /db/backup/test/20130507/all</span><br />
+报错：<br />
+<span style="color: #0000ff;">Original data directory './' is not empty! at /db/script/armyknife/xtrabackup/bin/innobackupex line 580.</span><br />
+从这个错可以看出，第一、不指定的话，其不知道copy-back的目标地址，默认就在工作目录；第二、目标目录不能非空。</p>
+<p>由此可以看出，我们可以将完整备份恢复到任意指定空目录。<br />
+<span style="color: #0000ff;">shell>service mysql7 stop</span> #恢复时，必须关闭当前服务器<br />
+<span style="color: #0000ff;">shell>rm -rf /db/data7/* /db/log7/* /db/tmp7/*</span><br />
+<span style="color: #0000ff;">shell>innobackupex --copy-back --defaults-file=/etc/my7.cnf /db/backup/test/20130507/all</span><br />
+如果执行拷贝的不是mysql用户，则应将恢复的文件拥有者修改为mysql，避免启动时遇到读写权限问题。<br />
+<span style="color: #0000ff;">shell>chmod -R mysql.mysql /db/data7 /db/log7</span><br />
+可以看到，恢复只把数据文件拷贝到了/db/data7下，其余目录没有文件<br />
+<span style="color: #0000ff;">shell>ls -lrt /db/data7 /db/log7 /db/tmp7</span><br />
+<span style="color: #0000ff;"> /db/tmp7:</span><br />
+<span style="color: #0000ff;"> total 0</span></p>
+<p><span style="color: #0000ff;">/db/log7:</span><br />
+<span style="color: #0000ff;"> total 0</span></p>
+<p><span style="color: #0000ff;">/db/data7:</span><br />
+<span style="color: #0000ff;"> total 18452</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 53 May 8 11:59 xtrabackup_slave_info</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 32 May 8 11:59 xtrabackup_binlog_pos_innodb</span><br />
+<span style="color: #0000ff;"> drwxr-xr-x. 2 mysql mysql 4096 May 8 11:59 testdb</span><br />
+<span style="color: #0000ff;"> drwxr-xr-x. 2 mysql mysql 4096 May 8 11:59 mysql</span><br />
+<span style="color: #0000ff;"> drwxr-xr-x. 2 mysql mysql 4096 May 8 11:59 performance_schema</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 18874368 May 8 11:59 ibdata1</span><br />
+<span style="color: #0000ff;"> shell>service mysql7 start</span> #启动<br />
+<span style="color: #0000ff;">mysql> select * from t1;</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> | id |</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> | 1 |</span><br />
+<span style="color: #0000ff;"> | 2 |</span><br />
+<span style="color: #0000ff;"> | 3 |</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> 3 rows in set (0.00 sec)</span><br />
+可以看到，数据恢复到了备份时的状态。</p>
+<p><strong>c)增备整个实例</strong><br />
+增备需要首先由一个全备，然后在全备的基础之上进行增量备份。<br />
+以下模拟全备+增备1+增备2->恢复的流程。</p>
+<p><strong>步骤一、全备</strong><br />
+<span style="color: #0000ff;">shell>innobackupex --host=192.168.10.178 --port=3300 --user=backup --password=23khfisF --defaults-file=/etc/my7.cnf --slave-info --no-timestamp /db/backup/test/20130507/all2/</span><br />
+<span style="color: #0000ff;"> shell>cat /db/backup/test/20130507/all2/xtrabackup_checkpoints</span><br />
+<span style="color: #0000ff;"> backup_type = full-backuped</span><br />
+<span style="color: #0000ff;"> from_lsn = 0</span><br />
+<span style="color: #0000ff;"> to_lsn = 1766934</span><br />
+<span style="color: #0000ff;"> last_lsn = 1766934</span></p>
+<p><strong>步骤二、增备1</strong><br />
+备份完成后，对现有表t1进行些插入操作，生成增量数据。<br />
+<span style="color: #0000ff;">mysql> select * from t1;</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> | id |</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> | 1 |</span><br />
+<span style="color: #0000ff;"> | 2 |</span><br />
+<span style="color: #0000ff;"> | 3 |</span><br />
+<span style="color: #0000ff;"> | 4 |</span><br />
+<span style="color: #0000ff;"> | 5 |</span><br />
+<span style="color: #0000ff;"> | 6 |</span><br />
+<span style="color: #0000ff;"> | 7 |</span><br />
+<span style="color: #0000ff;"> | 8 |</span><br />
+<span style="color: #0000ff;"> | 9 |</span><br />
+<span style="color: #0000ff;"> | 10 |</span><br />
+<span style="color: #0000ff;"> | 11 |</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> 11 rows in set (0.00 sec)</span><br />
+<span style="color: #0000ff;">shell>innobackupex --host=192.168.10.178 --port=3300 --user=backup --password=23khfisF --defaults-file=/etc/my7.cnf --slave-info --no-timestamp --incremental --incremental-basedir=/db/backup/test/20130507/all2/ /db/backup/test/20130507/all2inc</span><br />
+看下生成的备份文件<br />
+<span style="color: #0000ff;">shell>ls -lrt /db/backup/test/20130507/all2inc</span><br />
+<span style="color: #0000ff;"> total 392</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 263 May 8 15:19 backup-my.cnf</span><br />
+<span style="color: #0000ff;"> -rw-r-----. 1 mysql mysql 360448 May 8 15:19 ibdata1.delta</span><br />
+<span style="color: #0000ff;"> -rw-r-----. 1 mysql mysql 44 May 8 15:19 ibdata1.meta</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 25 May 8 15:20 xtrabackup_binlog_info</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 53 May 8 15:20 xtrabackup_slave_info</span><br />
+<span style="color: #0000ff;"> drwx------. 2 mysql mysql 4096 May 8 15:20 testdb</span><br />
+<span style="color: #0000ff;"> drwxr-xr-x. 2 mysql mysql 4096 May 8 15:20 mysql</span><br />
+<span style="color: #0000ff;"> drwxr-xr-x. 2 mysql mysql 4096 May 8 15:20 performance_schema</span><br />
+<span style="color: #0000ff;"> -rw-r-----. 1 mysql mysql 2560 May 8 15:20 xtrabackup_logfile</span><br />
+<span style="color: #0000ff;"> -rw-r-----. 1 mysql mysql 81 May 8 15:20 xtrabackup_checkpoints</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 13 May 8 15:20 xtrabackup_binary</span><br />
+<span style="color: #0000ff;"> shell>cd /db/backup/test/20130507/all2inc</span><br />
+<span style="color: #0000ff;"> shell>cat ibdata1.meta</span><br />
+<span style="color: #0000ff;"> page_size = 16384</span><br />
+<span style="color: #0000ff;"> zip_size = 0</span><br />
+<span style="color: #0000ff;"> space_id = 0</span><br />
+<span style="color: #0000ff;">shell>cat xtrabackup_checkpoints</span><br />
+<span style="color: #0000ff;"> backup_type = incremental</span><br />
+<span style="color: #0000ff;"> from_lsn = 1766934</span><br />
+<span style="color: #0000ff;"> to_lsn = 1769227</span><br />
+<span style="color: #0000ff;"> last_lsn = 1769227</span></p>
+<p><strong>步骤三、增备2</strong><br />
+在增备1的基础之上再做增备，生成增量数据<br />
+<span style="color: #0000ff;">mysql> select * from t1;</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> | id |</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> | 1 |</span><br />
+<span style="color: #0000ff;"> | 2 |</span><br />
+<span style="color: #0000ff;"> | 3 |</span><br />
+<span style="color: #0000ff;"> | 4 |</span><br />
+<span style="color: #0000ff;"> | 5 |</span><br />
+<span style="color: #0000ff;"> | 6 |</span><br />
+<span style="color: #0000ff;"> | 7 |</span><br />
+<span style="color: #0000ff;"> | 8 |</span><br />
+<span style="color: #0000ff;"> | 9 |</span><br />
+<span style="color: #0000ff;"> | 10 |</span><br />
+<span style="color: #0000ff;"> | 11 |</span><br />
+<span style="color: #0000ff;"> | 12 |</span><br />
+<span style="color: #0000ff;"> | 13 |</span><br />
+<span style="color: #0000ff;"> | 14 |</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> 14 rows in set (0.00 sec)</span><br />
+<span style="color: #0000ff;"> shell>innobackupex --host=192.168.10.178 --port=3300 --user=backup --password=23khfisF --defaults-file=/etc/my7.cnf --slave-info --no-timestamp --incremental --incremental-basedir=/db/backup/test/20130507/all2inc/ /db/backup/test/20130507/all2inc2</span><br />
+<span style="color: #0000ff;"> shell>cd /db/backup/test/20130507/all2inc2</span><br />
+<span style="color: #0000ff;"> shell>cat ibdata1.meta</span><br />
+<span style="color: #0000ff;"> page_size = 16384</span><br />
+<span style="color: #0000ff;"> zip_size = 0</span><br />
+<span style="color: #0000ff;"> space_id = 0</span><br />
+<span style="color: #0000ff;"> shell>cat xtrabackup_checkpoints</span><br />
+<span style="color: #0000ff;"> backup_type = incremental</span><br />
+<span style="color: #0000ff;"> from_lsn = 1769227</span><br />
+<span style="color: #0000ff;"> to_lsn = 1770078</span><br />
+<span style="color: #0000ff;"> last_lsn = 1770078</span></p>
+<p>以上三个步骤，根据lsn的变化，可以看出备份间的关系，全备为0->1766934，增备1为1766934->1769227，增备2为1769227到1770078。</p>
+<p><strong>d）恢复全备+增备</strong><br />
+要想恢复到增备2的结束点，应该依次处理全备、增备1、增备2。步骤如下：<br />
+<strong>1）全备prepare</strong>：针对全备文件进行redo，注意这里不进行完整的prepare，即不需要执行undo，否则无法与增备文件合并处理。<br />
+<span style="color: #0000ff;">shell>innobackupex --apply-log --redo-only /db/backup/test/20130507/all2/</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+<span style="color: #0000ff;"> 130508 15:50:21 InnoDB: Shutdown completed; log sequence number 1766934</span><br />
+<span style="color: #0000ff;"> 130508 15:50:21 innobackupex: completed OK!</span><br />
+<span style="color: #0000ff;"> shell>cat xtrabackup_checkpoints</span><br />
+<span style="color: #0000ff;"> backup_type = full-prepared</span><br />
+<span style="color: #0000ff;"> from_lsn = 0</span><br />
+<span style="color: #0000ff;"> to_lsn = 1766934</span><br />
+<span style="color: #0000ff;"> last_lsn = 1766934</span><br />
+<strong>2）合并增备1</strong><br />
+<span style="color: #0000ff;">shell>innobackupex --apply-log --redo-only /db/backup/test/20130507/all2/ --incremental-dir=/db/backup/test/20130507/all2inc</span><br />
+<span style="color: #0000ff;"> shell>cat /db/backup/test/20130507/all2/xtrabackup_checkpoints</span><br />
+<span style="color: #0000ff;"> backup_type = full-prepared</span><br />
+<span style="color: #0000ff;"> from_lsn = 0</span><br />
+<span style="color: #0000ff;"> to_lsn = 1769227</span><br />
+<span style="color: #0000ff;"> last_lsn = 1769227</span><br />
+可以看到全备文件被更新了，lsn前进到第一次增备的位置。<br />
+<strong>3）合并增备2</strong><br />
+这次不需要--redo-only，因为这是备份序列中的最后一个，不指定--redo-only可以使生成的完整备份处于可用状态。当然也可以指定--redo-only，这样当备份时，需要MySQL服务器进行rollback，会消耗启动时间。<br />
+<span style="color: #0000ff;">shell>innobackupex --apply-log /db/backup/test/20130507/all2/ --incremental-dir=/db/backup/test/20130507/all2inc2</span><br />
+<span style="color: #0000ff;"> shell>cat /db/backup/test/20130507/all2/xtrabackup_checkpoints</span><br />
+<span style="color: #0000ff;"> backup_type = full-prepared</span><br />
+<span style="color: #0000ff;"> from_lsn = 0</span><br />
+<span style="color: #0000ff;"> to_lsn = 1770078</span><br />
+<span style="color: #0000ff;"> last_lsn = 1770078</span></p>
+<p>至此，/db/backup/test/20130507/all2/中保存的就是prepare后的备份记录，可以随时用于恢复。</p>
+<p><span style="color: #0000ff;">shell>service mysql7 stop</span> #恢复时，必须关闭当前服务器<br />
+<span style="color: #0000ff;">shell>rm -rf /db/data7/* /db/log7/* /db/tmp7/*</span><br />
+<span style="color: #0000ff;"> shell>innobackupex --copy-back --defaults-file=/etc/my7.cnf /db/backup/test/20130507/all2</span><br />
+<span style="color: #0000ff;"> shell>service mysql7 start</span><br />
+<span style="color: #0000ff;"> mysql> select * from t1;</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> | id |</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> | 1 |</span><br />
+<span style="color: #0000ff;"> | 2 |</span><br />
+<span style="color: #0000ff;"> | 3 |</span><br />
+<span style="color: #0000ff;"> | 4 |</span><br />
+<span style="color: #0000ff;"> | 5 |</span><br />
+<span style="color: #0000ff;"> | 6 |</span><br />
+<span style="color: #0000ff;"> | 7 |</span><br />
+<span style="color: #0000ff;"> | 8 |</span><br />
+<span style="color: #0000ff;"> | 9 |</span><br />
+<span style="color: #0000ff;"> | 10 |</span><br />
+<span style="color: #0000ff;"> | 11 |</span><br />
+<span style="color: #0000ff;"> | 12 |</span><br />
+<span style="color: #0000ff;"> | 13 |</span><br />
+<span style="color: #0000ff;"> | 14 |</span><br />
+<span style="color: #0000ff;"> +------+</span><br />
+<span style="color: #0000ff;"> 14 rows in set (0.00 sec)</span></p>
+<p>与增备2后的状态一致！</p>
+<p><strong>e）部分备份，指定库和表</strong><br />
+Xtrabackup支持部分备份，可以是指定的库和表。<br />
+实现部分备份的前提，是启用了<strong>innodb_file_per_table</strong>选项。这里我们已经启用。</p>
+<p><strong>注意：恢复部分备份，不应该使用--copy-back的方式，虽然有些情况下可以实现恢复，但是更多时候会有数据文件信息和共享表空间存储的元信息不一致的情况，导致问题的产生。要恢复部分备份，应改用import的方式。</strong></p>
+<p>实现部分备份，可以指定--include或--tables-file或--databases。</p>
+<p><span style="color: #0000ff;">shell>mkdir -p /db/backup/test/20130510</span><br />
+<strong>1)--databases</strong><br />
+<span style="color: #0000ff;">shell>innobackupex --host=192.168.10.178 --port=3300 --user=backup --password=23khfisF --databases="testdb mysql.user mysql.db" --defaults-file=/etc/my7.cnf --slave-info --safe-slave-backup --no-timestamp /db/backup/test/20130510/p1</span><br />
+<span style="color: #0000ff;"> shell>ls -lrt /db/backup/test/20130510/p1/mysql</span><br />
+<span style="color: #0000ff;"> total 36</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 9582 May 8 16:39 db.frm</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 764 May 8 16:39 user.MYD</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 2048 May 8 16:39 user.MYI</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 10630 May 8 16:39 user.frm</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 0 May 8 16:39 db.MYD</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 2048 May 8 16:39 db.MYI</span></p>
+<p><strong>2)--tables-file</strong><br />
+在testdb下创建表t2,t33表，包含与t1相同的结构和数据，再使用--tables-file进行备份。<br />
+<span style="color: #0000ff;">shell>vi /tmp/bk.txt</span><br />
+<span style="color: #0000ff;"> testdb.t1</span><br />
+<span style="color: #0000ff;"> testdb.t33</span><br />
+<span style="color: #0000ff;"> mysql.db</span><br />
+<span style="color: #0000ff;"> shell>innobackupex --host=192.168.10.178 --port=3300 --user=backup --password=23khfisF --tables-file=/tmp/bk.txt --defaults-file=/etc/my7.cnf --slave-info --safe-slave-backup --no-timestamp /db/backup/test/20130510/p2</span><br />
+<span style="color: #0000ff;"> shell>ls -lrt /db/backup/test/20130510/p2/testdb</span><br />
+<span style="color: #0000ff;"> total 216</span><br />
+<span style="color: #0000ff;"> -rw-r--r--. 1 mysql mysql 8556 May 8 16:39 t1.frm</span><br />
+<span style="color: #0000ff;"> -rw-rw----. 1 mysql mysql 8556 May 10 09:35 t33.frm</span><br />
+<span style="color: #0000ff;"> -rw-r-----. 1 mysql mysql 98304 May 10 10:22 t33.ibd</span><br />
+<span style="color: #0000ff;"> -rw-r-----. 1 mysql mysql 98304 May 10 10:22 t1.ibd</span></p>
+<p><strong>3)--include</strong><br />
+经测试，--include=<正则> 的方式，正则似乎并不好用，支持得不好，不推荐使用。</p>
+<p>可以看到，部分备份，只包含指定的库、表的文件，未指定的表不会备份出来。</p>
+<p><strong>f)恢复指定库和表</strong><br />
+首先需要prepare，将备份数据进行一致性处理，使其可用<br />
+<span style="color: #0000ff;"> shell>innobackupex --apply-log --export /db/backup/test/20130510/p2</span><br />
+执行过程中会报如下类似信息：<br />
+<em>130510 11:03:03 InnoDB: Error: table 'testdb/t2'</em><br />
+<em>&nbsp;&nbsp;&nbsp;&nbsp; InnoDB: in InnoDB data dictionary has tablespace id 8,</em><br />
+<em>&nbsp;&nbsp;&nbsp;&nbsp; InnoDB: but tablespace with that id or name does not exist. It will be removed from data dictionary.</em><br />
+由于数据文件时部分备份，而共享表空间包含未备份出的表、库信息，所以会报类似上述错误，innobackupex会用xtrabackup从共享表空间中删除这部分未备份出来的表的信息。未来使用就不会再报类似错误。<br />
+如果指定了export，则会生成如下信息<br />
+<em>130510 11:03:04 Percona XtraDB (http://www.percona.com) 1.1.8-20.1 started; log sequence number 1778362</em><br />
+<em>&nbsp;&nbsp;&nbsp;&nbsp; xtrabackup: export option is specified.</em><br />
+<em>&nbsp;&nbsp;&nbsp;&nbsp; xtrabackup: export metadata of table 'testdb/t33' to file `./testdb/t33.exp` (1 indexes)</em><br />
+<em>&nbsp;&nbsp;&nbsp;&nbsp; xtrabackup: name=GEN_CLUST_INDEX, id.low=22, page=3</em><br />
+<em>&nbsp;&nbsp;&nbsp;&nbsp; xtrabackup: export metadata of table 'testdb/t1' to file `./testdb/t1.exp` (1 indexes)</em><br />
+<em>&nbsp;&nbsp;&nbsp;&nbsp; xtrabackup: name=GEN_CLUST_INDEX, id.low=20, page=3</em><br />
+和以前一样，看到130510 11:03:21 innobackupex: completed OK!就可以认为prepare完成。</p>
+<p>prepare后，可以通过两种方式实现恢复：<br />
+<strong>方法一、import</strong><br />
+针对Percona Server的XtraDB引擎，可以import到任何实例和任何库下，只要prepare时指定了--export即可。<br />
+而<span style="color: #ff0000;">普通的5.6以前版本的MySQL服务器，import只能是恢复到原实例、原表，该表不能是备份后重建过或者truncate过</span>。因为即使是独立表空间，InnoDB表的表定义信息还是保存在共享表空间中，而表定义信息是包含了db name以及table id(表重建或truncate后就更新了)等，而且独立表空间文件中，transaction ID和log sequence number不同实例又是不一样的。<br />
+这里，针对恢复回原环境，我们可以：<br />
+<span style="color: #0000ff;">shell>alter table t1 discard tablespace;</span><br />
+然后将备份的t1.ibd文件拷贝至t1.frm所在目录，然后：<br />
+<span style="color: #0000ff;">shell>alter table t1 import tablespace;</span><br />
+这样，就可以重新操作t1了，数据是备份时的数据。</p>
+<p><strong>方法二、直接拷贝至干净的datadir目录，干净意指没有其他库和表，当然，确保datadir目录下有mysql库</strong>。操作不再赘述。</p>
+<h2>3.小结</h2><br />
+以上的实践仅仅针对基本的备份和恢复操作，未涉及到远程备份、压缩等。初步实践下来，针对我们使用的MySQL 5.5版本，整个实例备份和制定库表备份均可，但是备份的独立的表在使用上没有mysqldump出的逻辑备份那么易于迁移和和使用。Xtrabackup可以作为逻辑备份的辅助，尤其针对大库大表可以节省大量的CPU时间。</p>

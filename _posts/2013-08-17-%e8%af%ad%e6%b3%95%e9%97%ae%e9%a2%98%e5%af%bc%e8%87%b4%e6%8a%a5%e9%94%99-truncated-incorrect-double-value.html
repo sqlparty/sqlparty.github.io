@@ -1,0 +1,114 @@
+---
+layout: post
+status: publish
+published: true
+title: 语法问题导致报错 Truncated incorrect DOUBLE value
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "有如下表和如下数据：\r\n\r\n[sql]\r\ncreate table items\r\n(\r\n   id int primary
+  key,\r\n   short_description varchar(255),\r\n   additional text\r\n);\r\n\r\nmysql>
+  select * from items;\r\n+----+-------------------+------------+\r\n| id | short_description
+  | additional |\r\n+----+-------------------+------------+\r\n|  1 | NULL              |
+  NULL       |\r\n|  2 | NULL              | NULL       |\r\n|  3 | abc1              |
+  NULL       |\r\n|  4 | 234rc             | NULL       |\r\n|  5 | NULL              |
+  haha       |\r\n+----+-------------------+------------+\r\n5 rows in set (0.00 sec)\r\n[/sql]\r\n\r\n想执行一个update操作，但是却报错如下信息：\r\n\r\n[sql]\r\nmysql>
+  update items set short_description='no description' and additional='no additional
+  comments' where short_description is null;\r\nERROR 1292 (22007): Truncated incorrect
+  DOUBLE value: 'no description'\r\n[/sql]\r\n\r\n这是个奇怪的报错信息， 'no description'与DOUBLE值有什么关系呢？\r\n\r\n"
+wordpress_id: 430
+wordpress_url: http://www.sqlparty.com/?p=430
+date: '2013-08-17 17:03:16 +0800'
+date_gmt: '2013-08-17 09:03:16 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+- 问题集
+---
+<p>有如下表和如下数据：</p>
+<p>[sql]<br />
+create table items<br />
+(<br />
+   id int primary key,<br />
+   short_description varchar(255),<br />
+   additional text<br />
+);</p>
+<p>mysql> select * from items;<br />
++----+-------------------+------------+<br />
+| id | short_description | additional |<br />
++----+-------------------+------------+<br />
+|  1 | NULL              | NULL       |<br />
+|  2 | NULL              | NULL       |<br />
+|  3 | abc1              | NULL       |<br />
+|  4 | 234rc             | NULL       |<br />
+|  5 | NULL              | haha       |<br />
++----+-------------------+------------+<br />
+5 rows in set (0.00 sec)<br />
+[/sql]</p>
+<p>想执行一个update操作，但是却报错如下信息：</p>
+<p>[sql]<br />
+mysql> update items set short_description='no description' and additional='no additional comments' where short_description is null;<br />
+ERROR 1292 (22007): Truncated incorrect DOUBLE value: 'no description'<br />
+[/sql]</p>
+<p>这是个奇怪的报错信息， 'no description'与DOUBLE值有什么关系呢？</p>
+<p><!--more--></p>
+<p>显然，是update操作导致的这个错误，那么为什么会有这样的一个错呢？分析一下这个update语句。<br />
+<span style="color: #0000ff;">update items</span> 更新指定表，OK<br />
+<span style="color: #0000ff;">where short_description is null;</span> 指定筛选条件，NULL的判断用IS NULL，也没问题！<br />
+<span style="color: #0000ff;">set short_description='no description' and additional='no additional comments'</span> 初看没有问题，其实是存在语法错误！更新多个字段，用逗号(,)进行分隔。而用and则使得'no description' and additional='no additional comments' 变成了一个表达式，即等同于<br />
+<span style="color: #0000ff;"> set short_description=('no description' and additional='no additional comments')</span></p>
+<p>测试之：</p>
+<p>[sql]<br />
+mysql> update items set short_description=('no description' and additional='no additional comments') where short_description is null;<br />
+ERROR 1292 (22007): Truncated incorrect DOUBLE value: 'no description'<br />
+[/sql]</p>
+<p>果然如此，那为什么是这样的错误信息呢？<br />
+我们将其转换为SELECT进行检查，指定mysql --column-type-info后可以看到返回列的类型信息。<br />
+<span style="color: #0000ff;"> shell>mysql --column-type-info -h 127.0.0.1 -u root -pabc -P 3310</span></p>
+<p>[sql]<br />
+mysql>SELECT 'no description' AND additional = 'no additional comments' FROM items where short_description is null;<br />
+Field   1:  `'no description' AND additional = 'no additional comments'`<br />
+Catalog:    `def`<br />
+Database:   ``<br />
+Table:      ``<br />
+Org_table:  ``<br />
+Type:       LONGLONG<br />
+Collation:  binary (63)<br />
+Length:     1<br />
+Max_length: 1<br />
+Decimals:   0<br />
+Flags:      BINARY NUM</p>
+<p>+------------------------------------------------------------+<br />
+| 'no description' AND additional = 'no additional comments' |<br />
++------------------------------------------------------------+<br />
+|                                                          0 |<br />
+|                                                          0 |<br />
+|                                                          0 |<br />
++------------------------------------------------------------+<br />
+3 rows in set, 3 warnings (0.02 sec)</p>
+<p>mysql> show warnings;<br />
++---------+------+----------------------------------------------------+<br />
+| Level   | Code | Message                                            |<br />
++---------+------+----------------------------------------------------+<br />
+| Warning | 1292 | Truncated incorrect DOUBLE value: 'no description' |<br />
+| Warning | 1292 | Truncated incorrect DOUBLE value: 'no description' |<br />
+| Warning | 1292 | Truncated incorrect DOUBLE value: 'no description' |<br />
++---------+------+----------------------------------------------------+<br />
+3 rows in set (0.00 sec)<br />
+[/sql]</p>
+<p>注意返回结果是LONGLONG，所以其实在执行内部有转化，and操作符两侧必须是数字型，那么需要将 'no description'转换为整型或者布尔型false，所以有此警告与上述报错。</p>
+<p>而上述我们可以看到，<strong>select会通过，仅仅是报警告，而update涉及到数据更新，会报错。</strong></p>
+<p>分析完结果，我们知道了原因，而修复非常简单，修复语法错误即可。</p>
+<p>[sql]<br />
+mysql> update items<br />
+           set short_description= 'no description',<br />
+                additional='no additional comments'<br />
+            where short_description is null;<br />
+[/sql]</p>
+<p>参考：<br />
+《MySQL Troubleshooting》</p>

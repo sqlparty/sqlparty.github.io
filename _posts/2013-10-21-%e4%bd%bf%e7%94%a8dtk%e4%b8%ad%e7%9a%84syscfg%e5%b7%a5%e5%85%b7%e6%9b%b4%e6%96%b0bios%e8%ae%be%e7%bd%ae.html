@@ -1,0 +1,276 @@
+---
+layout: post
+status: publish
+published: true
+title: 使用DTK中的syscfg工具更新BIOS设置
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "DTK(Dell OpenManage Deployment Toolkit)是Dell开发的针对其服务器进行的管理部署工具箱，其中包括了很多有用的信息。这里使用syscfg工具，对BIOS进行设置调优，这在主机只能远程操作的情况下非常有用。它可以与<a
+  title=\"使用OMSA解决Linux下&rdquo;Package power limit notification&rdquo;问题\" href=\"http://www.sqlparty.com/%e4%bd%bf%e7%94%a8omsa%e8%a7%a3%e5%86%b3linux%e4%b8%8bpackage-power-limit-notification%e9%97%ae%e9%a2%98/\"
+  target=\"_blank\">OMSA</a>配合使用，也可以单独使用。\r\n\r\n<em>注意：BIOS设置后，只有整个服务器重启后才会生效。</em>\r\n<h2>一、下载DTK</h2>\r\n这里针对的是RHEL
+  6.2版本，64位。服务器版本为R720。\r\n\r\n从<a href=\"http://www.dell.com/support/drivers/us/en/19/DriverDetails/Product/poweredge-r720?driverId=65JXF&amp;osCode=ES11&amp;fileId=3196318431&amp;languageCode=EN&amp;categoryId=SM\"
+  target=\"_blank\">下载页面</a>提取出最终下载地址，完成下载\r\n\r\n<span style=\"color: #0000ff;\">shell>
+  wget http://downloads.dell.com/FOLDER01551915M/1/dtk_4.3_350_A00_Linux64.iso</span>\r\n<h2>"
+wordpress_id: 743
+wordpress_url: http://www.sqlparty.com/?p=743
+date: '2013-10-21 21:22:28 +0800'
+date_gmt: '2013-10-21 13:22:28 +0800'
+categories:
+- 系统
+tags:
+- OMSA
+- bios
+---
+<p>DTK(Dell OpenManage Deployment Toolkit)是Dell开发的针对其服务器进行的管理部署工具箱，其中包括了很多有用的信息。这里使用syscfg工具，对BIOS进行设置调优，这在主机只能远程操作的情况下非常有用。它可以与<a title="使用OMSA解决Linux下&rdquo;Package power limit notification&rdquo;问题" href="http://www.sqlparty.com/%e4%bd%bf%e7%94%a8omsa%e8%a7%a3%e5%86%b3linux%e4%b8%8bpackage-power-limit-notification%e9%97%ae%e9%a2%98/" target="_blank">OMSA</a>配合使用，也可以单独使用。</p>
+<p><em>注意：BIOS设置后，只有整个服务器重启后才会生效。</em></p>
+<h2>一、下载DTK</h2><br />
+这里针对的是RHEL 6.2版本，64位。服务器版本为R720。</p>
+<p>从<a href="http://www.dell.com/support/drivers/us/en/19/DriverDetails/Product/poweredge-r720?driverId=65JXF&amp;osCode=ES11&amp;fileId=3196318431&amp;languageCode=EN&amp;categoryId=SM" target="_blank">下载页面</a>提取出最终下载地址，完成下载</p>
+<p><span style="color: #0000ff;">shell> wget http://downloads.dell.com/FOLDER01551915M/1/dtk_4.3_350_A00_Linux64.iso</span></p>
+<h2><!--more-->二、安装syscfg</h2><br />
+下载后，是一个镜像文件，挂载到一个目录下便于操作。</p>
+<p><span style="color: #0000ff;">shell> mkdir -p /media/dell</span><br />
+<span style="color: #0000ff;">shell> mount -o loop dtk_4.3_350_A00_Linux64.iso /media/dell</span><br />
+<span style="color: #0000ff;">shell> cd /media/dell</span><br />
+<span style="color: #0000ff;">shell> ls -lrth</span><br />
+<span style="color: #0000ff;">total 3.0M</span><br />
+<span style="color: #0000ff;">-r-xr-xr-x&nbsp; 1 root root&nbsp; 16K Jun&nbsp; 8 03:21 README</span><br />
+<span style="color: #0000ff;">dr-xr-xr-x 86 root root&nbsp; 12K Jun&nbsp; 8 03:21 LICENSING</span><br />
+<span style="color: #0000ff;">dr-xr-xr-x&nbsp; 2 root root 2.0K Jun&nbsp; 8 03:21 isolinux</span><br />
+<span style="color: #0000ff;">-r-xr-xr-x&nbsp; 1 root root 3.0M Jun&nbsp; 8 03:21 efiboot.img</span><br />
+<span style="color: #0000ff;">dr-xr-xr-x&nbsp; 3 root root 2.0K Jun&nbsp; 8 03:21 EFI</span><br />
+<span style="color: #0000ff;">dr-xr-xr-x&nbsp; 2 root root 2.0K Jun&nbsp; 8 03:21 docs</span><br />
+<span style="color: #0000ff;">dr-xr-xr-x&nbsp; 6 root root 2.0K Jun&nbsp; 8 03:21 RPMs</span></p>
+<p>我们这里的场景是只处理单台主机，而不是集群中机器统一处理，所以直接拿RPM包进行安装。</p>
+<p>这里只想安装syscfg，来进行BIOS层面的控制，但是根据其依赖关系，还是将相关RPM包均装上。</p>
+<p><span style="color: #0000ff;">shell> cd RPMs/rhel6/x86_64</span><br />
+<span style="color: #0000ff;">shell> rpm -ivh syscfg-4.3.0-4.33.4.el5.x86_64.rpm srvadmin-deng-7.3.0-4.13.2.el5.x86_64.rpm srvadmin-hapi-7.3.0-4.12.3.el5.x86_64.rpm srvadmin-isvc-7.3.0-4.21.4.el5.x86_64.rpm srvadmin-omilcore-7.3.0-4.72.1.el5.x86_64.rpm&nbsp; smbios-utils-bin-2.2.27-4.9.1.el5.x86_64.rpm&nbsp; libsmbios-2.2.27-4.9.1.el5.x86_64.rpm</span></p>
+<p>但是安装到了什么路径呢？直接syscfg命令无法找到，查询一下：</p>
+<p><span style="color: #0000ff;">shell> rpm -ql syscfg-4.3.0-4.33.4.el5.x86_64</span><br />
+<span style="color: #0000ff;">/opt/dell/toolkit</span><br />
+<span style="color: #0000ff;">/opt/dell/toolkit/bin</span><br />
+<span style="color: #0000ff;">/opt/dell/toolkit/bin/SyscfgErrorCodes.txt</span><br />
+<span style="color: #0000ff;">/opt/dell/toolkit/bin/pci.ids</span><br />
+<span style="color: #0000ff;">/opt/dell/toolkit/bin/sys.ini</span><br />
+<span style="color: #0000ff;">/opt/dell/toolkit/bin/syscfg</span></p>
+<p>syscfg可以用来读取和设置BIOS选项，其可用的选项如下：</p>
+<p><span style="color: #0000ff;">shell>/opt/dell/toolkit/bin/syscfg</span></p>
+<p><span style="color: #0000ff;">syscfg Version 4.3.0000 abu00 (Linux - May 31 2013, 11:54:13)</span><br />
+<span style="color: #0000ff;">Copyright (c) 2002-2013 Dell Inc.</span></p>
+<p><span style="color: #0000ff;">Usage: syscfg --option[=argument]</span></p>
+<p><span style="color: #0000ff;">For more information about a particular command,</span><br />
+<span style="color: #0000ff;">use the option '-h' followed by the command name.</span><br />
+<span style="color: #0000ff;">Example: syscfg -h --asset</span></p>
+<p><span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; -b or --byte&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --Proc1L3Cache*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --biosver or --SystemBiosVersion&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --Proc1NumCores*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; bmcversion&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --Proc2Id*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --chassistype&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --Proc2Brand*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --clearsel&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --Proc2L2Cache*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --controlpanelaccess&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --Proc2L3Cache*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --cpucount&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --Proc2NumCores*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --cpuspeed&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --embsataraid or --EmbSata</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --deviceguid&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --sata0* or --SataPortA*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --encryptkey&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortAModel*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --envar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortADriveType*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --envfile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortACapacity*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --extserial&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --sata1* or --SataPortB*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; -h or --help&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortBModel*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; -i or --infile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortBDriveType*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --identify&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortBCapacity*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --idracgui&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --sata2* or --SataPortC*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; idracversion&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortCModel*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --ix or --inxmlfile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortCDriveType*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --kvmstatusonlcd&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortCCapacity*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; -l or --logfile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --sata3* or --SataPortD*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; lancfgparams or lcp&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortDModel*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; lancfgparamsv6 or lcpv6&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortDDriveType*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; lanchannelaccess or lca&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortDCapacity*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; lanchannelinfo or lci&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --sata4* or --SataPortE*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; lanuseraccess or lua&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortEModel*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --lcd&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortEDriveType*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --loaddefaults&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortECapacity*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --mem&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --sata5* or --SataPortF*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; -n or --namefile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortFModel*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --nextboot or --OneTimeBootSeqDev&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortFDriveType*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --nmibutton&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SataPortFCapacity*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; -o or --outfile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --bootmode or --BootMode</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --ovrwrt&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --bootseqretry or --BootSeqRetry</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --ox or --outxmlfile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --integratedraid or --IntegratedRaid</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; passwordaction&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --usbports or --UsbPorts</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --pci&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --internalusb or --InternalUsb</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; pefcfgparams or pcp&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --IntegratedNetwork1</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --pendingvalues&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --IntNic1Port1BootProto</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; power&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --IntNic1Port2BootProto</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --powerbutton&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --IntNic1Port3BootProto</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --powerctl&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --IntNic1Port4BootProto</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --px or --pendingxmlfile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --oswatchdogtimer or --OsWatchdogTimer</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; -r or --read&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --ioat or --IoatEngine</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --racreset&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --embvideoctrl* or --EmbVideo*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; -s&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --sriov or --SriovGlobalEnable</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; serialcfgparams or scp&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --MmioAbove4Gb</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; serialchannelaccess or sca&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --serialcomm or --SerialComm</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; serialchannelinfo or sci&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --serialportaddrsel or --SerialPortAddress</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; serialuseraccess or sua&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --ExtSerialConnector</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --setuppwd or --SetupPassword&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --fsbr or --FailSafeBaud</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; solaction&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --conterm or --ConTermType</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; solcfgparams&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --RedirAfterBoot</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; ssninfo&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --SysProfile</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --sysid&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --ProcPwrPerf</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --sysname&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --MemFrequency</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --syspwd or --SysPassword&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --turbomode or --ProcTurboMode</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; useraction&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --cpuc1e or --ProcC1E</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; username&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --cstates or --ProcCStates</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --uuid&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --MonitorMwait</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --version&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --MemPatrolScrub</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --virtualmedia&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --MemRefreshRate</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; -x or --hex&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --MemVolt</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --SystemModelName*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --CollaborativeCpuPerfCtrl</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --SystemBiosVersion*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --AesNi*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --svctag* or --SystemServiceTag*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --pwdlock or --PasswordStatus</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --SystemManufacturer*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --powerbutton or --PwrButton</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --SysMfrContactInfo*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --nmibutton or --NmiButton</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --SystemCpldVersion*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --acpower or --AcPwrRcvry</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --SysMemSize*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --AcPwrRcvryDelay</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --SysMemType*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --AcPwrRcvryUserDelay*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --SysMemSpeed*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --asset or --AssetTag</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --SysMemVolt*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --numlock or --NumLock</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --VideoMem*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --rptkeyerr or --ReportKbdErr</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --memtest or --MemTest&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --f1f2promptonerror or --ErrPrompt</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --memoperatingmode* or --MemOpMode*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --InSystemCharacterization</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --nodeinterleave or --NodeInterleave&nbsp;&nbsp;&nbsp;&nbsp; --bootseq or --BootSeq</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --logicproc or --LogicalProc&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --devseq or --HddSeq</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --QpiSpeed&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --UefiBootSeq*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --RtidSetting&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --OneTimeBootMode</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --virtualization or --ProcVirtualization --OneTimeHddSeqDev*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --adjcacheprefetch or --ProcAdjCacheLine --OneTimeUefiBootSeqDev*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --hwprefetcher or --ProcHwPrefetcher&nbsp;&nbsp;&nbsp;&nbsp; --Slot1</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --dcustreamerprefetcher or --DcuStreamerPrefetcher--Slot2</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --DcuIpPrefetcher&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --Slot3</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --cpuxdsupport or --ProcExecuteDisable&nbsp;&nbsp; --Slot4</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --DynamicCoreAllocation&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --Slot5</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --cpucore or --ProcCores&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --Slot6</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --Proc64bit*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --Slot7</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --ProcCoreSpeed*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --ProcBusSpeed*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --Proc1Id*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --Proc1Brand*</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp; --Proc1L2Cache*</span></p>
+<p>注意：</p>
+<p>1.有些选项后面跟着*符号，表示这个选项不接受参数，相关的BIOS值是只读的。<br />
+2.通过-h <选项>可以查看<选项>的含义，如：<br />
+<span style="color: #0000ff;">shell> /opt/dell/toolkit/bin/syscfg -h --pci</span><br />
+<span style="color: #0000ff;">pci:&nbsp; Performs a PCI scan and prints output.</span><br />
+<span style="color: #0000ff;">If used with the -n option, vendor/device ids are resolved</span><br />
+<span style="color: #0000ff;">to vendor/device names from the file.</span></p>
+<h2>三、部分BIOS选项解读</h2><br />
+Dell R720所属的Dell PowerEdge 12代服务器提供了一些可调整的BIOS选项。</p>
+<p>最新的PowerEdge系列服务器中，对BIOS选项进行了划分，一些被分组到System Profile(系统配置文件设置)组中，Turbo mode, C States, C1E, Monitor/Mwait, CPU Power Management, Memory Speed, Memory Patrol Scrub rate, Memory Refresh Rate, and the Memory Operating Voltage 这些值在该组中可以找到，可以进行设置。</p>
+<p>系统配置文件这个组中有如下几种模式：</p>
+<ol>
+<li>优化性能功耗比(DAPC)</li>
+<li>优化性能功耗比(OS)</li>
+<li>优化性能</li>
+<li>优化密度性能</li>
+<li>自定义</li><br />
+</ol><br />
+这些不同模式下，对应的BIOS选项设置有所不同，如下图所示：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/10/bios_mode.png"><img class="alignnone size-full wp-image-744" alt="bios_mode" src="http://www.sqlparty.com/wp-content/uploads/2013/10/bios_mode.png" width="604" height="719" /></a><br />
+本图引自《Optimal BIOS HPC Dell 12G》</p>
+<p>设置System Profile组为自定义后，可以分别配置如下的BIOS项。设置其为自定义：</p>
+<ul>
+<li>CPU电源管理(CPU Power Management) &mdash;&mdash;控制着处理器的电源管理。
+<ul>
+<li><strong>系统DBPM(Demand Based Power Management)</strong>是DAPC(Dell&rsquo;s Active Power Controller)，是基于硬件的iDRAC(Integrated Dell Remote Access Controller，即集成戴尔远程控制卡)。</li>
+<li><strong>OS DBPM</strong> 将控制权交给操作系统，Linux中对应的控制服务是cpuspeed。</li>
+<li><strong>最高性能</strong> 维持内部组件如内存、风扇等的最高电压，甚至在CPU空闲时也保持，这对于榨取服务器的性能有所帮助，当然以更高的电能消耗为代价。</li><br />
+</ul><br />
+</li></p>
+<li>内存频率(Memory Frequency) &mdash;&mdash;设置内存的操作频率，这依赖于实际使用的DIMM(Dual-Inline-Memory-Modules,即双列直插式存储模块)和系统的内存配置。
+<ul>
+<li><strong>最高性能</strong>&nbsp; 设置能够配置的最高内存操作速度。</li>
+<li><strong>最大可靠性</strong>&nbsp; BIOS v1.1.2以及之后版本，最大可靠性支持的速度仅次于最大频率。</li>
+<li><strong>自定义</strong> 显式设定，有1600MHz，1333MHz，1067MHz，800MHz。注意：实际频率会依赖于操作内存电压。</li><br />
+</ul><br />
+</li></p>
+<li>睿频加速(Turbo Boost)&mdash;&mdash;启用或禁用Intel Xeon E5-2600处理器的Turbo特性。启用后，可以通过CPU超频来提升性能，但是要生效还依赖于电源的能力，以及系统是运行在电源、电流、温度各项限制内的。
+<ul>
+<li><strong>启用</strong></li>
+<li><strong>禁用</strong></li><br />
+</ul><br />
+</li></p>
+<li>C1E和C States&mdash;&mdash;这些是电源节能特性，允许自动的对CPU核心进行频率调节
+<ul>
+<li><strong>启用</strong></li>
+<li><strong>禁用</strong></li><br />
+</ul><br />
+</li></p>
+<li>内存轮询检查(Memory Patrol Scrub)&mdash;&mdash;设置系统内存的检查周期，检查内存错误，对于可修复的进行修复。这个选项可以避免内存的错误积累
+<ul>
+<li><strong>扩展</strong> 每小时检查一次</li>
+<li><strong>标准</strong> 设置为标准或者默认的24小时检查一次</li>
+<li><strong>禁用</strong></li><br />
+</ul><br />
+</li></p>
+<li>内存刷新率(Memory Refresh Rate)&mdash;&mdash;设置内存刷新频率
+<ul>
+<li><strong>1x</strong> 设置正常刷新</li>
+<li><strong>2x</strong>&nbsp; 两倍的正常刷新频率。牺牲一部分性能来提高内存操作的可靠性</li><br />
+</ul><br />
+</li></p>
+<li>监测器/Mwait(Monitor/Mwait) &mdash;&mdash;如果禁用，将避免操作系统对CPU使用MWAIT指令。这些指令将依赖芯片来确定C3, C6或C7状态。特定操作系统上的intel_idle会导致C-states，即使C State和C1E被明确禁用。禁用此选项可以确保CPU保持完全打开的状态，禁用的前提是C States和Logical Processor选项也被禁用。另一个可选的方案是在操作系统层面禁用intel_idle，例如RHEL 6.2中如下设置 intel_idle.max_cstate=0。
+<ul>
+<li><strong>启用</strong></li>
+<li><strong>禁用</strong></li><br />
+</ul><br />
+</li><br />
+</ul><br />
+还有一些其他BIOS配置项：</p>
+<p><strong>处理器逻辑核心(Logical Processor)</strong></p>
+<p>超线程技术，即Hyper-Threading (HT) 或Simultaneous Multi Treading (SMT)，当启用时，所有物理核虚拟成两个逻辑核心。可以通过将每个任务分配到每个逻辑核心来一定程度提升性能，但是，两个逻辑核心是共享一个物理核心的资源的，通过HT实际能够有多少性能提升要看应用本身。</p>
+<p><strong>节点交叉(Node Interleaving)</strong></p>
+<p>Intel Xeon E5-2600型号的处理器架构是非统一内存访问(Non-Uniform Memory Access, NUMA)，每一个架构节点有一个内存控制器。访问与一个处理器直接连接的内存，被认为是本地访问，而访问其他处理器直连的内存则认为是远程访问。显然本地访问效率会高于远程访问。</p>
+<p>BIOS系统提供了设置，可以使得内存对所有的架构节点都平等，即禁用NUMA特性，使得节点交叉，内存访问不分远近。启用节点交叉，可以避免最差情况下一个任务总是访问远程内存，但是也放弃了可以快速访问本地内存的特性。下图是一个性能对比。</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/10/Memory_Bandwidth.png"><img class="alignnone size-full wp-image-745" alt="Memory_Bandwidth" src="http://www.sqlparty.com/wp-content/uploads/2013/10/Memory_Bandwidth.png" width="714" height="505" /></a></p>
+<h2>四、使用DTK中的syscfg工具更新BIOS设置</h2><br />
+在使用syscfg之前，首先需要<strong>启动管理服务</strong>：</p>
+<p><span style="color: #0000ff;">shell> /opt/dell/srvadmin/sbin/srvadmin-services start</span></p>
+<p>然后就可以执行如下命令如：</p>
+<p><span style="color: #0000ff;">shell> /opt/dell/toolkit/bin/syscfg --SysProfile=Custom</span></p>
+<p>如果启动前没有srvadmin-services start，那么就会报错：Unable to connect data manager</p>
+<p>对于要求低延迟的系统来说，可以设置如下BIOS项：</p>
+<p><strong>系统配置文件设置(System Profile) 自定义。</strong>这样可以安装自己的需求对所需的BIOS进行定义。<br />
+操作命令：<br />
+<span style="color: #0000ff;"> syscfg --SysProfile=Custom</span></p>
+<p><strong>睿频加速(Turbo Boost)&nbsp; 禁用。</strong>禁用后可以确保稳定的性能。有些应用程序可以从Turbo Boost中获益，可以测试之。<br />
+操作命令：<br />
+<span style="color: #0000ff;">syscfg --turbomode=disable</span></p>
+<p><strong>C States, C1E, Monitor/Mwait&nbsp; 禁用。</strong>这样就关闭了所有的电源节能特性。<br />
+操作命令：<br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp; syscfg --cpuc1e=disable</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp; syscfg --cstates=disable</span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp; syscfg --MonitorMwait=disable</span></p>
+<p><strong>处理器逻辑核心(Logical Processor) 禁用。</strong><br />
+操作命令：<br />
+<span style="color: #0000ff;">&nbsp; syscfg &ndash;-logicproc=disable</span></p>
+<p><strong>节点交叉(Node Interleaving) 禁用。</strong>即启用非统一内存访问(NUMA) 功能。<br />
+操作命令：<br />
+<span style="color: #0000ff;">syscfg --nodeinterleave=disable</span></p>
+<p><strong>内存轮询检查(Memory Patrol Scrub)&nbsp; 标准。</strong><br />
+操作命令：<br />
+<span style="color: #0000ff;">syscfg&nbsp; --MemPatrolScrub=standard</span></p>
+<p><strong>CPU电源管理(CPU Power Management)&nbsp; 最高性能。</strong><br />
+操作命令：<br />
+<span style="color: #0000ff;">syscfg --ProcPwrPerf=maxperf</span></p>
+<p><strong>内存频率(Memory Frequency) 最高性能。</strong><br />
+操作命令：<br />
+<span style="color: #0000ff;">syscfg --MemFrequency=maxperf</span></p>
+<p>参考：<br />
+<a href="http://en.community.dell.com/techcenter/high-performance-computing/w/wiki/changing-bios-settings-with-syscfg-from-the-dtk.aspx" target="_blank">http://en.community.dell.com/techcenter/high-performance-computing/w/wiki/changing-bios-settings-with-syscfg-from-the-dtk.aspx</a><br />
+<a href="http://linux.dell.com/wiki/index.php/Syscfg" target="_blank">http://linux.dell.com/wiki/index.php/Syscfg</a><br />
+<a href="http://www.dellhpcsolutions.com/dellhpcsolutions/assets/Optimal_BIOS_HPC_Dell_12G.v1.0.pdf" target="_blank">http://www.dellhpcsolutions.com/dellhpcsolutions/assets/Optimal_BIOS_HPC_Dell_12G.v1.0.pdf</a><br />
+<a href="http://comments.gmane.org/gmane.linux.hardware.dell.poweredge/44504" target="_blank">http://comments.gmane.org/gmane.linux.hardware.dell.poweredge/44504</a></p>

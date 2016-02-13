@@ -1,0 +1,43 @@
+---
+layout: post
+status: publish
+published: true
+title: VMWare中Linux虚拟机克隆Clone后eth0被改成eth1的问题处理
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "为了测试Hadoop环境，在本机上使用VMWare创建虚拟机，安装RHEL 6,32位版本。\r\n\r\n安装一台主机作为模板，做一些基本配置，然后直接Clone，快速复制出多台虚拟主机。发现克隆出来的主机，网卡设备eth0不见了，通过ifconfig看到的是eth1，而/etc/sysconfig/network-scripts下又没有ifcfg-eth1文件，造成无法给clone出来的主机手动设定ip。\r\n<h2>原因分析：</h2>\r\n很多Linux发行版中使用udev动态管理设备文件，并根据设备的信息对其进行持久化命名。udev会在系统引导的过程中识别网卡，将MAC地址和网卡名称对应起来记录到udev的规则脚本中。而VMWare会自动生成虚拟机的MAC地址，这样由于模板主机中已经记录了该虚拟机的网卡MAC对应eth0，而clone出来的主机为避免MAC重复，重新分配了一个MAC地址，那么udev就自动将该MAC对应到了eth1。\r\n\r\n"
+wordpress_id: 724
+wordpress_url: http://www.sqlparty.com/?p=724
+date: '2013-10-10 21:51:33 +0800'
+date_gmt: '2013-10-10 13:51:33 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- vmware
+---
+<p>为了测试Hadoop环境，在本机上使用VMWare创建虚拟机，安装RHEL 6,32位版本。</p>
+<p>安装一台主机作为模板，做一些基本配置，然后直接Clone，快速复制出多台虚拟主机。发现克隆出来的主机，网卡设备eth0不见了，通过ifconfig看到的是eth1，而/etc/sysconfig/network-scripts下又没有ifcfg-eth1文件，造成无法给clone出来的主机手动设定ip。</p>
+<h2>原因分析：</h2><br />
+很多Linux发行版中使用udev动态管理设备文件，并根据设备的信息对其进行持久化命名。udev会在系统引导的过程中识别网卡，将MAC地址和网卡名称对应起来记录到udev的规则脚本中。而VMWare会自动生成虚拟机的MAC地址，这样由于模板主机中已经记录了该虚拟机的网卡MAC对应eth0，而clone出来的主机为避免MAC重复，重新分配了一个MAC地址，那么udev就自动将该MAC对应到了eth1。</p>
+<p><!--more--></p>
+<p>udev会记录所有已经识别的MAC与网卡名的关系，所以每次clone克隆网卡名称会自动加1，而其实内核仅仅只识别到一张网卡，跟网卡名相关的网络配置也未发生任何变化。</p>
+<h2>解决之道：</h2><br />
+要修复这个问题，可以如下处理，在模板主机上操作即可，这样clone出来的主机就能避免上述问题：</p>
+<p><strong>步骤1）删除 /etc/udev/rules.d/70-persistent-net.rules</strong></p>
+<p><span style="color: #0000ff;">shell> mv /etc/udev/rules.d/70-persistent-net.rules /root/</span> #删除70-persistent-net.rules，这里mv仅仅为了备份一下而已<br />
+<span style="color: #0000ff;">shell> reboot</span></p>
+<p><strong>步骤2）更新/etc/sysconfig/network-scripts/ifcfg-eth*</strong></p>
+<p>直接删除/etc/sysconfig/network-scripts/ifcfg-eth*中HWADDR的记录。</p>
+<p>根据这样的模板主机clone出来的主机，具有与模板主机相同的配置，自动生成新的MAC地址。</p>
+<p>针对这样clone出来的主机，需要修改ip地址与主机名以确保与其他主机不重复。</p>
+<p><strong>ps:关于udev</strong></p>
+<p>udev 是 Linux2.6 内核里的一个功能，它替代了原来的 devfs，成为当前 Linux 默认的设备管理工具。udev 以守护进程的形式运行，通过侦听内核发出来的 uevent 来管理 /dev目录下的设备文件。延伸阅读：<a href="http://www.ibm.com/developerworks/cn/linux/l-cn-udev/" target="_blank">http://www.ibm.com/developerworks/cn/linux/l-cn-udev/</a></p>
+<p>参考：<br />
+<a href="http://www.cyberciti.biz/tips/vmware-linux-lost-eth0-after-cloning-image.html" target="_blank">http://www.cyberciti.biz/tips/vmware-linux-lost-eth0-after-cloning-image.html</a><br />
+<a href="http://www.360doc.com/content/12/0907/17/33776_234860693.shtml" target="_blank">http://www.360doc.com/content/12/0907/17/33776_234860693.shtml</a></p>

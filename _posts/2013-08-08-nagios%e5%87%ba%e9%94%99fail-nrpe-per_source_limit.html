@@ -1,0 +1,52 @@
+---
+layout: post
+status: publish
+published: true
+title: Nagios出错:FAIL nrpe per_source_limit
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "某日Nagios突然开始时断时续的报错：\r\n\r\nCHECK_NRPE: Socket timeout after 10 seconds.\r\n\r\n不同的服务轮番timeout，也未找到其报错规律，时而报错时而恢复，导致大量的出错邮件。一开始以为只是网络的不稳定，一段时间后持续如此，那么得找下原因了。\r\n\r\n报错的服务均在远程IDC机房，Nagios通过nrpe轮询IDC机房的一台主机（暂且称其为代理主机），而代理主机再通过nrpe轮询IDC机房内部各主机，简单架构图如下：\r\n\r\n<a
+  href=\"http://www.sqlparty.com/wp-content/uploads/2013/08/nrpe_cascade.png\"><img
+  class=\"alignnone size-full wp-image-369\" alt=\"nrpe_cascade\" src=\"http://www.sqlparty.com/wp-content/uploads/2013/08/nrpe_cascade.png\"
+  width=\"674\" height=\"262\" /></a>\r\n\r\n使用如上级联的结构，虽然有点麻烦，但是对外暴露的接口只需要有一个（代理主机上），一定程度上提高安全性。\r\n\r\n"
+wordpress_id: 368
+wordpress_url: http://www.sqlparty.com/?p=368
+date: '2013-08-08 22:24:37 +0800'
+date_gmt: '2013-08-08 14:24:37 +0800'
+categories:
+- 系统
+tags:
+- Linux
+- Nagios
+- nrpe
+- xinetd
+---
+<p>某日Nagios突然开始时断时续的报错：</p>
+<p>CHECK_NRPE: Socket timeout after 10 seconds.</p>
+<p>不同的服务轮番timeout，也未找到其报错规律，时而报错时而恢复，导致大量的出错邮件。一开始以为只是网络的不稳定，一段时间后持续如此，那么得找下原因了。</p>
+<p>报错的服务均在远程IDC机房，Nagios通过nrpe轮询IDC机房的一台主机（暂且称其为代理主机），而代理主机再通过nrpe轮询IDC机房内部各主机，简单架构图如下：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/nrpe_cascade.png"><img class="alignnone size-full wp-image-369" alt="nrpe_cascade" src="http://www.sqlparty.com/wp-content/uploads/2013/08/nrpe_cascade.png" width="674" height="262" /></a></p>
+<p>使用如上级联的结构，虽然有点麻烦，但是对外暴露的接口只需要有一个（代理主机上），一定程度上提高安全性。</p>
+<p><!--more--></p>
+<p>在代理主机的日志中，看到如下出错信息：<br />
+<em>Aug 6 10:28:01 CH142 xinetd[21786]: FAIL: nrpe per_source_limit from=::ffff:111.222.33.4</em><br />
+<em> Aug 6 10:28:01 CH142 xinetd[21786]: FAIL: nrpe per_source_limit from=::ffff:111.222.33.4</em><br />
+<em> Aug 6 10:28:01 CH142 xinetd[21786]: FAIL: nrpe per_source_limit from=::ffff:111.222.33.4</em><br />
+<em> Aug 6 10:28:01 CH142 xinetd[21786]: FAIL: nrpe per_source_limit from=::ffff:111.222.33.4</em><br />
+<em> Aug 6 10:28:01 CH142 xinetd[21786]: FAIL: nrpe per_source_limit from=::ffff:111.222.33.4</em><br />
+<em> Aug 6 10:28:01 CH142 xinetd[21786]: FAIL: nrpe per_source_limit from=::ffff:111.222.33.4</em><br />
+<em> Aug 6 10:28:01 CH142 xinetd[21786]: FAIL: nrpe per_source_limit from=::ffff:111.222.33.4</em><br />
+<em> Aug 6 10:28:01 CH142 xinetd[21786]: FAIL: nrpe per_source_limit from=::ffff:111.222.33.4</em></p>
+<p>Google了一下，了解到xinetd对单个IP每秒发起的查询数量有限制，代理主机上的NRPE正是依托于xinetd而存在的服务，所以默认受其约束。由于监控项的增多，代理主机的NRPE作为唯一入口，其每秒查询数也增大。这很好解释了为什么之前没有这个问题，最近才出现这个问题。</p>
+<p><strong>解决方案：</strong><br />
+在/etc/xinetd.d/nrpe中添加<br />
+<span style="color: #0000ff;">per_source = UNLIMITED</span><br />
+<span style="color: #0000ff;"> instances = UNLIMITED</span></p>
+<p>然后重启xinetd, OK。</p>
+<p>参考：<br />
+<a href="http://www.agitated.net/blog/?p=399" target="_blank">http://www.agitated.net/blog/?p=399</a></p>

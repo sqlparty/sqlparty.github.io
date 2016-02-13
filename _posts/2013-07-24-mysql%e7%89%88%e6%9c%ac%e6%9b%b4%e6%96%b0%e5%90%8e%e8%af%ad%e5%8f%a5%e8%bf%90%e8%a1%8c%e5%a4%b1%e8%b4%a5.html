@@ -1,0 +1,43 @@
+---
+layout: post
+status: publish
+published: true
+title: MySQL版本更新后语句运行失败
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "<div>Select id from t1 where accessible=1;\r\n上述语句在V5.0下运行良好，但是V5.1上则报错，原因是？</div>\r\n<div>"
+wordpress_id: 18
+wordpress_url: http://www.sqlparty.com/?p=18
+date: '2013-07-24 23:14:40 +0800'
+date_gmt: '2013-07-24 15:14:40 +0800'
+categories:
+- 数据库
+tags:
+- 数据库
+- MySQL
+- 问题集
+---
+<div>Select id from t1 where accessible=1;<br />
+上述语句在V5.0下运行良好，但是V5.1上则报错，原因是？</div></p>
+<div><!--more--></div></p>
+<div>
+<div>
+<hr />
+<p><b>原因：</b></p>
+<p>V5.1下accessible是保留字。MySQL中不允许直接使用保留字作为对象命名。</p>
+<p><b>解决方案：</b></p>
+<p>加``或""将其括起，如Select id from t1 where `accessible`=1;</p>
+<p>建表等尽量避免MySQL保留字的使用！</p>
+<p>MySQL 5.6的保留字完整列表见：</p>
+<p><a href="http://dev.mysql.com/doc/refman/5.6/en/reserved-words.html">http://dev.mysql.com/doc/refman/5.6/en/reserved-words.html</a></p>
+<p></div></p>
+<div>
+<hr />
+<p>源自：《MySQL TroubleShooting》</p>
+<p></div><br />
+</div></p>

@@ -1,0 +1,213 @@
+---
+layout: post
+status: publish
+published: true
+title: tpcc-mysql使用说明
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "<h2>一.介绍</h2>\r\nTpcc-mysql是percona基于tpc-c衍生出来的产品，专用于mysql基准测试，其源码放在bazaar。\r\n\r\n关于TPCC模型，看<a
+  title=\"基准测试tpcc测试模型\" href=\"http://www.sqlparty.com/%e5%9f%ba%e5%87%86%e6%b5%8b%e8%af%95tpcc%e6%b5%8b%e8%af%95%e6%a8%a1%e5%9e%8b/\"
+  target=\"_blank\">这里</a>。\r\n<h2>二.安装</h2>\r\n<h3>1.下载</h3>\r\nWindows下下载方法参考文档<a
+  title=\"Bazaar下载launchpad开源项目\" href=\"http://www.sqlparty.com/bazaar%e4%b8%8b%e8%bd%bdlaunchpad%e5%bc%80%e6%ba%90%e9%a1%b9%e7%9b%ae/\"
+  target=\"_blank\">\"Bazaar使用说明</a>\"。\r\n打包成tpcc-mysql.zip后，传至目标服务器的/db/soft目录下\r\n\r\nLinux下安装方式：\r\n<span
+  style=\"color: #0000ff;\">yum install bzr</span>\r\n<span style=\"color: #0000ff;\">
+  bzr branch lp:~percona-dev/perconatools/tpcc-mysql</span>\r\n\r\n"
+wordpress_id: 419
+wordpress_url: http://www.sqlparty.com/?p=419
+date: '2013-08-13 22:21:42 +0800'
+date_gmt: '2013-08-13 14:21:42 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+- tpcc
+- tpcc-mysql
+---
+<h2>一.介绍</h2><br />
+Tpcc-mysql是percona基于tpc-c衍生出来的产品，专用于mysql基准测试，其源码放在bazaar。</p>
+<p>关于TPCC模型，看<a title="基准测试tpcc测试模型" href="http://www.sqlparty.com/%e5%9f%ba%e5%87%86%e6%b5%8b%e8%af%95tpcc%e6%b5%8b%e8%af%95%e6%a8%a1%e5%9e%8b/" target="_blank">这里</a>。</p>
+<h2>二.安装</h2></p>
+<h3>1.下载</h3><br />
+Windows下下载方法参考文档<a title="Bazaar下载launchpad开源项目" href="http://www.sqlparty.com/bazaar%e4%b8%8b%e8%bd%bdlaunchpad%e5%bc%80%e6%ba%90%e9%a1%b9%e7%9b%ae/" target="_blank">"Bazaar使用说明</a>"。<br />
+打包成tpcc-mysql.zip后，传至目标服务器的/db/soft目录下</p>
+<p>Linux下安装方式：<br />
+<span style="color: #0000ff;">yum install bzr</span><br />
+<span style="color: #0000ff;"> bzr branch lp:~percona-dev/perconatools/tpcc-mysql</span></p>
+<p><!--more--></p>
+<h3>2.安装</h3><br />
+<span style="color: #0000ff;">root>cd /db/soft</span><br />
+<span style="color: #0000ff;"> root>unzip tpcc-mysql.zip</span><br />
+<span style="color: #0000ff;"> root>cd tpcc-mysql/src</span><br />
+<span style="color: #0000ff;"> root>make</span> #需要在PATH中能够找到mysql_config<br />
+<span style="color: #0000ff;">cc -w -O2 -g -I. `mysql_config --include` -c load.c</span><br />
+<span style="color: #0000ff;"> cc -w -O2 -g -I. `mysql_config --include` -c support.c</span><br />
+<span style="color: #0000ff;"> cc load.o support.o `mysql_config --libs_r` -lrt -o ../tpcc_load</span><br />
+<span style="color: #0000ff;"> cc -w -O2 -g -I. `mysql_config --include` -c main.c</span><br />
+<span style="color: #0000ff;"> cc -w -O2 -g -I. `mysql_config --include` -c spt_proc.c</span><br />
+<span style="color: #0000ff;"> cc -w -O2 -g -I. `mysql_config --include` -c driver.c</span><br />
+<span style="color: #0000ff;"> cc -w -O2 -g -I. `mysql_config --include` -c sequence.c</span><br />
+<span style="color: #0000ff;"> cc -w -O2 -g -I. `mysql_config --include` -c rthist.c</span><br />
+<span style="color: #0000ff;"> cc -w -O2 -g -I. `mysql_config --include` -c neword.c</span><br />
+<span style="color: #0000ff;"> cc -w -O2 -g -I. `mysql_config --include` -c payment.c</span><br />
+<span style="color: #0000ff;"> cc -w -O2 -g -I. `mysql_config --include` -c ordstat.c</span><br />
+<span style="color: #0000ff;"> cc -w -O2 -g -I. `mysql_config --include` -c delivery.c</span><br />
+<span style="color: #0000ff;"> cc -w -O2 -g -I. `mysql_config --include` -c slev.c</span><br />
+<span style="color: #0000ff;"> cc main.o spt_proc.o driver.o support.o sequence.o rthist.o neword.o payment.o ordstat.o delivery.o slev.o `mysql_config --libs_r` -lrt -o ../tpcc_start</span><br />
+<span style="color: #0000ff;"> root>cd ..</span><br />
+<span style="color: #0000ff;"> root>ls -lrt</span></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/tpcc-mysql1.png"><img class="alignnone size-full wp-image-420" alt="tpcc-mysql1" src="http://www.sqlparty.com/wp-content/uploads/2013/08/tpcc-mysql1.png" width="517" height="217" /></a></p>
+<p>可以看到新生成的可执行文件。至此完成编译安装。</p>
+<h2>三.使用</h2></p>
+<h3>1.创建测试库</h3><br />
+<span style="color: #0000ff;">root>mysql [options]</span><br />
+<span style="color: #0000ff;"> mysql>create database tpccdb;</span><br />
+<span style="color: #0000ff;"> mysql>use tpccdb;</span></p>
+<h3>2.初始化表结构</h3><br />
+mysql>source create_table.sql #创建所需表<br />
+<span style="color: #0000ff;"> mysql>source add_fkey_idx.sql</span> #创建外键以及索引。此步骤可以导入数据后再进行。</p>
+<h3>3.生成数据</h3><br />
+单进程加载：<br />
+<span style="color: #0000ff;"> root>./tpcc_load 127.0.0.1:3310 tpccdb username password 300</span><br />
+并发加载（推荐，但需要少量修改）：<br />
+<span style="color: #0000ff;">root>./load.sh tpccdb 300</span><br />
+根据这里的场景，可以将load.sh修改如下：<br />
+<em><span style="color: #0000ff;">export LD_LIBRARY_PATH=/usr/local/mysql/lib/mysql/</span></em><br />
+<em><span style="color: #0000ff;"> DBNAME=$1</span></em><br />
+<em><span style="color: #0000ff;"> WH=$2</span></em><br />
+<em><span style="color: #0000ff;"> HOST=127.0.0.1:3310</span></em><br />
+<em><span style="color: #0000ff;"> STEP=10</span></em><br />
+<em><span style="color: #0000ff;"> #Item数目不随Warehouse数据增加而增加，所以一次处理</span></em><br />
+<em><span style="color: #0000ff;"> ./tpcc_load $HOST $DBNAME sup "password" $WH 1 1 $WH >> 1.out &amp;</span></em><br />
+<em><span style="color: #0000ff;"> x=1</span></em></p>
+<p><em><span style="color: #0000ff;">while [ $x -le $WH ]</span></em><br />
+<em><span style="color: #0000ff;"> do</span></em><br />
+<em><span style="color: #0000ff;"> echo $x $(( $x + $STEP - 1 ))</span></em><br />
+<em><span style="color: #0000ff;"> ./tpcc_load $HOST $DBNAME username "password" $WH 2 $x $(( $x + $STEP - 1 )) >> 2_$x.out &amp;./tpcc_load $HOST $DBNAME username "password" $WH 3 $x $(( $x + $STEP - 1 )) >> 3_$x.out &amp;./tpcc_load $HOST $DBNAME sup "password" $WH 4 $x $(( $x + $STEP - 1 )) >> 4_$x.out &amp; x=$(( $x + $STEP ))</span></em><br />
+<em><span style="color: #0000ff;"> done</span></em><br />
+如果Warehouse设定较长，或者未设定并发，可能导致数据生成时间较长。</p>
+<h3>4.执行基准测试</h3><br />
+<span style="color: #0000ff;">root>./tpcc_start -h 127.0.0.1 -P 3310 -d tpccdb -u username -p password -w 300 -c 32 -r 300 -l 7200 >> tpccdb_20121107</span></p>
+<h2>四.数据分析</h2></p>
+<h3>1）数据格式</h3><br />
+生成的数据文件tpccdb_20121107中，明细信息类似如下：</p>
+<pre>...<br />
+ 3490, 1704(0):1.819|2.223, 1707(0):0.399|0.469, 169(0):0.214|0.233, 172(0):2.163|2.205, 171(0):5.689|5.883<br />
+ 3500, 1322(0):1.894|2.249, 1318(0):0.418|0.614, 134(0):0.215|0.290, 132(0):2.420|2.576, 133(0):4.350|4.687<br />
+ 3510, 1287(0):1.797|2.139, 1289(0):0.417|0.467, 128(0):0.210|0.217, 127(0):2.448|2.535, 128(0):4.399|4.656<br />
+ 3520, 1123(0):2.058|2.380, 1126(0):0.418|0.479, 112(0):0.207|0.211, 113(0):2.634|2.681, 113(0):4.365|4.458<br />
+ 3530, 1239(0):1.938|2.217, 1234(0):0.414|0.429, 124(0):0.198|0.211, 124(0):2.498|2.592, 123(0):4.434|4.655<br />
+ 3540, 1293(0):2.063|2.430, 1294(0):0.413|0.536, 129(0):0.210|0.215, 129(0):2.593|2.615, 129(0):4.352|4.597<br />
+ 3550, 1441(0):1.940|2.341, 1443(0):0.410|0.431, 145(0):0.204|0.214, 145(0):2.585|2.589, 144(0):4.425|5.005<br />
+ 3560, 1294(0):2.004|2.372, 1296(0):0.411|0.432, 128(0):0.203|0.289, 130(0):2.557|2.596, 130(0):4.600|4.771<br />
+ 3570, 1605(0):1.974|2.281, 1597(0):0.397|0.458, 162(0):0.236|0.339, 160(0):2.494|2.527, 160(0):4.539|4.710<br />
+ ...</pre><br />
+默认，数据每10秒输出一行，格式说明如下：<br />
+<span style="color: #0000ff;">5230</span>, <span style="color: #ff9900;">540(0):2.426|2.607</span>, <span style="color: #008000;">542(0):0.499|0.764</span>, <span style="color: #ff00ff;">55(0):0.321|0.341</span>, <span style="color: #00ffff;">57(0):2.841|2.842</span>, <span style="color: #800000;">51(0):8.182|8.363</span><br />
+由逗号区分，一共划分为6块区域。<br />
+<span style="color: #0000ff;">颜色</span>表示时间序号，根据-i report_interval选项设定，默认为10作为时间间隔。<br />
+<span style="color: #ff9900;">颜色</span>表示NEWORD，即新生成订单数量，540表示在success的事务量(生成时间少于5s)，(0)表示late，即表示时间没有达到tpcc标准的事务量。2.426代表90%的事务响应时间在2.426秒以下。2.607代表事务响应时间的最大值。<br />
+<span style="color: #008000;">颜色</span>表示PAYMENT，支付<br />
+<span style="color: #ff00ff;">颜色</span>表示ORDSTAT，订单查询<br />
+<span style="color: #00ffff;">颜色</span>表示DELIVERY，发货<br />
+<span style="color: #800000;">颜色</span>表示SLEV，查询仓库库存状况。</p>
+<pre> [0] sc:490789 lt:0 rt:3 fl:0<br />
+ [1] sc:490787 lt:0 rt:3 fl:0<br />
+ [2] sc:49076 lt:0 rt:0 fl:0<br />
+ [3] sc:49080 lt:0 rt:0 fl:0<br />
+ [4] sc:49079 lt:0 rt:0 fl:0</pre><br />
+汇总各部分事务各状态的数据量，其中<strong>sc: success, lt: late, rt: retry, fl: failure</strong>。</p>
+<pre>[transaction percentage]<br />
+ Payment: 43.48% (>=43.0%) [OK]<br />
+ Order-Status: 4.35% (>= 4.0%) [OK]<br />
+ Delivery: 4.35% (>= 4.0%) [OK]<br />
+ Stock-Level: 4.35% (>= 4.0%) [OK]</pre><br />
+上述显示各类型业务相关事务在总共事务数目中的占比情况，剩下的就是NEWORDER的占比。括号中是按照要求各业务必须满足的占比情况。可以了解到，NEWORDER的占比不能高于45%。</p>
+<pre>[response time (at least 90% passed)]<br />
+ New-Order: 100.00% [OK]<br />
+ Payment: 100.00% [OK]<br />
+ Order-Status: 100.00% [OK]<br />
+ Delivery: 100.00% [OK]<br />
+ Stock-Level: 100.00% [OK]</pre><br />
+上述显示各业务对应的事务是否至少90%成功。</p>
+<pre><TpmC><br />
+&nbsp;&nbsp;&nbsp; 8179.817 TpmC</pre><br />
+整体性能指标，每分钟内系统处理的新订单个数。</p>
+<p>说明：TPC-C使用三种性能和价格度量，其中性能由TPC－C吞吐率衡量，单位是tpmC。tpm是transactions per minute的简称；C指TPC中的C基准程序。它的定义是每分钟内系统处理的新订单 个数。要注意的是，在处理新订单的同时，系统还要按要求处理其它4类事务请求。新订单请求不可能超出全部事务请求的45％，因此，当一个系统的性能为1000tpmC时，它每分钟实际处理的请求数是2000多个。</p>
+<p>所以，8179.817 TpmC的结果表明，平均每分钟处理新订单个数为8179.817，而实际系统处理新订单数为8179.817/(100%-43.48%-%4.35-%4.35-%4.35)=18817.1543593，即平均每分钟处理19万个，平均313.62事务/s。</p>
+<h3>2）图表分析</h3><br />
+<strong>首先，提取时间维度下</strong>新生成订单数量和90%的事务响应时间，通过<br />
+<span style="color: #0000ff;">shell>scripts/analyze.sh tpccdb_20121107 | tee tpccdb_20121107.txt</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+<span style="color: #0000ff;"> 1480 1.887000</span><br />
+<span style="color: #0000ff;"> 1442 1.970000</span><br />
+<span style="color: #0000ff;"> 1752 1.799000</span><br />
+<span style="color: #0000ff;"> 1149 1.909000</span><br />
+<span style="color: #0000ff;"> 1169 1.736000</span><br />
+<span style="color: #0000ff;"> 1123 1.829000</span><br />
+<span style="color: #0000ff;"> 1432 1.807000</span><br />
+<span style="color: #0000ff;"> 1348 1.898000</span><br />
+<span style="color: #0000ff;"> 1588 1.846000</span><br />
+<span style="color: #0000ff;"> 1543 2.041000</span><br />
+<span style="color: #0000ff;"> 1353 1.940000</span><br />
+<span style="color: #0000ff;"> 1135 1.928000</span><br />
+<span style="color: #0000ff;"> 1169 2.029000</span><br />
+<span style="color: #0000ff;"> 1356 1.948000</span><br />
+<span style="color: #0000ff;"> 1360 2.013000</span><br />
+<span style="color: #0000ff;"> 1456 2.061000</span><br />
+<span style="color: #0000ff;"> 1460 2.007000</span><br />
+<span style="color: #0000ff;"> ...</span><br />
+上述脚本获取了安装时间先后的新生成订单数量和90%的事务响应时间，即如下标红的部分<br />
+3490,<span style="color: #ff0000;"> 1704</span>(0):<span style="color: #ff0000;">1.819</span>|2.223, 1707(0):0.399|0.469, 169(0):0.214|0.233, 172(0):2.163|2.205, 171(0):5.689|5.883</p>
+<p>然后，获取 tpccdb_20121107.txt文件，在Excel作图，展示：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/tpcc-mysql2.png"><img class="alignnone size-full wp-image-421" alt="tpcc-mysql2" src="http://www.sqlparty.com/wp-content/uploads/2013/08/tpcc-mysql2.png" width="483" height="291" /></a></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/tpcc-mysql3.png"><img class="alignnone size-full wp-image-422" alt="tpcc-mysql3" src="http://www.sqlparty.com/wp-content/uploads/2013/08/tpcc-mysql3.png" width="483" height="291" /></a></p>
+<h2>五.常见问题处理</h2><br />
+1.找不到mysql的头文件。<br />
+解决：export C_INCLUDE_PATH=$MYSQL_HOME/include</p>
+<p>2.找不到mysql_config程序<br />
+解决：export PATH=$MYSQL_HOME/bin:$PATH</p>
+<p>3.运行时找不到mysql库<br />
+如：<br />
+error while loading shared libraries: libmysqlclient_r.so.16: cannot open shared object file: No such file or directory<br />
+解决：export LD_LIBRARY_PATH=$MYSQL_HOME/lib<br />
+实际操作可以是：<br />
+shell>locate libmysqlclient_r.so.16<br />
+...<br />
+/usr/local/mysql-5.1.63/lib/mysql/libmysqlclient_r.so.16<br />
+...<br />
+shell>export LD_LIBRARY_PATH=/usr/local/mysql-5.1.63/lib/mysql/<br />
+shell>./tpcc_start ...</p>
+<h2>附录：可执行程序选项</h2><br />
+<strong>tpcc_load</strong><br />
+<span style="color: #0000ff;">*************************************</span><br />
+<span style="color: #0000ff;"> *** ###easy### TPC-C Data Loader ***</span><br />
+<span style="color: #0000ff;"> *************************************</span></p>
+<p><span style="color: #0000ff;">usage: tpcc_load [server] [DB] [user] [pass] [warehouse]</span><br />
+<span style="color: #0000ff;"> OR</span><br />
+<span style="color: #0000ff;"> tpcc_load [server] [DB] [user] [pass] [warehouse] [part] [min_wh] [max_wh]</span></p>
+<p><span style="color: #0000ff;">* [part]: 1=ITEMS 2=WAREHOUSE 3=CUSTOMER 4=ORDERS</span></p>
+<p><strong>tpcc_start</strong><br />
+<span style="color: #0000ff;">***************************************</span><br />
+<span style="color: #0000ff;"> *** ###easy### TPC-C Load Generator ***</span><br />
+<span style="color: #0000ff;"> ***************************************</span><br />
+<span style="color: #0000ff;"> Usage: tpcc_start -h server_host -P port -d database_name -u mysql_user -p mysql_password -w warehouses -c connections -r warmup_time -l running_time -i report_interval -f report_file -t trx_file</span><br />
+附加说明：<br />
+-h：测试主机<br />
+-P：端口<br />
+-d：测试的数据库<br />
+-u：测试的用户<br />
+-p：测试用户的密码<br />
+-w：测试的warehouse数<br />
+-c：测试的连接线程数<br />
+-r：预热时间<br />
+-l：测试时间<br />
+-f：指定报告文件名</p>
+<p>参考：<br />
+<a href="http://isadba.com/?p=273" target="_blank">http://isadba.com/?p=273</a><br />
+<a href=" http://blog.chinaunix.net/uid-26896862-id-3188313.html" target="_blank"> http://blog.chinaunix.net/uid-26896862-id-3188313.html</a><br />
+<a href=" http://www.baike.com/wiki/tpmC" target="_blank"> http://www.baike.com/wiki/tpmC</a></p>

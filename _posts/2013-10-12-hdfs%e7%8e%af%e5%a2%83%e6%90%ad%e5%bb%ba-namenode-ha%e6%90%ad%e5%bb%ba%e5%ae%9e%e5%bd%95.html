@@ -1,0 +1,389 @@
+---
+layout: post
+status: publish
+published: true
+title: HDFS环境搭建-NameNode HA搭建实录
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "了解了<a title=\"HDFS环境搭建-NameNode HA原理与基本配置\" href=\"http://www.sqlparty.com/hdfs%e7%8e%af%e5%a2%83%e6%90%ad%e5%bb%ba-namenode-ha%e5%8e%9f%e7%90%86%e4%b8%8e%e5%9f%ba%e6%9c%ac%e9%85%8d%e7%bd%ae/\"
+  target=\"_blank\">NameNode HA原理与基本配置</a>后，我们尝试进行NameNode HA搭建。\r\n<h2>1.规划</h2>\r\n使用三台主机h3,h4,h5进行测试，每台主机上搭建的组件如下：\r\n<ul>\r\n\t<li>h3:
+  &nbsp; (Active)NameNode+ZKFC+JournalNode+DataNode</li>\r\n\t<li>h4: &nbsp; (StandBy)NameNode+ZKFC+JournalNode+DataNode</li>\r\n\t<li>h5:&nbsp;&nbsp;
+  JournalNode+DataNode</li>\r\n</ul>\r\nZKFC使用已经搭建好的ZooKeeper集群，节点包括CH22,CH34,CH35。\r\n\r\n以下all-shell表示在h3,h4,h5三台主机上都需要执行，h3-shell表示只在h3上执行，类推。\r\n\r\n"
+wordpress_id: 732
+wordpress_url: http://www.sqlparty.com/?p=732
+date: '2013-10-12 12:01:51 +0800'
+date_gmt: '2013-10-12 04:01:51 +0800'
+categories:
+- 大数据
+tags:
+- Hadoop
+- hdfs
+- ha
+---
+<p>了解了<a title="HDFS环境搭建-NameNode HA原理与基本配置" href="http://www.sqlparty.com/hdfs%e7%8e%af%e5%a2%83%e6%90%ad%e5%bb%ba-namenode-ha%e5%8e%9f%e7%90%86%e4%b8%8e%e5%9f%ba%e6%9c%ac%e9%85%8d%e7%bd%ae/" target="_blank">NameNode HA原理与基本配置</a>后，我们尝试进行NameNode HA搭建。</p>
+<h2>1.规划</h2><br />
+使用三台主机h3,h4,h5进行测试，每台主机上搭建的组件如下：</p>
+<ul>
+<li>h3: &nbsp; (Active)NameNode+ZKFC+JournalNode+DataNode</li>
+<li>h4: &nbsp; (StandBy)NameNode+ZKFC+JournalNode+DataNode</li>
+<li>h5:&nbsp;&nbsp; JournalNode+DataNode</li><br />
+</ul><br />
+ZKFC使用已经搭建好的ZooKeeper集群，节点包括CH22,CH34,CH35。</p>
+<p>以下all-shell表示在h3,h4,h5三台主机上都需要执行，h3-shell表示只在h3上执行，类推。</p>
+<p><!--more--></p>
+<h2>2.安装</h2><br />
+安装基于本地搭建的Yum仓库，其搭建与使用见文章&ldquo;<a title="创建cdh4本地Yum仓库" href="http://www.sqlparty.com/%e5%88%9b%e5%bb%bacdh4%e6%9c%ac%e5%9c%b0yum%e4%bb%93%e5%ba%93/" target="_blank">搭建Yum仓库</a>&rdquo;。</p>
+<p><strong>JAVA安装：</strong></p>
+<p>下载后上传至服务器/db/soft目录</p>
+<p><span style="color: #0000ff;">all-shell>chmod u+x jdk-6u35-linux-i586-rpm.bin</span><br />
+<span style="color: #0000ff;">all-shell>./jdk-6u35-linux-i586-rpm.bin</span></p>
+<p>正常结束就完成JDK安装。接下来配置JAVA_HOME。</p>
+<p><span style="color: #0000ff;">all-shell>vi /etc/profile</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">export JAVA_HOME=/usr/java/jdk1.6.0_35</span><br />
+<span style="color: #0000ff;">export JAVA_BIN=$JAVA_HOME/bin</span><br />
+<span style="color: #0000ff;">export CLASSPATH=.:$JAVA_HOME/lib/dt.jar</span><br />
+<span style="color: #0000ff;">export PATH=$JAVA_BIN:$PATH</span><br />
+<span style="color: #0000ff;">all-shell>. /etc/profile</span>&nbsp; #使本连接生效<br />
+<span style="color: #0000ff;">all-shell>java -version</span><br />
+<span style="color: #0000ff;">java version "1.6.0_35"</span><br />
+<span style="color: #0000ff;">Java(TM) SE Runtime Environment (build 1.6.0_35-b10)</span><br />
+<span style="color: #0000ff;">Java HotSpot(TM) Client VM (build 20.10-b01, mixed mode, sharing)</span></p>
+<p>说明配置成功。</p>
+<p><strong>h3,h4,h5三台主机，分别如下安装：</strong></p>
+<p><span style="color: #0000ff;">h3/h4-shell> yum -y install hadoop-hdfs-namenode </span><br />
+<span style="color: #0000ff;">h3/h4-shell> yum -y install hadoop-hdfs-zkfc</span><br />
+<span style="color: #0000ff;">h3/h4-shell> yum -y install hadoop-hdfs-journalnode</span><br />
+<span style="color: #0000ff;">h3/h4-shell> yum -y install hadoop-hdfs-datanode</span></p>
+<p><span style="color: #0000ff;">h5-shell> yum -y install hadoop-hdfs-journalnode</span><br />
+<span style="color: #0000ff;">h5-shell> yum -y install hadoop-hdfs-datanode</span></p>
+<h2>3.准备</h2></p>
+<h3>3.1 Linux系统层面修改</h3><br />
+关闭iptables，由于涉及到多个端口的开启，方便而已。为安全，可以分别开启各端口以便交互访问。</p>
+<p><span style="color: #0000ff;">all-shell> service iptables stop</span><br />
+<span style="color: #0000ff;">all-shell> chkconfig --level 2345 iptables off</span></p>
+<p>关闭SELinux，主要是RHEL 6下SELinux启用时不允许免密码登录，影响fencing机制。</p>
+<p><span style="color: #0000ff;">all-shell> setenforce 0</span><br />
+<span style="color: #0000ff;">all-shell> sed -i 's/SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config</span></p>
+<h3>3.2 修改/etc/hosts，添加涉及到的Hadoop节点主机名称</h3><br />
+<span style="color: #0000ff;">all-shell> vi /etc/hosts</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">192.168.10.22 CH22</span><br />
+<span style="color: #0000ff;">192.168.10.34 CH34</span><br />
+<span style="color: #0000ff;">192.168.10.35 CH35</span><br />
+<span style="color: #0000ff;">192.168.2.4 h4</span><br />
+<span style="color: #0000ff;">192.168.2.3 h3</span><br />
+<span style="color: #0000ff;">192.168.2.5 h5</span></p>
+<h3>3.3 创建存储目录</h3><br />
+<span style="color: #0000ff;">h3/h4-shell> mkdir -p /data/nn /data/dn/&nbsp; /data/jn&nbsp; /data/zk</span><br />
+<span style="color: #0000ff;">h5-shell>mkdir -p /data/dn/&nbsp; /data/jn</span><br />
+<span style="color: #0000ff;">all-shell> chown -R hdfs:hadoop /data</span><br />
+<span style="color: #0000ff;">all-shell> chmod 770 /data</span></p>
+<h2>4.配置</h2><br />
+注：如果遇到/etc/hadoop/conf目录不存在，你就会注意到/etc/hadoop/conf其实是一个软链接，其指向/etc/alternatives/hadoop-conf，而/etc/alternatives/hadoop-conf又是一个软链接，指向/etc/hadoop/conf.mycluster，而后者不存在。可以通过拷贝/etc/hadoop/目录下的实际存在的目录的方式来生成这个目录，这样这个目录是完整自己控制的目录，不会受到升级等的影响。如： cp -R /etc/hadoop/conf.empty /etc/hadoop/conf.mycluster。这样就能够访问/etc/hadoop/conf目录了。</p>
+<p><span style="color: #0000ff;">all-shell> vi /etc/hadoop/conf/core-site.xml</span><br />
+<span style="color: #0000ff;"><?xml version="1.0"?></span><br />
+<span style="color: #0000ff;"><?xml-stylesheet type="text/xsl" href="configuration.xsl"?></span><br />
+<span style="color: #0000ff;"><configuration></span><br />
+<span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>fs.defaultFS</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>hdfs://hatest</value></span><br />
+<span style="color: #0000ff;"></property></span><br />
+<span style="color: #0000ff;">&nbsp;</configuration></span></p>
+<p>h3和h4上安装NameNode+ZKFC+JournalNode+DataNode。</p>
+<p><span style="color: #0000ff;">h3/h4-shell> vi /etc/hadoop/conf/hdfs-site.xml</span><br />
+<span style="color: #0000ff;"><?xml version="1.0"?></span><br />
+<span style="color: #0000ff;"><?xml-stylesheet type="text/xsl" href="configuration.xsl"?></span><br />
+<span style="color: #0000ff;"><configuration></span><br />
+<span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.permissions.superusergroup</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>hdfs</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;"><!-- For NameNode --></span><br />
+<span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.namenode.name.dir</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>file:///data/nn</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;"><!-- For DataNode --></span><br />
+<span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.datanode.data.dir</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>file:///data/dn</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;"><!-- HA --></span><br />
+<span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.nameservices</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>hatest</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.ha.namenodes.hatest</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>nn1,nn2</value></span><br />
+<span style="color: #0000ff;"></property></span><br />
+<span style="color: #0000ff;">&nbsp;</span><br />
+<span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.namenode.rpc-address.hatest.nn1</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>h3:8020</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.namenode.rpc-address.hatest.nn2</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>h4:8020</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.namenode.http-address.hatest.nn1</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>h3:50070</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.namenode.http-address.hatest.nn2</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>h4:50070</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.client.failover.proxy.provider.hatest</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;"><!-- For Fence --></span><br />
+<span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.ha.fencing.methods</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>sshfence</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.ha.fencing.ssh.private-key-files</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>/var/lib/hadoop-hdfs/.ssh/id_rsa</value></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <description>The SSH private key files to use with the builtin sshfence fencer</description></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;"><!-- For JournalNode --></span><br />
+<span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.namenode.shared.edits.dir</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>qjournal://h3:8485;h4:8485;h5:8485/hatest</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.journalnode.edits.dir</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>/data/jn</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;"><!-- For autofailover, ZKFC --></span><br />
+<span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.ha.automatic-failover.enabled</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>true</value></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <description>Whether automatic failover is enabled. See the HDFS High Availability documentation for details on automatic HA configuration</description></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>ha.zookeeper.quorum</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>CH22:2281,CH34:2281,CH35:2281</value></span><br />
+<span style="color: #0000ff;"></property></span><br />
+<span style="color: #0000ff;"></configuration></span></p>
+<p>而h5上只需要安装JournalNode和DataNode，以及访问NameNode，其实只需要配置如下：</p>
+<p><span style="color: #0000ff;">h5-shell> vi /etc/hadoop/conf/hdfs-site.xml</span><br />
+<span style="color: #0000ff;"><?xml version="1.0"?></span><br />
+<span style="color: #0000ff;"><?xml-stylesheet type="text/xsl" href="configuration.xsl"?></span><br />
+<span style="color: #0000ff;"><configuration></span><br />
+<span style="color: #0000ff;"><!-- For DataNode --></span><br />
+<span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.datanode.data.dir</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>file:///data/dn</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;"><!-- For Access NameNode --></span><br />
+<span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.nameservices</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>hatest</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.ha.namenodes.hatest</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>nn1,nn2</value></span><br />
+<span style="color: #0000ff;"></property></span><br />
+<span style="color: #0000ff;">&nbsp;</span><br />
+<span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.namenode.rpc-address.hatest.nn1</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>h3:8020</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.namenode.rpc-address.hatest.nn2</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>h4:8020</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.namenode.http-address.hatest.nn1</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>h3:50070</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.namenode.http-address.hatest.nn2</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>h4:50070</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.client.failover.proxy.provider.hatest</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;"><!-- For JournalNode --></span><br />
+<span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.namenode.shared.edits.dir</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>qjournal://h3:8485;h4:8485;h5:8485/hatest</value></span><br />
+<span style="color: #0000ff;"></property></span></p>
+<p><span style="color: #0000ff;">
+<property></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <name>dfs.journalnode.edits.dir</name></span><br />
+<span style="color: #0000ff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <value>/data/jn</value></span><br />
+<span style="color: #0000ff;"></property></span><br />
+<span style="color: #0000ff;"></configuration></span></p>
+<h2>5.配置NameNode之间的sshfence</h2><br />
+<span style="color: #0000ff;">h3/h4-shell> sudo -u hdfs ssh-keygen</span><br />
+<span style="color: #0000ff;">Generating public/private rsa key pair.</span><br />
+<span style="color: #0000ff;">Enter file in which to save the key (/var/lib/hadoop-hdfs/.ssh/id_rsa):&nbsp; <span style="color: #000000;">#直接回车</span></span><br />
+<span style="color: #0000ff;">Enter passphrase (empty for no passphrase):&nbsp; <span style="color: #000000;">#直接回车，必须配置成无密码的方式</span></span><br />
+<span style="color: #0000ff;">Enter same passphrase again:&nbsp;&nbsp;&nbsp;<span style="color: #000000;"> #直接回车</span></span><br />
+<span style="color: #0000ff;">Your identification has been saved in /var/lib/hadoop-hdfs/.ssh/id_rsa.</span><br />
+<span style="color: #0000ff;">Your public key has been saved in /var/lib/hadoop-hdfs/.ssh/id_rsa.pub.</span><br />
+<span style="color: #0000ff;">The key fingerprint is:</span><br />
+<span style="color: #0000ff;">7d:ad:7b:5a:53:b1:ee:53:94:f5:f7:cd:4e:c9:75:bb hdfs@h3</span><br />
+<span style="color: #0000ff;">The key's randomart image is:</span><br />
+<span style="color: #0000ff;">+--[ RSA 2048]----+</span><br />
+<span style="color: #0000ff;">|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |</span><br />
+<span style="color: #0000ff;">|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .|</span><br />
+<span style="color: #0000ff;">|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .+|</span><br />
+<span style="color: #0000ff;">|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .&nbsp;&nbsp; . .O|</span><br />
+<span style="color: #0000ff;">|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; S . . o+X|</span><br />
+<span style="color: #0000ff;">|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; . ..=*|</span><br />
+<span style="color: #0000ff;">|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; . o+o|</span><br />
+<span style="color: #0000ff;">|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ooE.|</span><br />
+<span style="color: #0000ff;">|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; oo ..|</span><br />
+<span style="color: #0000ff;">+-----------------+</span></p>
+<p>以下将自己的公钥拷贝给对方，以便实现自己免密码登录对方。</p>
+<p><span style="color: #0000ff;">h3-shell> sudo -u hdfs ssh-copy-id -i /var/lib/hadoop-hdfs/.ssh/id_rsa.pub hdfs@h4</span><br />
+<span style="color: #0000ff;">h4-shell> sudo -u hdfs ssh-copy-id -i /var/lib/hadoop-hdfs/.ssh/id_rsa.pub hdfs@h3</span></p>
+<p>测试免密码登录：</p>
+<p><span style="color: #0000ff;">h3-shell> sudo -u hdfs ssh hdfs@h4</span></p>
+<p>能够直接登录，则说明成功！h4登录h3同理。</p>
+<h2>6.启动HDFS</h2></p>
+<h3>6.1启动Journal Node</h3><br />
+NameNode启动时会连接Journal Node：</p>
+<p><span style="color: #0000ff;">all-shell> service hadoop-hdfs-journalnode start</span></p>
+<h3>6.2格式化h3上的NameNode</h3><br />
+h3上的NameNode规划为Active NameNode，称之为主NN。这样h4上的NN称为从NN。</p>
+<p><span style="color: #0000ff;">h3-shell> sudo -u hdfs hadoop namenode -format</span></p>
+<h3>6.3启动主NN</h3><br />
+<span style="color: #0000ff;">h3-shelll> service hadoop-hdfs-namenode start</span></p>
+<h3>6.4同步从NN</h3><br />
+<span style="color: #0000ff;">h4-shell> sudo -u hdfs hadoop namenode -bootstrapStandby</span></p>
+<p><em>如果同步数据时遇到如下问题：</em><br />
+<em>************************************************************/</em><br />
+<em>13/10/10 18:24:20 INFO namenode.NameNode: registered UNIX signal handlers for [TERM, HUP, INT]</em><br />
+<em>=====================================================</em><br />
+<em>About to bootstrap Standby ID nn2 from:</em><br />
+<em>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Nameservice ID: hatest</em><br />
+<em>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Other Namenode ID: nn1</em><br />
+<em>&nbsp; Other NN's HTTP address: h3:50070</em><br />
+<em>&nbsp; Other NN's IPC&nbsp; address: h3/192.168.2.3:8020</em><br />
+<em>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Namespace ID: 763881322</em><br />
+<em>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Block pool ID: BP-602901281-192.168.2.3-1381397584877</em><br />
+<em>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Cluster ID: CID-823445da-c230-4461-aba1-18504e7e3f46</em><br />
+<em>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Layout version: -40</em><br />
+<em>=====================================================</em><br />
+<em>Re-format filesystem in Storage Directory /data/nn ? (Y or N) Y</em><br />
+<em>13/10/10 18:24:28 INFO namenode.NNStorage: Storage directory /data/nn has been successfully formatted.</em><br />
+<em>13/10/10 18:24:28 <span style="color: #ff0000;">FATAL ha.BootstrapStandby: Unable to read transaction ids 1-25 from the configured shared edits storage qjournal://h3:8485;h4:8485;h5:8485/hatest. Please copy these logs into the shared edits storage or call saveNamespace on the active node.</span></em><br />
+<em><span style="color: #ff0000;">Error: Gap in transactions. Expected to be able to read up until at least txid 25 but unable to find any edit logs containing txid 2</span></em><br />
+<em>13/10/10 18:24:28 INFO util.ExitUtil: Exiting with status 6</em><br />
+<em>13/10/10 18:24:28 INFO namenode.NameNode: SHUTDOWN_MSG:</em><br />
+<em>/************************************************************</em><br />
+<em>SHUTDOWN_MSG: Shutting down NameNode at h4/192.168.2.4</em><br />
+<em>************************************************************/</em></p>
+<p><em>则似乎是一个已知的问题，参考：<a href="http://grokbase.com/t/cloudera/cdh-user/12art3v1jn/namenode-bootstrapstandby-failed-always" target="_blank">"namenode -bootstrapStandby" failed always</a></em></p>
+<p><em>解决方案：</em></p>
+<p><em>直接拷贝主节点（活跃NameNode）的NameNode目录下的全部数据，到从节点的NameNode目录下即可，如这里：</em><br />
+<em><span style="color: #0000ff;">h3-shell> cd /data/nn</span></em><br />
+<em><span style="color: #0000ff;">h3-shell> rsync -av * root@h4:/data/nn/</span></em><br />
+<em>这样，继续往下处理即可。</em></p>
+<h3>6.5启动从NN</h3><br />
+<span style="color: #0000ff;">h4-shell> service hadoop-hdfs-namenode start</span></p>
+<h3><span style="color: #000000;">6.6配置自动切换</span></h3><br />
+在任意一个NameNode上运行即可。会创建一个znode用于自动故障转移。</p>
+<p><span style="color: #0000ff;">h3-shell> hdfs zkfc -formatZK</span></p>
+<p>启动zkfc</p>
+<p><span style="color: #0000ff;">h3/h4-shell> service hadoop-hdfs-zkfc start</span></p>
+<h3>6.7启动DataNode</h3><br />
+<span style="color: #0000ff;">all-shell> service hadoop-hdfs-datanode start</span></p>
+<p>如上所有操作完成后，各节点上Hadoop组件运行情况：</p>
+<p><span style="color: #0000ff;">h3-shell> jps</span><br />
+<span style="color: #0000ff;">5003 DFSZKFailoverController</span><br />
+<span style="color: #0000ff;">30612 DataNode</span><br />
+<span style="color: #0000ff;">5629 Jps</span><br />
+<span style="color: #0000ff;">5548 NameNode</span><br />
+<span style="color: #0000ff;">30289 JournalNode</span></p>
+<p><span style="color: #0000ff;">h4-shell> jps</span><br />
+<span style="color: #0000ff;">5708 NameNode</span><br />
+<span style="color: #0000ff;">1801 JournalNode</span><br />
+<span style="color: #0000ff;">6275 Jps</span><br />
+<span style="color: #0000ff;">2393 DataNode</span><br />
+<span style="color: #0000ff;">5817 DFSZKFailoverController</span></p>
+<p><span style="color: #0000ff;">h5-shell> jps</span><br />
+<span style="color: #0000ff;">1163 Jps</span><br />
+<span style="color: #0000ff;">1825 JournalNode</span><br />
+<span style="color: #0000ff;">2654 DataNode</span></p>
+<p>web访问 http://h3:50070/，可以看到：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/10/NameNode_HA_Web.png"><img class="alignnone size-large wp-image-733" alt="NameNode_HA_Web" src="http://www.sqlparty.com/wp-content/uploads/2013/10/NameNode_HA_Web-710x1024.png" width="710" height="1024" /></a></p>
+<h2>7.HDFS启动后</h2></p>
+<h3>7.1 /tmp目录</h3><br />
+很多Hadoop生态圈中的应用都期望HDFS中有一个/tmp目录，功能与Linux下的/tmp目录类似，需要所有用户可读写。应主动创建HDFS /tmp目录。这个目录如果不主动创建，某些进程会自动创建，但是其权限控制可能会使得其他应用不能正常使用它。</p>
+<p><span style="color: #0000ff;">h5-shell>hadoop fs -ls /</span><br />
+<span style="color: #0000ff;">h5-shell>sudo -u hdfs hadoop fs -mkdir /tmp</span><br />
+<span style="color: #0000ff;">h5-shell>sudo -u hdfs hadoop fs -chmod -R 1777 /tmp</span><br />
+<span style="color: #0000ff;">h5-shell>hadoop fs -ls /</span><br />
+<span style="color: #0000ff;">Found 1 items</span><br />
+<span style="color: #0000ff;">drwxrwxrwt&nbsp;&nbsp; - hdfs hdfs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 2013-10-10 23:14 /tmp</span></p>
+<h3>7.2 HDFS功能测试</h3><br />
+<span style="color: #0000ff;">h5-shell> hadoop fs -put network.sh /tmp/</span><br />
+<span style="color: #0000ff;">h5-shell> hadoop fs -mv /tmp/network.sh /tmp/to_del.sh</span><br />
+<span style="color: #0000ff;">h5-shell> hadoop fs -ls /tmp</span><br />
+<span style="color: #0000ff;">Found 1 items</span><br />
+<span style="color: #0000ff;">-rw-r--r--&nbsp;&nbsp; 3 root hdfs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1044 2013-10-10 23:16 /tmp/to_del.sh</span><br />
+<span style="color: #0000ff;">h5-shell> hadoop fs -rm /tmp/to_del.sh</span><br />
+<span style="color: #0000ff;">Deleted /tmp/to_del.sh</span></p>
+<h3>7.3 NameNode HA自动切换测试</h3><br />
+通过web，我们可以确定h3是Active NameNode，h4是StandBy NameNode。</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/10/h4_standby.png"><img class="alignnone size-full wp-image-734" alt="h4_standby" src="http://www.sqlparty.com/wp-content/uploads/2013/10/h4_standby.png" width="507" height="78" /></a></p>
+<p>这里测试自动切换机制是否有效，强行关闭Active NameNode</p>
+<p><span style="color: #0000ff;">h3-shell> kill -9 5548</span></p>
+<p>通过web访问 http://h4:50070/，可以看到短暂时间内（可能是几秒）完成了切换：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/10/h4_active.png"><img class="alignnone size-full wp-image-735" alt="h4_active" src="http://www.sqlparty.com/wp-content/uploads/2013/10/h4_active.png" width="493" height="68" /></a></p>
+<p>而访问可以正常进行：</p>
+<p><span style="color: #0000ff;">h5-shell>&nbsp; hadoop fs -ls /</span><br />
+<span style="color: #0000ff;">Found 1 items</span><br />
+<span style="color: #0000ff;">drwxrwxrwt&nbsp;&nbsp; - hdfs hdfs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 2013-10-10 23:17 /tmp</span></p>
+<h3>7.4管理命令测试</h3><br />
+在h3或者h4上都可以执行手动切换</p>
+<p><span style="color: #0000ff;">h3-shell> sudo -u hdfs hdfs haadmin -failover nn1 nn2</span></p>
+<p>查看某Namenode的状态</p>
+<p><span style="color: #0000ff;">h3-shell> sudo -u hdfs hdfs haadmin -getServiceState nn2</span><br />
+<span style="color: #0000ff;">active</span><br />
+<span style="color: #0000ff;">h3-shell> sudo -u hdfs hdfs haadmin -getServiceState nn1</span><br />
+<span style="color: #0000ff;">standby</span></p>
+<h2>8.小结</h2><br />
+在搭建过程中，是对原理不断验证和加强理解的过程，中间很容易出现问题，保持清醒头脑，并经常去回顾对原理的认识，复杂的过程也变得逐步清晰了，Done!</p>
+<p>参考：<br />
+<a href="http://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-common/core-default.xml" target="_blank">http://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-common/core-default.xml</a></p>

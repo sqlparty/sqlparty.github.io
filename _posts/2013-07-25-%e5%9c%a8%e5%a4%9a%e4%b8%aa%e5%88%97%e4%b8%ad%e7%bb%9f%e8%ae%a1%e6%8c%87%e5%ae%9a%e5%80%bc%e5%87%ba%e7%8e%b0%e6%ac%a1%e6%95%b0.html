@@ -1,0 +1,46 @@
+---
+layout: post
+status: publish
+published: true
+title: 在多个列中统计指定值出现次数
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "存在表table1，结构和数据如下：\r\n\r\n[sql]\r\n| ID | ONE | TWO | THREE |\r\n--------------------------\r\n|
+  1 | 34 | 45 | 80 |\r\n| 2 | 41 | 7 | 7 |\r\n| 3 | 7 | 18 | 22 |\r\n| 4 | 7 | 7 |
+  45 |\r\n[/sql]\r\n\r\n这里想统计列one，two，three中指定值(如7)的总数，如上表所示，返回5。这样的SQL应该如何写呢？\r\n"
+wordpress_id: 67
+wordpress_url: http://www.sqlparty.com/?p=67
+date: '2013-07-25 12:00:19 +0800'
+date_gmt: '2013-07-25 04:00:19 +0800'
+categories:
+- 题炼
+tags:
+- 数据库
+- case-when
+- 统计
+---
+<p>存在表table1，结构和数据如下：</p>
+<p>[sql]<br />
+| ID | ONE | TWO | THREE |<br />
+--------------------------<br />
+| 1 | 34 | 45 | 80 |<br />
+| 2 | 41 | 7 | 7 |<br />
+| 3 | 7 | 18 | 22 |<br />
+| 4 | 7 | 7 | 45 |<br />
+[/sql]</p>
+<p>这里想统计列one，two，three中指定值(如7)的总数，如上表所示，返回5。这样的SQL应该如何写呢？<br />
+<!--more--></p>
+<div class="dailyanswer">这里可以采用汇总查询，结合case when的使用，将等于特定值的筛选出来，具体可以如下：[sql]<br />
+select sum(<br />
+case when one=7 then 1 else 0 end +<br />
+case when two=7 then 1 else 0 end +<br />
+case when three=7 then 1 else 0 end<br />
+)<br />
+from table1<br />
+[/sql]</p>
+<p></div></p>

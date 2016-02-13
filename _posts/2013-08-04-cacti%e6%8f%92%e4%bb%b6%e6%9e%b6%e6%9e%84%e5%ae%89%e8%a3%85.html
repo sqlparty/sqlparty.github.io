@@ -1,0 +1,58 @@
+---
+layout: post
+status: publish
+published: true
+title: Cacti插件架构安装
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "Cacti默认不包括插件架构，即不支持插件的安装，需要安装插件架构(Plugin Architecture, PA)后才支持。\r\n<h2>1.下载</h2>\r\n<a
+  href=\"http://www.cacti.net/downloads/pia/cacti-plugin-0.8.7g-PA-v2.9.tar.gz\"
+  target=\"_blank\">http://www.cacti.net/downloads/pia/cacti-plugin-0.8.7g-PA-v2.9.tar.gz</a>\r\n<h2>2.安装</h2>\r\n<span
+  style=\"color: #0000ff;\">shell>/db/soft</span>\r\n<span style=\"color:
+  #0000ff;\"> shell>tar -xzvf cacti-plugin-0.8.7g-PA-v2.9.tar.gz</span>\r\n<span
+  style=\"color: #0000ff;\"> shell>cd /var/www/html/cacti</span>\r\n<span
+  style=\"color: #0000ff;\"> shell>patch -b -p1 -N < /db/soft/cacti-plugin-arch/cacti-plugin-0.8.7g-PA-v2.9.diff
+  shell>mysql -h 192.168.1.18 -u sup -pxxx -P 3311 cacti < /db/soft/cacti-plugin-arch/pa.sql</span>
+  #在cacti原有数据库上添加PA所需表结构。 由此，插件安装完毕。\r\n<h2>3.使用</h2>\r\n登录进Cacti Web后，console->Utilities->User
+  Management中，为admin添加Plugin Management，以便在菜单项中可用。\r\n\r\n"
+wordpress_id: 288
+wordpress_url: http://www.sqlparty.com/?p=288
+date: '2013-08-04 16:30:29 +0800'
+date_gmt: '2013-08-04 08:30:29 +0800'
+categories:
+- 系统
+tags:
+- Cacti
+---
+<p>Cacti默认不包括插件架构，即不支持插件的安装，需要安装插件架构(Plugin Architecture, PA)后才支持。</p>
+<h2>1.下载</h2><br />
+<a href="http://www.cacti.net/downloads/pia/cacti-plugin-0.8.7g-PA-v2.9.tar.gz" target="_blank">http://www.cacti.net/downloads/pia/cacti-plugin-0.8.7g-PA-v2.9.tar.gz</a></p>
+<h2>2.安装</h2><br />
+<span style="color: #0000ff;">shell>/db/soft</span><br />
+<span style="color: #0000ff;"> shell>tar -xzvf cacti-plugin-0.8.7g-PA-v2.9.tar.gz</span><br />
+<span style="color: #0000ff;"> shell>cd /var/www/html/cacti</span><br />
+<span style="color: #0000ff;"> shell>patch -b -p1 -N < /db/soft/cacti-plugin-arch/cacti-plugin-0.8.7g-PA-v2.9.diff shell>mysql -h 192.168.1.18 -u sup -pxxx -P 3311 cacti < /db/soft/cacti-plugin-arch/pa.sql</span> #在cacti原有数据库上添加PA所需表结构。 由此，插件安装完毕。</p>
+<h2>3.使用</h2><br />
+登录进Cacti Web后，console->Utilities->User Management中，为admin添加Plugin Management，以便在菜单项中可用。</p>
+<p><!--more--></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/cacti1.png"><img class="alignnone size-medium wp-image-289" alt="cacti1" src="http://www.sqlparty.com/wp-content/uploads/2013/08/cacti1-300x86.png" width="300" height="86" /></a><br />
+配置完成后，即可看到</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/cacti2.png"><img class="alignnone size-medium wp-image-290" alt="cacti2" src="http://www.sqlparty.com/wp-content/uploads/2013/08/cacti2-300x171.png" width="300" height="171" /></a></p>
+<h2>4.插件安装</h2><br />
+以clog为例：<br />
+1）下载：<br />
+<a href="http://docs.cacti.net/_media/plugin:clog-v1.7-1.tgz" target="_blank">http://docs.cacti.net/_media/plugin:clog-v1.7-1.tgz</a><br />
+将clog-v1.7-1.tgz解压至Cacti的plugin目录中：<br />
+/var/www/html/cacti/plugins<br />
+解压后生产clog目录。<br />
+2）配置：<br />
+在Cacti Web中，console->Configuration->Plugin Management，可以看到已经检测到插件：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/cacti3.png"><img class="alignnone size-medium wp-image-291" alt="cacti3" src="http://www.sqlparty.com/wp-content/uploads/2013/08/cacti3-300x44.png" width="300" height="44" /></a><br />
+在Actions栏中，根据图标指示，install，然后enable，就可以看到clog页了，安装完成！</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/cacti4.png"><img class="alignnone size-medium wp-image-292" alt="cacti4" src="http://www.sqlparty.com/wp-content/uploads/2013/08/cacti4-300x80.png" width="300" height="80" /></a></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/cacti5.png"><img alt="cacti5" src="http://www.sqlparty.com/wp-content/uploads/2013/08/cacti5-300x98.png" width="300" height="98" /></a></p>

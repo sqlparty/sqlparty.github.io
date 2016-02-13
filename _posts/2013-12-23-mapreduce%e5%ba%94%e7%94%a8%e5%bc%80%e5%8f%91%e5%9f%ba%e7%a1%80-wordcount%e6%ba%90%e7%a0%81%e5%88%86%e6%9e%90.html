@@ -1,0 +1,242 @@
+---
+layout: post
+status: publish
+published: true
+title: MapReduce应用开发基础-WordCount源码分析
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "要使用Hadoop集群的强大功能，开发MapReduce应用势在必行，虽然Hive, Pig之类可以变通的方式来大大简化MapReduce的使用，但是了解如何开发以及MapReduce基本原理依然非常重要。\r\n\r\n以下Hadoop自带示例程序WordCount源码为例进行分析：\r\n\r\n[java]\r\npublic
+  class WordCount {\r\n\r\n  public static class TokenizerMapper\r\n       extends
+  Mapper<Object, Text, Text, IntWritable>{\r\n   \r\n    private final static IntWritable
+  one = new IntWritable(1);\r\n    private Text word = new Text();\r\n     \r\n    public
+  void map(Object key, Text value, Context context\r\n                    ) throws
+  IOException, InterruptedException {\r\n      StringTokenizer itr = new StringTokenizer(value.toString());\r\n
+  \     while (itr.hasMoreTokens()) {\r\n        word.set(itr.nextToken());\r\n        context.write(
+  word, one );\r\n      }\r\n    }\r\n  }\r\n \r\n  public static class IntSumReducer\r\n
+  \      extends Reducer<Text,IntWritable,Text,IntWritable> {\r\n    private IntWritable
+  result = new IntWritable();\r\n\r\n    public void reduce(Text key, Iterable<IntWritable>
+  values,\r\n                       Context context\r\n                       ) throws
+  IOException, InterruptedException {\r\n      int sum = 0;\r\n      for (IntWritable
+  val : values) {\r\n        sum += val.get();\r\n      }\r\n      result.set(sum);\r\n
+  \     context.write(key, result);\r\n    }\r\n  }\r\n\r\n  public static void main(String[]
+  args) throws Exception {\r\n    Configuration conf = new Configuration();\r\n    String[]
+  otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();\r\n    if (otherArgs.
+  length != 2) {\r\n      System. err.println(\"Usage: wordcount <in> <out>\" );\r\n
+  \     System.exit(2);\r\n    }\r\n    Job job = new Job(conf, \"word count\" );\r\n
+  \   job.setJarByClass(WordCount. class);\r\n    job.setMapperClass(TokenizerMapper.
+  class);\r\n    job.setCombinerClass(IntSumReducer. class);\r\n    job.setReducerClass(IntSumReducer.
+  class);\r\n    job.setOutputKeyClass(Text. class);\r\n    job.setOutputValueClass(IntWritable.
+  class);\r\n    FileInputFormat.addInputPath(job, new Path(otherArgs[0]));\r\n    FileOutputFormat.setOutputPath(job,
+  new Path(otherArgs[1]));\r\n    System.exit(job.waitForCompletion(true) ? 0 : 1);\r\n
+  \ }\r\n}\r\n[/java]\r\n\r\n一个完整的MapReduce应用包括两个类，一个是Map，实现数据的读入，一个是Reduce，实现结果的输出。MapReduce应用程序只要定义好Map以及Reduce的逻辑，以及少量的额外代码即可。\r\n\r\n"
+wordpress_id: 806
+wordpress_url: http://www.sqlparty.com/?p=806
+date: '2013-12-23 21:58:09 +0800'
+date_gmt: '2013-12-23 13:58:09 +0800'
+categories:
+- 大数据
+tags:
+- Hadoop
+- MapReduce
+---
+<p>要使用Hadoop集群的强大功能，开发MapReduce应用势在必行，虽然Hive, Pig之类可以变通的方式来大大简化MapReduce的使用，但是了解如何开发以及MapReduce基本原理依然非常重要。</p>
+<p>以下Hadoop自带示例程序WordCount源码为例进行分析：</p>
+<p>[java]<br />
+public class WordCount {</p>
+<p>  public static class TokenizerMapper<br />
+       extends Mapper<Object, Text, Text, IntWritable>{</p>
+<p>    private final static IntWritable one = new IntWritable(1);<br />
+    private Text word = new Text();</p>
+<p>    public void map(Object key, Text value, Context context<br />
+                    ) throws IOException, InterruptedException {<br />
+      StringTokenizer itr = new StringTokenizer(value.toString());<br />
+      while (itr.hasMoreTokens()) {<br />
+        word.set(itr.nextToken());<br />
+        context.write( word, one );<br />
+      }<br />
+    }<br />
+  }</p>
+<p>  public static class IntSumReducer<br />
+       extends Reducer<Text,IntWritable,Text,IntWritable> {<br />
+    private IntWritable result = new IntWritable();</p>
+<p>    public void reduce(Text key, Iterable<IntWritable> values,<br />
+                       Context context<br />
+                       ) throws IOException, InterruptedException {<br />
+      int sum = 0;<br />
+      for (IntWritable val : values) {<br />
+        sum += val.get();<br />
+      }<br />
+      result.set(sum);<br />
+      context.write(key, result);<br />
+    }<br />
+  }</p>
+<p>  public static void main(String[] args) throws Exception {<br />
+    Configuration conf = new Configuration();<br />
+    String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();<br />
+    if (otherArgs. length != 2) {<br />
+      System. err.println("Usage: wordcount <in> <out>" );<br />
+      System.exit(2);<br />
+    }<br />
+    Job job = new Job(conf, "word count" );<br />
+    job.setJarByClass(WordCount. class);<br />
+    job.setMapperClass(TokenizerMapper. class);<br />
+    job.setCombinerClass(IntSumReducer. class);<br />
+    job.setReducerClass(IntSumReducer. class);<br />
+    job.setOutputKeyClass(Text. class);<br />
+    job.setOutputValueClass(IntWritable. class);<br />
+    FileInputFormat.addInputPath(job, new Path(otherArgs[0]));<br />
+    FileOutputFormat.setOutputPath(job, new Path(otherArgs[1]));<br />
+    System.exit(job.waitForCompletion(true) ? 0 : 1);<br />
+  }<br />
+}<br />
+[/java]</p>
+<p>一个完整的MapReduce应用包括两个类，一个是Map，实现数据的读入，一个是Reduce，实现结果的输出。MapReduce应用程序只要定义好Map以及Reduce的逻辑，以及少量的额外代码即可。</p>
+<p><!--more--></p>
+<p><strong>Mapper类</strong>：Mapper<KEYIN, VALUEIN, KEYOUT, VALUEOUT>，指定输入输出Key/Value的类型。这里使用Object, Text, Text, IntWritable。输入key不关注，直接Object类型；而一行记录的内容，保存在Text类型中，与String类似；而输出的是(单词/计数)key/value对，类型采用Text和IntWritable。</p>
+<p>注：使用这些Hadoop定义的类型Text,IntWritable等而不是Java中的String，Integer，其原因，是Hadoop需要将这些内容基于HDFS的分布式存储进行特殊的序列化处理，如果要自己实现，需要实现Writable接口。</p>
+<p>content是与MapReduce框架交互的接口，其中包含了输出内容、配置信息、状态信息等。</p>
+<p>map方法将输入的key/value进行处理，然后再写入到content中，由content负责后续传递。</p>
+<p><strong>Reducer类</strong>：reduce方法的输入的key对应map中输出的key，而输入的value，则是map中输出的value的集合。多个map任务的同一个key会汇总到reduce的一个key，而它们的value形成一个集合/列表。经过处理后，再返回一对key/value。</p>
+<p><strong>创建Job</strong>：</p>
+<ul>
+<li>GenericOptionsParser是Hadoop命令行参数的辅助类。</li>
+<li>Job job = new Job(conf, "word count" )&nbsp;&nbsp; 创建Job对象，传入Hadoop相关配置，以及Job名称。</li>
+<li>job.setJarByClass通过设定一个类来指定包含这个类的Jar文件。也可以使用setJar()。</li>
+<li>job.setMapperClass 设置Mapper类。</li>
+<li>job.setCombinerClass Combiner是在Mapper任务处理后，为减少网络交互，将单台主机上的map任务的输出先进行一次合并，即小型的reducer，这里的逻辑下，可以设置为Reducer类相同的处理逻辑。</li>
+<li>job.setReducerClass 设置Reducer类。</li>
+<li>job.setOutputKeyClass&nbsp; 设置输出的key类型。</li>
+<li>job.setOutputValueClass 设置输出的value类型。</li>
+<li>FileInputFormat.addInputPath&nbsp; 指定输入文件的路径。</li>
+<li>FileOutputFormat.setOutputPath 指定输出目录的路径。</li>
+<li>job.waitForCompletion( true)&nbsp; job的一种提交方式，提交后，等待job运行结束， 数表示是否打印Job执行的相关信息。返回的结果是一个boolean变量，用来标识Job的执行结果。</li><br />
+</ul><br />
+一些其他疑问：</p>
+<p><strong>1.这里未设置job的InputFormat，那么我们从源码中如何确认TextInputFormat是其默认InputFormat？</strong></p>
+<p><strong></strong>job在提交之前，需要设置InputFormat，如另一个示例代码MultiFileWordCount中的如下设置：</p>
+<p>[java]<br />
+//set the InputFormat of the job to our InputFormat<br />
+job.setInputFormatClass(MyInputFormat. class);<br />
+[/java]</p>
+<p>而这里，我们没有设定InputFormat类型，据称是TextInputFormat，那么我们如何确认这一点呢？</p>
+<p>进一步查看Job类(org.apache.hadoop.mapreduce.Job)的源码，发现只有setInputFormatClass这个设置，而没有get方法，而使用者肯定是通过get方法来获取的，再查看Job的父类org.apache.hadoop.mapreduce.task.JobContextImpl，其中找到了如下定义：</p>
+<p>[java]<br />
+  /**<br />
+   * Get the {@link InputFormat} class for the job.<br />
+   *<br />
+   * @return the {@link InputFormat} class for the job.<br />
+   */<br />
+  @SuppressWarnings( "unchecked")<br />
+  public Class<? extends InputFormat<?,?>> getInputFormatClass ()<br />
+     throws ClassNotFoundException {<br />
+    return (Class<? extends InputFormat<?,?>>)<br />
+      conf.getClass( INPUT_FORMAT_CLASS_ATTR, TextInputFormat.class);<br />
+  }<br />
+[/java]</p>
+<p>可以看到如果conf对象中没有相关定义的话，就默认设置TextInputFormat，这里基本可以确认了。</p>
+<p>再进一步，conf源头是WordCount里面的：</p>
+<p>[java]<br />
+Configuration conf = new Configuration();<br />
+[/java]</p>
+<p>传递给Job后转化：</p>
+<p>[java]<br />
+  @Deprecated<br />
+  public Job(Configuration conf, String jobName) throws IOException {<br />
+    this(conf);<br />
+    setJobName(jobName);<br />
+  }</p>
+<p>  Job(JobConf conf) throws IOException {<br />
+    super(conf, null);<br />
+    // propagate existing user credentials to job<br />
+    this. credentials.mergeAll(this.ugi.getCredentials());<br />
+    this. cluster = null ;<br />
+  }<br />
+[/java]</p>
+<p>源头的conf转化为JobConf后传递给父类，也就是上面提到的JobContextImpl，那么再看下JobConf中，发现只有如下两个方法涉及到了InputFormat：</p>
+<p>[java]<br />
+  /**<br />
+   * Get the {@link InputFormat} implementation for the map- reduce job,<br />
+   * defaults to {@link TextInputFormat} if not specified explicity.<br />
+   *<br />
+   * @return the {@link InputFormat} implementation for the map- reduce job.<br />
+   */<br />
+  public InputFormat getInputFormat() {<br />
+    return ReflectionUtils.newInstance(getClass("mapred.input.format.class" ,<br />
+                                                             TextInputFormat.class ,<br />
+                                                             InputFormat.class ),<br />
+                                                    this);<br />
+  }</p>
+<p>  /**<br />
+   * Set the {@link InputFormat} implementation for the map- reduce job.<br />
+   *<br />
+   * @param theClass the {@link InputFormat} implementation for the map-reduce<br />
+   *                 job.<br />
+   */<br />
+  public void setInputFormat(Class<? extends InputFormat> theClass) {<br />
+    setClass("mapred.input.format.class", theClass, InputFormat. class);<br />
+  }<br />
+[/java]</p>
+<p>OK，再次明确了InputFormat的默认设置是TextInputFormat。Done！</p>
+<p>以上步骤显然可以用于任何类似的疑问的处理上。</p>
+<p><strong>2.WordCount的实现，是利用MapReduce原理，将输入文件进行分片，每个分片分别统计(Map)，然后汇总将不同Map中的单词及其统计数进行累积。有这样的担忧存在：如果一个单词被拆分到了两个不同分片甚至不同DataNode中，会不会被统计成两个单词造成最终结果错误呢？</strong></p>
+<p>用例子来检测下是否会有这样的错误存在。创建单个字符串，大小超过64MB，上传到HDFS上使用WordCount处理，结果识别到单词数为1，正确！</p>
+<p>那么它是如何实现的呢？</p>
+<p>回顾下MapReduce任务中的输入处理流程：</p>
+<ol>
+<li>指定输入文件路径，如FileInputFormat.addInputPaths(job, args[0])</li>
+<li>指定文件的处理类型，如job.setInputFormatClass(MyInputFormat. class)</li>
+<li>在这个InputFormatClass内部，考虑:
+<ol>
+<li>是否可以进行分片(isSplitable(JobContext context, Path file))</li>
+<li>如何分片(List<InputSplit> getSplits(JobContext job))</li>
+<li>如何读取分片中记录( RecordReader<LongWritable, Text>&nbsp;&nbsp; createRecordReader(InputSplit split,TaskAttemptContext context))</li><br />
+</ol><br />
+</li></p>
+<li>以上确定后，用户开发的Map任务中就可以直接处理每一条记录KeyValue。</li><br />
+</ol><br />
+这里的问题就涉及到记录如何读取了，我们已经知道使用的是TextInputFormat，查看其createRecordReader：</p>
+<p>[java]<br />
+  public RecordReader<LongWritable, Text><br />
+    createRecordReader(InputSplit split,<br />
+                       TaskAttemptContext context) {<br />
+    String delimiter = context.getConfiguration().get(<br />
+        "textinputformat.record.delimiter" );<br />
+    byte[] recordDelimiterBytes = null ;<br />
+    if ( null != delimiter)<br />
+      recordDelimiterBytes = delimiter.getBytes(Charsets.UTF_8);<br />
+    return new LineRecordReader(recordDelimiterBytes );<br />
+  }<br />
+[/java]</p>
+<p>最终使用的是org.apache.hadoop.mapreduce.lib.input.LineRecordReader来读取行记录。</p>
+<p>LineRecordReader中虽然一次处理一个Split，但是获取的内容可以是下一个Split中，它会确保一条记录（根据你们指定的记录分隔符确定，默认是换行符分隔）总是被前部所属的split处理程序读到。事实上：</p>
+<p>1）Split的划分其实是逻辑上的，只是指定了该文件的start和end位置，而不是真实的划分成小文件。</p>
+<p>2）每次处理一个Split时，如果该Split不是第一个分片，那么总是忽略第一行记录，因为每个Split完成后总是会多读一行，所以本分片的第一行总是被与上一分片一起处理了：</p>
+<p>LineRecordReader的initialize方法中：</p>
+<p>[java]<br />
+    // If this is not the first split, we always throw away first record<br />
+    // because we always (except the last split) read one extra line in<br />
+    // next() method.<br />
+    if ( start != 0) {<br />
+      start += in.readLine( new Text(), 0, maxBytesToConsume(start ));<br />
+    }<br />
+[/java]</p>
+<p>3）分片的第一行总是被与上一分片一起处理，该逻辑：</p>
+<p>LineRecordReader的nextKeyValue方法中：</p>
+<p>[java]<br />
+while (getFilePosition() <= end) {<br />
+      newSize = in.readLine( value, maxLineLength ,<br />
+          Math.max(maxBytesToConsume(pos), maxLineLength));<br />
+           ...<br />
+}<br />
+[/java]</p>
+<p><span style="color: #ff0000;"><=</span>符号意味着本split要处理完成，其读到的文件位置必然是在end之后了，而in.readLine是只管针对文件(而不是针对Split)往下读取一整行，那么这就保证了下一个split的第一行在本split中处理完。</p>
+<p>这也就能够解释WordCount程序(所有使用LineRecordReader来读取记录的MapReduce程序)不会错误处理跨行/跨分片的内容。</p>
+<p>参考：<br />
+<a href="http://my.oschina.net/xiangchen/blog/99653" target="_blank">http://my.oschina.net/xiangchen/blog/99653</a><br />
+<a href="http://www.informit.com/articles/article.aspx?p=2017060" target="_blank">http://www.informit.com/articles/article.aspx?p=2017060</a><br />
+<a href="http://blog.csdn.net/derekjiang/article/details/6851625" target="_blank">http://blog.csdn.net/derekjiang/article/details/6851625</a></p>

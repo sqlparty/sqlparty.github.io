@@ -1,0 +1,120 @@
+---
+layout: post
+status: publish
+published: true
+title: MongoDB环境搭建-单机版
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "单机模式的MongoDB的搭建比较简单，本文介绍使用RPM包进行单机搭建的完整过程，包括简单测试步骤。\r\n\r\n<a href=\"http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;11&#47;mongoDB_logo.png\"><img
+  class=\"alignnone size-full wp-image-781\" alt=\"mongoDB_logo\" src=\"http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;11&#47;mongoDB_logo.png\"
+  width=\"448\" height=\"149\" &#47;><&#47;a>\r\n\r\n搭建环境：RedHat 6.2。\r\n<h2>一、软件下载<&#47;h2>\r\n从<a
+  href=\"http:&#47;&#47;www.mongodb.org&#47;downloads\" target=\"_blank\">官方下载地址<&#47;a>可以找到最新的版本，当下是2.4.8。可以直接下载tgz，解压即用，非常方面灵活，但是这样的安装，没有注册为系统的服务，启动、停止、开机自启动需要自行照料，而且运行用户需要注意避免使用root，存在安全风险，而RPM包安装则无需操心这些事，配置文件路径，日志路径等都与系统推荐的配置一致，另外创建mongod用户用于运行服务。我们选择RPM安装。\r\n\r\n<span
+  style=\"color: #0000ff;\">shell> wget http:&#47;&#47;downloads-distro.mongodb.org&#47;repo&#47;redhat&#47;os&#47;x86_64&#47;RPMS&#47;mongo-10gen-2.4.8-mongodb_1.x86_64.rpm<&#47;span>\r\n<span
+  style=\"color: #0000ff;\"> shell> wget http:&#47;&#47;downloads-distro.mongodb.org&#47;repo&#47;redhat&#47;os&#47;x86_64&#47;RPMS&#47;mongo-10gen-server-2.4.8-mongodb_1.x86_64.rpm<&#47;span>\r\n\r\n可以<a
+  href=\"http:&#47;&#47;docs.mongodb.org&#47;manual&#47;tutorial&#47;install-mongodb-on-red-hat-centos-or-fedora-linux&#47;\"
+  target=\"_blank\">配置Yum安装<&#47;a>，设置加入到自己的<a title=\"创建cdh4本地Yum仓库\" href=\"http:&#47;&#47;www.sqlparty.com&#47;%e5%88%9b%e5%bb%bacdh4%e6%9c%ac%e5%9c%b0yum%e4%bb%93%e5%ba%93&#47;\"
+  target=\"_blank\">本地Yum源<&#47;a>中方便安装。\r\n\r\n下载的两个包：\r\n<ul>\r\n\t<li>mongo-10gen-server&nbsp;
+  包括mongod和mongos两个服务程序，包含了配置文件、启动脚本<&#47;li>\r\n\t<li>mongo-10gen&nbsp; 包括了所有的MongoDB工具程序<&#47;li>\r\n<&#47;ul>\r\n"
+wordpress_id: 779
+wordpress_url: http://www.sqlparty.com/?p=779
+date: '2013-11-24 15:06:35 +0800'
+date_gmt: '2013-11-24 07:06:35 +0800'
+categories:
+- 大数据
+tags:
+- mongoDB
+---
+<p>单机模式的MongoDB的搭建比较简单，本文介绍使用RPM包进行单机搭建的完整过程，包括简单测试步骤。</p>
+<p><a href="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;11&#47;mongoDB_logo.png"><img class="alignnone size-full wp-image-781" alt="mongoDB_logo" src="http:&#47;&#47;www.sqlparty.com&#47;wp-content&#47;uploads&#47;2013&#47;11&#47;mongoDB_logo.png" width="448" height="149" &#47;><&#47;a></p>
+<p>搭建环境：RedHat 6.2。</p>
+<h2>一、软件下载<&#47;h2><br />
+从<a href="http:&#47;&#47;www.mongodb.org&#47;downloads" target="_blank">官方下载地址<&#47;a>可以找到最新的版本，当下是2.4.8。可以直接下载tgz，解压即用，非常方面灵活，但是这样的安装，没有注册为系统的服务，启动、停止、开机自启动需要自行照料，而且运行用户需要注意避免使用root，存在安全风险，而RPM包安装则无需操心这些事，配置文件路径，日志路径等都与系统推荐的配置一致，另外创建mongod用户用于运行服务。我们选择RPM安装。</p>
+<p><span style="color: #0000ff;">shell> wget http:&#47;&#47;downloads-distro.mongodb.org&#47;repo&#47;redhat&#47;os&#47;x86_64&#47;RPMS&#47;mongo-10gen-2.4.8-mongodb_1.x86_64.rpm<&#47;span><br />
+<span style="color: #0000ff;"> shell> wget http:&#47;&#47;downloads-distro.mongodb.org&#47;repo&#47;redhat&#47;os&#47;x86_64&#47;RPMS&#47;mongo-10gen-server-2.4.8-mongodb_1.x86_64.rpm<&#47;span></p>
+<p>可以<a href="http:&#47;&#47;docs.mongodb.org&#47;manual&#47;tutorial&#47;install-mongodb-on-red-hat-centos-or-fedora-linux&#47;" target="_blank">配置Yum安装<&#47;a>，设置加入到自己的<a title="创建cdh4本地Yum仓库" href="http:&#47;&#47;www.sqlparty.com&#47;%e5%88%9b%e5%bb%bacdh4%e6%9c%ac%e5%9c%b0yum%e4%bb%93%e5%ba%93&#47;" target="_blank">本地Yum源<&#47;a>中方便安装。</p>
+<p>下载的两个包：</p>
+<ul>
+<li>mongo-10gen-server&nbsp; 包括mongod和mongos两个服务程序，包含了配置文件、启动脚本<&#47;li>
+<li>mongo-10gen&nbsp; 包括了所有的MongoDB工具程序<&#47;li><br />
+<&#47;ul><br />
+<!--more--></p>
+<h2>二、软件安装<&#47;h2><br />
+<span style="color: #0000ff;">shell> rpm -ivh mongo-10gen-server-2.4.8-mongodb_1.x86_64.rpm mongo-10gen-2.4.8-mongodb_1.x86_64.rpm<&#47;span></p>
+<p>使用Yum源的话，直接：</p>
+<p><span style="color: #0000ff;">shell> yum -y install mongo-10gen-server<&#47;span></p>
+<p>查看下各个安装了些啥：<br />
+<span style="color: #0000ff;">shell> rpm -ql mongo-10gen-server-2.4.8-mongodb_1.x86_64<&#47;span><br />
+<span style="color: #0000ff;"> &#47;etc&#47;mongod.conf<&#47;span><br />
+<span style="color: #0000ff;"> &#47;etc&#47;rc.d&#47;init.d&#47;mongod<&#47;span><br />
+<span style="color: #0000ff;"> &#47;etc&#47;sysconfig&#47;mongod<&#47;span><br />
+<span style="color: #0000ff;"> &#47;usr&#47;bin&#47;mongod<&#47;span><br />
+<span style="color: #0000ff;"> &#47;usr&#47;bin&#47;mongos<&#47;span><br />
+<span style="color: #0000ff;"> &#47;usr&#47;share&#47;man&#47;man1&#47;mongod.1<&#47;span><br />
+<span style="color: #0000ff;"> &#47;usr&#47;share&#47;man&#47;man1&#47;mongos.1<&#47;span><br />
+<span style="color: #0000ff;"> &#47;var&#47;lib&#47;mongo<&#47;span><br />
+<span style="color: #0000ff;"> &#47;var&#47;log&#47;mongo<&#47;span><br />
+<span style="color: #0000ff;"> &#47;var&#47;log&#47;mongo&#47;mongod.log<&#47;span></p>
+<p><span style="color: #0000ff;">shell>&nbsp; rpm -ql mongo-10gen-2.4.8-mongodb_1.x86_64<&#47;span><br />
+<span style="color: #0000ff;"> &#47;usr&#47;bin&#47;bsondump<&#47;span><br />
+<span style="color: #0000ff;"> &#47;usr&#47;bin&#47;mongo<&#47;span><br />
+<span style="color: #0000ff;"> &#47;usr&#47;bin&#47;mongodump<&#47;span><br />
+<span style="color: #0000ff;"> &#47;usr&#47;bin&#47;mongoexport<&#47;span><br />
+<span style="color: #0000ff;"> &#47;usr&#47;bin&#47;mongofiles<&#47;span><br />
+<span style="color: #0000ff;"> &#47;usr&#47;bin&#47;mongoimport<&#47;span><br />
+<span style="color: #0000ff;"> &#47;usr&#47;bin&#47;mongooplog<&#47;span><br />
+<span style="color: #0000ff;"> &#47;usr&#47;bin&#47;mongoperf<&#47;span><br />
+<span style="color: #0000ff;"> &#47;usr&#47;bin&#47;mongorestore<&#47;span><br />
+<span style="color: #0000ff;"> &#47;usr&#47;bin&#47;mongostat<&#47;span><br />
+<span style="color: #0000ff;"> &#47;usr&#47;bin&#47;mongotop<&#47;span><br />
+<span style="color: #0000ff;"> &#47;usr&#47;share&#47;man&#47;man1&#47;bsondump.1<&#47;span><br />
+<span style="color: #0000ff;"> ...<&#47;span><br />
+查看&#47;etc&#47;mongod.conf，可以发现，默认情况下，数据的存储目录dbpath=&#47;var&#47;lib&#47;mongo，日志logpath=&#47;var&#47;log&#47;mongo&#47;mongod.log，相应目录已创建，拥有者正确配置为mongod。</p>
+<h2>三、单机模式搭建<&#47;h2><br />
+通过以上安装步骤，就已经完成了单机模式的搭建。</p>
+<p>启动、停止、重启使用service mongod start&#47;stop&#47;restart即可，测试之：</p>
+<p><span style="color: #0000ff;">shell> service mongod start<&#47;span><br />
+<span style="color: #0000ff;"> Starting mongod: about to fork child process, waiting until server is ready for connections.<&#47;span><br />
+<span style="color: #0000ff;"> forked process: 7780<&#47;span><br />
+<span style="color: #0000ff;"> all output going to: &#47;var&#47;log&#47;mongo&#47;mongod.log<&#47;span><br />
+<span style="color: #0000ff;"> child process started successfully, parent exiting<&#47;span><br />
+<span style="color: #0000ff;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;[&nbsp; OK&nbsp; ]<&#47;span><br />
+第一次启动时间稍长。可以看到&#47;var&#47;log&#47;mongo&#47;mongod.log中包含启动信息，开始监听27017端口，等待客户端连接。</p>
+<p>使用MongoDB shell进行连接测试：</p>
+<p><span style="color: #0000ff;">shell> mongo<&#47;span><br />
+<span style="color: #0000ff;"> MongoDB shell version: 2.4.8<&#47;span><br />
+<span style="color: #0000ff;"> connecting to: test<&#47;span><br />
+<span style="color: #0000ff;"> > x = 100<&#47;span><br />
+<span style="color: #0000ff;"> 100<&#47;span><br />
+<span style="color: #0000ff;"> > x &#47; 4<&#47;span><br />
+<span style="color: #0000ff;"> 25<&#47;span><br />
+可以看到能够正常连接，正常进行计算。mongo默认连接到127.0.0.1:27017，可以通过--host和--port来指定服务器的地址，详细见mongo --help。</p>
+<p>MongoDB shell是一个完整的JavaScript解释器，可以任意执行js。它更是一个完整独立的MongoDB客户端。默认它会连接到服务器上的test库，并赋值到变量db中。</p>
+<p>查看变量db<br />
+<span style="color: #0000ff;">> db<&#47;span><br />
+<span style="color: #0000ff;"> test<&#47;span></p>
+<p>DB, Collection, Document这些的访问和使用，都如js变量一样，不用声明、创建，可以直接使用。</p>
+<p><span style="color: #0000ff;">> use mydb&nbsp;<&#47;span>&nbsp;&nbsp;&nbsp; &#47;&#47;切换DB<br />
+<span style="color: #0000ff;">switched to db mydb<&#47;span><br />
+<span style="color: #0000ff;"> > post = {"title":"My Blog Post",&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<&#47;span> &#47;&#47;设置变量，保存Document<br />
+<span style="color: #0000ff;">... "content": "Here is my blog post.",<&#47;span><br />
+<span style="color: #0000ff;"> ... "date" :new Date()}<&#47;span><br />
+<span style="color: #0000ff;"> {<&#47;span><br />
+<span style="color: #0000ff;"> "title" : "My Blog Post",<&#47;span><br />
+<span style="color: #0000ff;"> "content" : "Here is my blog post.",<&#47;span><br />
+<span style="color: #0000ff;"> "date" : ISODate("2013-11-24T02:46:36.416Z")<&#47;span><br />
+<span style="color: #0000ff;"> }<&#47;span><br />
+<span style="color: #0000ff;"> > db.blog.insert(post)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<&#47;span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &#47;&#47;直接插入到Collection"blog"中<br />
+<span style="color: #0000ff;">> db.blog.find()&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<&#47;span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &#47;&#47;查找Collection"blog"，会访问前20条<br />
+<span style="color: #0000ff;">{ "_id" : ObjectId("529168b34565c2654d35a348"), "title" : "My Blog Post", "content" : "Here is my blog post.", "date" : ISODate("2013-11-24T02:46:36.416Z") }<&#47;span></p>
+<p><span style="color: #0000ff;">shell> service mongod stop<&#47;span><br />
+<span style="color: #0000ff;"> shell> mongo<&#47;span><br />
+<span style="color: #0000ff;"> MongoDB shell version: 2.4.8<&#47;span><br />
+<span style="color: #0000ff;"> connecting to: test<&#47;span><br />
+<span style="color: #0000ff;"> Sun Nov 24 10:56:55.589 Error: couldn't connect to server 127.0.0.1:27017 at src&#47;mongo&#47;shell&#47;mongo.js:145<&#47;span><br />
+<span style="color: #0000ff;"> exception: connect failed<&#47;span><br />
+关闭后就无法连接。</p>

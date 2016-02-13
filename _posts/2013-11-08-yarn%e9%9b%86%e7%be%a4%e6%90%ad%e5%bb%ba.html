@@ -1,0 +1,182 @@
+---
+layout: post
+status: publish
+published: true
+title: YARN集群搭建
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "MapReduce v2(YARN)是未来替代MapReduce v1的计算框架，其设计克服了版本一在超大集群环境下的瓶颈，YARN的介绍见<a
+  title=\"下一代MapReduce框架YARN\" href=\"http://www.sqlparty.com/%e4%b8%8b%e4%b8%80%e4%bb%a3mapreduce%e6%a1%86%e6%9e%b6yarn/\"
+  target=\"_blank\">这里</a>。\r\n\r\n本文介绍YARN集群的搭建，其前提是HDFS集群完成搭建，这里使用<a title=\"HDFS环境搭建-NameNode
+  HA搭建实录\" href=\"http://www.sqlparty.com/hdfs%e7%8e%af%e5%a2%83%e6%90%ad%e5%bb%ba-namenode-ha%e6%90%ad%e5%bb%ba%e5%ae%9e%e5%bd%95/\"
+  target=\"_blank\">NameNode HA</a>来提高可靠性。\r\n\r\n注：搭建基于CDH 4.3，根据Cloudera官方文档的建议，YARN框架暂未成熟，后续版本可能会与现有或之前版本不兼容，如非必要不建议在正式环境中使用。就我们而言，没有历史包袱，愿意尝试之，摸索前进。\r\n<h2>1.安装</h2>\r\n配置Yum服务，略，请搜索本站相关文章。\r\n\r\n在Resource
+  Manager节点：\r\n\r\n<span style=\"color: #0000ff;\">shell> yum install hadoop-yarn-resourcemanager
+  -y</span>\r\n\r\n在NodeManager节点：\r\n\r\n<span style=\"color: #0000ff;\">shell>
+  yum install hadoop-yarn-nodemanager -y</span>\r\n\r\n"
+wordpress_id: 769
+wordpress_url: http://www.sqlparty.com/?p=769
+date: '2013-11-08 13:22:30 +0800'
+date_gmt: '2013-11-08 05:22:30 +0800'
+categories:
+- 大数据
+tags:
+- yarn
+---
+<p>MapReduce v2(YARN)是未来替代MapReduce v1的计算框架，其设计克服了版本一在超大集群环境下的瓶颈，YARN的介绍见<a title="下一代MapReduce框架YARN" href="http://www.sqlparty.com/%e4%b8%8b%e4%b8%80%e4%bb%a3mapreduce%e6%a1%86%e6%9e%b6yarn/" target="_blank">这里</a>。</p>
+<p>本文介绍YARN集群的搭建，其前提是HDFS集群完成搭建，这里使用<a title="HDFS环境搭建-NameNode HA搭建实录" href="http://www.sqlparty.com/hdfs%e7%8e%af%e5%a2%83%e6%90%ad%e5%bb%ba-namenode-ha%e6%90%ad%e5%bb%ba%e5%ae%9e%e5%bd%95/" target="_blank">NameNode HA</a>来提高可靠性。</p>
+<p>注：搭建基于CDH 4.3，根据Cloudera官方文档的建议，YARN框架暂未成熟，后续版本可能会与现有或之前版本不兼容，如非必要不建议在正式环境中使用。就我们而言，没有历史包袱，愿意尝试之，摸索前进。</p>
+<h2>1.安装</h2><br />
+配置Yum服务，略，请搜索本站相关文章。</p>
+<p>在Resource Manager节点：</p>
+<p><span style="color: #0000ff;">shell> yum install hadoop-yarn-resourcemanager -y</span></p>
+<p>在NodeManager节点：</p>
+<p><span style="color: #0000ff;">shell> yum install hadoop-yarn-nodemanager -y</span></p>
+<p><!--more--></p>
+<h2>2.配置</h2><br />
+公共配置(包括RM, NM节点)：</p>
+<p>要启用YARN框架，需要在mapred-site.xml中加入：</p>
+<property>
+<name>mapreduce.framework.name</name><br />
+<value>yarn</value><br />
+</property></p>
+<p>为方便在每个节点上处理应用，yarn-site.xml</p>
+<p>[xml]</p>
+<property>
+        <name>yarn.application.classpath</name><br />
+        <value><br />
+                $HADOOP_CONF_DIR,<br />
+                $HADOOP_COMMON_HOME/*,$HADOOP_COMMON_HOME/lib/*,<br />
+                $HADOOP_HDFS_HOME/*,$HADOOP_HDFS_HOME/lib/*,<br />
+                $HADOOP_MAPRED_HOME/*,$HADOOP_MAPRED_HOME/lib/*,<br />
+                $YARN_HOME/*,$YARN_HOME/lib/*<br />
+        </value><br />
+        <description>CLASSPATH for YARN applications. A comma-separated list of CLASSPATH entries</description><br />
+</property></p>
+<property>
+        <name>yarn.nodemanager.aux-services</name><br />
+        <value>mapreduce.shuffle</value><br />
+</property></p>
+<property>
+        <name>yarn.nodemanager.aux-services.mapreduce.shuffle.class</name><br />
+        <value>org.apache.hadoop.mapred.ShuffleHandler</value><br />
+</property></p>
+<p><!-- RM scheduler interface address --></p>
+<property>
+        <name>yarn.resourcemanager.scheduler.address</name><br />
+        <value>CHBM220:8030</value><br />
+        <description>The address of the scheduler interface</description><br />
+</property></p>
+<p><!-- RM manager interface address --></p>
+<property>
+        <name>yarn.resourcemanager.resource-tracker.address</name><br />
+        <value>CHBM220:8031</value><br />
+</property></p>
+<p><!-- RM application manager interface address --></p>
+<property>
+        <name>yarn.resourcemanager.address</name><br />
+        <value>CHBM220:8032</value><br />
+        <description>The address of the applications manager interface in the RM</description><br />
+</property></p>
+<p><!-- RM admin interface address --></p>
+<property>
+        <name>yarn.resourcemanager.admin.address</name><br />
+        <value>CHBM220:8033</value><br />
+        <description>The address of the RM admin interface</description><br />
+</property></p>
+<p><!-- yarn data local directory --></p>
+<property>
+        <name>yarn.nodemanager.local-dirs</name><br />
+        <value>file:///data/1/yarn/local,file:///data/2/yarn/local</value><br />
+        <description>List of directories to store localized files in. An application's localized file directory will be found in: ${yarn.nodemanager.local-dirs}/usercache/${user}/appcache/application_${appid}. Individual containers' work directories, called container_${contid}, will be subdirectories of this</description><br />
+</property></p>
+<property>
+        <name>yarn.nodemanager.log-dirs</name><br />
+        <value>file:///data/1/yarn/logs,file:///data/2/yarn/logs</value><br />
+        <description>Where to store container logs. An application's localized log directory will be found in ${yarn.nodemanager.log-dirs}/application_${appid}. Individual containers' log directories will be below this, in directories named container_{$contid}. Each container directory will contain the files stderr, stdin, and syslog generated by that container</description><br />
+</property></p>
+<property>
+        <name>yarn.nodemanager.remote-app-log-dir</name><br />
+        <value>/var/log/hadoop-yarn/apps</value><br />
+        <description>Where to aggregate logs to(HDFS)</description><br />
+</property></p>
+<property>
+        <name>yarn.app.mapreduce.am.staging-dir</name><br />
+        <value>/user</value><br />
+</property><br />
+[/xml]</p>
+<h2>3.创建相应本地目录</h2><br />
+创建Application的本地文件目录(yarn.nodemanager.local-dirs):</p>
+<p>一个Application的信息对应到${yarn.nodemanager.local-dirs}/usercache/${user}/appcache/application_${appid}。独立的Container的工作目录为container_${contid}。</p>
+<p><span style="color: #0000ff;">shell> mkdir -p /data/1/yarn/local /data/2/yarn/local</span></p>
+<p>创建本地Container日志存储目录(yarn.nodemanager.log-dirs)，会存储container生成的stderr, stdin和syslog信息。</p>
+<p><span style="color: #0000ff;">shell> mkdir -p /data/1/yarn/logs /data/2/yarn/logs</span></p>
+<p>配置目录的权限：</p>
+<p><span style="color: #0000ff;">shell> chown -R yarn:yarn /data/1/yarn/local /data/2/yarn/local </span><br />
+<span style="color: #0000ff;">shell> chown -R yarn:yarn /data/1/yarn/logs /data/2/yarn/logs</span></p>
+<h2>4.部署JobHistory Server</h2><br />
+安装YARN架构的话，应该也安装JobHistory Server。</p>
+<p><span style="color: #0000ff;">shell> yum install yarn-jobserver</span></p>
+<p>配置，在mapred-site.xml中添加</p>
+<p>mapreduce.jobhistory.address :jobhistory提供服务的host:port，如historyserver.company.com:10020<br />
+mapreduce.jobhistory.webapp.address :jobhistory的http服务host:port，如historyserver.company.com:19888</p>
+<h2><span style="font-size: 13px;">5.配置YARN的Staging目录</span></h2><br />
+Staging目录是YARN执行job时存放临时文件的地方，默认它会在HDFS上创建/tmp/hadoop-yarn/staging目录，会因权限问题导致用户无法执行job。为了避免这个问题，手工指定和创建比较合适：</p>
+<property>
+<name>yarn.app.mapreduce.am.staging-dir</name><br />
+<value>/user</value><br />
+</property></p>
+<p>一旦HDFS集群启动，应创建/user目录和history子目录。</p>
+<p><span style="color: #0000ff;">shell> sudo -u hdfs hadoop fs -mkdir /user/history</span><br />
+<span style="color: #0000ff;"> shell> sudo -u hdfs hadoop fs -chmod -R 1777 /user/history</span><br />
+<span style="color: #0000ff;"> shell> sudo -u hdfs hadoop fs -chown yarn /user/history</span></p>
+<p>也可以如下方式处理：</p>
+<p>1）在yarn-site.xm中配置mapreduce.jobhistory.intermediate-done-dir和mapreduce.jobhistory.done-dir<br />
+2）创建者两个目录<br />
+3）设置mapreduce.jobhistory.intermediate-done-dir权限1777<br />
+4）设置mapreduce.jobhistory.done-dir权限750</p>
+<h2>6.配置同步</h2><br />
+将所有相关配置同步到所有节点。</p>
+<h2>7.创建HDFS /tmp目录</h2><br />
+如果HDFS中没有手动创建/tmp目录，而是由部分程序自动创建，那么其权限会影响其他应用使用该目录，所以HDFS的/tmp目录应该手动创建。</p>
+<p><span style="color: #0000ff;">shell> sudo -u hdfs hadoop fs -mkdir /tmp</span><br />
+<span style="color: #0000ff;"> shell> sudo -u hdfs hadoop fs -chmod -R 1777 /tmp</span></p>
+<h2>8.配置日志目录</h2><br />
+步骤2的配置的日志目录：</p>
+<property>
+<name>yarn.nodemanager.remote-app-log-dir</name><br />
+<value>/var/log/hadoop-yarn/apps</value><br />
+<description>Where to aggregate logs to(HDFS)</description><br />
+</property></p>
+<p>应该创建/var/log/hadoop-yarn/目录</p>
+<p><span style="color: #0000ff;">shell> sudo -u hdfs hadoop fs -mkdir /var/log/hadoop-yarn</span><br />
+<span style="color: #0000ff;">shell> sudo -u hdfs hadoop fs -chown yarn:mapred /var/log/hadoop-yarn</span></p>
+<h2>9.检查HDFS文件系统结构</h2><br />
+<span style="color: #0000ff;">shell> sudo -u hdfs hadoop fs -ls -R /</span></p>
+<p><span style="color: #0000ff;"> drwxrwxrwt - hdfs supergroup 0 2012-04-19 14:31 /tmp</span><br />
+<span style="color: #0000ff;"> drwxr-xr-x - hdfs supergroup 0 2012-05-31 10:26 /user</span><br />
+<span style="color: #0000ff;"> drwxrwxrwt - yarn supergroup 0 2012-04-19 14:31 /user/history</span><br />
+<span style="color: #0000ff;"> drwxr-xr-x - hdfs supergroup 0 2012-05-31 15:31 /var</span><br />
+<span style="color: #0000ff;"> drwxr-xr-x - hdfs supergroup 0 2012-05-31 15:31 /var/log</span><br />
+<span style="color: #0000ff;"> drwxr-xr-x - yarn mapred 0 2012-05-31 15:31 /var/log/hadoop-yarn</span></p>
+<h2>10.启动YARN集群</h2><br />
+先启动RM：</p>
+<p><span style="color: #0000ff;">shell> service hadoop-yarn-resourcemanager start</span></p>
+<p>在启动每个NodeManager：<br />
+<em>注意NM节点上还要：shell> yum install hadoop-mapreduce</em><br />
+<em>否则日志中会报错如下：</em><br />
+<em>2013-11-05 20:48:39,577 FATAL org.apache.hadoop.yarn.server.nodemanager.NodeManager: Error starting NodeManager</em><br />
+<em>java.lang.RuntimeException: java.lang.RuntimeException: java.lang.ClassNotFoundException: Class org.apache.hadoop.mapred.ShuffleHandler not found</em><br />
+<em> at org.apache.hadoop.conf.Configuration.getClass(Configuration.java:1649)</em><br />
+<em> at org.apache.hadoop.yarn.server.nodemanager.containermanager.AuxServices.init(AuxServices.java:90)</em></p>
+<p><em></em><span style="color: #0000ff;">shell> service hadoop-yarn-nodemanager start</span></p>
+<p>启动JobHistory Server系统：</p>
+<p><span style="color: #0000ff;">shell> service hadoop-mapreduce-historyserver start</span></p>
+<h2>11.设置HADOOP_MAPRED_HOME</h2><br />
+对于要使用YARN提交job的用户，或者运行Pig, Hive, Sqoop等的环境下，设置HADOOP_MAPRED_HOME环境变量：</p>
+<p><span style="color: #0000ff;">export HADOOP_MAPRED_HOME=/usr/lib/hadoop-mapreduce</span></p>
+<p>例如hive就在/etc/hive/conf/hive-env.sh中添加。</p>

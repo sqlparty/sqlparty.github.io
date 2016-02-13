@@ -1,0 +1,40 @@
+---
+layout: post
+status: publish
+published: true
+title: Linux/Windows连接NTP服务器配置
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "局域网内不同主机之间默认情况下可能有不一致的系统时间，这给应用开发、数据库使用、集群等等都带来不便。每台主机应与NTP服务器进行时间校准。\"网络校时\"(Network
+  Time Protocal，简称NTP)服务器为连接的主机提供时间同步的服务。\r\nNTP服务器相关信息见文章<a title=\"NTP服务器搭建\" href=\"http://www.sqlparty.com/ntp%e6%9c%8d%e5%8a%a1%e5%99%a8%e6%90%ad%e5%bb%ba/\"
+  target=\"_blank\">&ldquo;NTP服务器搭建</a>&rdquo;\r\n\r\n"
+wordpress_id: 352
+wordpress_url: http://www.sqlparty.com/?p=352
+date: '2013-08-07 07:11:04 +0800'
+date_gmt: '2013-08-06 23:11:04 +0800'
+categories:
+- 系统
+tags:
+- NTP
+---
+<p>局域网内不同主机之间默认情况下可能有不一致的系统时间，这给应用开发、数据库使用、集群等等都带来不便。每台主机应与NTP服务器进行时间校准。"网络校时"(Network Time Protocal，简称NTP)服务器为连接的主机提供时间同步的服务。<br />
+NTP服务器相关信息见文章<a title="NTP服务器搭建" href="http://www.sqlparty.com/ntp%e6%9c%8d%e5%8a%a1%e5%99%a8%e6%90%ad%e5%bb%ba/" target="_blank">&ldquo;NTP服务器搭建</a>&rdquo;</p>
+<p><!--more--></p>
+<h2>Linux下校准方式</h2><br />
+<span style="color: #0000ff;">root>ntpdate 192.168.1.18</span> #时间校准，192.168.1.18为NTP服务器的ip或者域名</p>
+<p><span style="color: #0000ff;">root>hwclock -w</span> #把时间写入BIOS</p>
+<p><span style="color: #0000ff;">root>crontab -e</span> #添加定时任务，以便定时进行时间校准<br />
+<span style="color: #0000ff;">30 23 * * * /usr/sbin/ntpdate 192.168.1.18 &amp;&amp; /sbin/hwclock -w</span></p>
+<h2>Windows下校准方式</h2><br />
+双击右下角时间显示</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/ntpclient1.png"><img class="alignnone size-full wp-image-354" alt="ntpclient1" src="http://www.sqlparty.com/wp-content/uploads/2013/08/ntpclient1.png" width="387" height="301" /></a> <a href="http://www.sqlparty.com/wp-content/uploads/2013/08/ntpclient2.png"><img class="alignnone size-full wp-image-355" alt="ntpclient2" src="http://www.sqlparty.com/wp-content/uploads/2013/08/ntpclient2.png" width="473" height="510" /></a></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/ntpclient3.png"><img alt="ntpclient3" src="http://www.sqlparty.com/wp-content/uploads/2013/08/ntpclient3.png" width="452" height="299" /></a></p>
+<p>如果报错如&ldquo;<span style="color: #ff0000;">在获取最后一次同步状态时出错 RPC服务器不可用</span>&rdquo;，其原因是系统服务里的Windows Time服务没有启动，可以如下方式：<br />
+1.在开始菜单--运行里输入cmd，点击确定，打开命令提示符，在命令提示符状态下输入<strong>w32tm /register</strong> 。正确的话会显示：&ldquo;W32Time 成功注册。&rdquo;<br />
+2.如果显示成功，再输入<strong> net start "windows time"</strong> 开启完毕，或者在&ldquo;服务&rdquo;中启用"windows time"。</p>
+<p>再进行时间同步就OK了！</p>

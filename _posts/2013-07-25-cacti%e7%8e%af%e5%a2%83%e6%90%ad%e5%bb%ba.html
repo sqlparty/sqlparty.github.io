@@ -1,0 +1,152 @@
+---
+layout: post
+status: publish
+published: true
+title: Cacti环境搭建
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "<strong>1.介绍</strong>\r\nCacti是一套基于PHP,MySQL,SNMP及RRDTool开发的网络流量监测图形分析工具。\r\nCacti整合一套应用程序，利用简单网络管理协议SNMP进行各项网络内容的获取，再使用RRDtool进行网页图形化展示。通过定制，用户可以使用SNMP以外的其他方式对特定服务进行检测和分析，使用外挂的脚本加上Templates
+  可以作出各式各样的监控图。\r\n\r\n"
+wordpress_id: 43
+wordpress_url: http://www.sqlparty.com/?p=43
+date: '2013-07-25 22:13:39 +0800'
+date_gmt: '2013-07-25 14:13:39 +0800'
+categories:
+- 系统
+tags:
+- 系统
+- 监控
+- Cacti
+---
+<p><strong>1.介绍</strong><br />
+Cacti是一套基于PHP,MySQL,SNMP及RRDTool开发的网络流量监测图形分析工具。<br />
+Cacti整合一套应用程序，利用简单网络管理协议SNMP进行各项网络内容的获取，再使用RRDtool进行网页图形化展示。通过定制，用户可以使用SNMP以外的其他方式对特定服务进行检测和分析，使用外挂的脚本加上Templates 可以作出各式各样的监控图。</p>
+<p><!--more--></p>
+<p><strong>2.安装依赖</strong><br />
+<strong>2.1包依赖</strong><br />
+服务器环境: redhat 5.5<br />
+Cacti依赖包包括：httpd, php, php-mysql, php-snmp, mysql, mysql-server, net-snmp,rrdtool。<br />
+<span style="color: #0000ff;">shell>rpm -qa | grep -i xxx</span> #来查看是否有相应的包，没有则安装！<br />
+rrdtool下载 http://packages.express.org/rrdtool/ ，这里下载rrdtool-perl-1.4.7-1.el5.wrl.x86_64.rpm，rrdtool-1.4.7-1.el5.wrl.x86_64.rpm</p>
+<p><strong>2.2PHP配置</strong><br />
+需要如下内置或者扩展模块，确保必选模块已经安装和正确配置。<br />
+1）mysql<br />
+2）SNMP<br />
+3）XML<br />
+4）Session<br />
+5）Sockets<br />
+6）LDAP（可选，在使用LDAP身份验证时需要）<br />
+7）GD（可选，在部分插件中需要）<br />
+<span style="color: #0000ff;">shell>php -m</span> #查看上述必选模块是否存在，没有则安装！<br />
+/etc/php.d目录下配置文件中正确启用对应模块。<br />
+如果要允许Cacti的模板导入功能，启用/etc/php.ini中的file_uploads = On<br />
+这里PHP版本采用5.1.6。</p>
+<p><strong>2.3Apache配置</strong><br />
+在/etc/httpd/conf.d/php.conf中有如下配置：<br />
+# PHP is an HTML-embedded scripting language which attempts to make it<br />
+# easy for developers to write dynamically generated webpages.<br />
+LoadModule php5_module modules/libphp5.so<br />
+#<br />
+# Cause the PHP interpreter to handle files with a .php extension.<br />
+AddHandler php5-script .php<br />
+AddType text/html .php<br />
+#<br />
+# Add index.php to the list of files that will be served as directory<br />
+# indexes.<br />
+DirectoryIndex index.php<br />
+这里Apache httpd版本2.2.3</p>
+<p><strong>3.安装和配置Cacti</strong><br />
+<span style="color: #0000ff;">shell>wget http://www.cacti.net/downloads/cacti-0.8.7g.tar.gz</span><br />
+<span style="color: #0000ff;">shell>tar -zxvf cacti-0.8.7g.tar.gz</span><br />
+<span style="color: #0000ff;">shell>cd cacti-0.8.7g</span><br />
+<span style="color: #0000ff;">shell>mysql -h 192.168.1.18 -u root -pxxx -P 3311</span></p>
+<p><span style="color: #0000ff;">mysql> create database cacti default charset utf8;</span> #创建cacti后台数据库<br />
+<span style="color: #0000ff;">mysql> use cacti;</span><br />
+<span style="color: #0000ff;">mysql> source cacti.sql;</span> #导入建表脚本<br />
+<span style="color: #0000ff;">mysql> create user cactiuser@'192.168.2.26' identified by 'abc';</span><br />
+<span style="color: #0000ff;">mysql> grant all on cacti.* to cactiuser@'192.168.2.26';</span><br />
+<span style="color: #0000ff;">mysql>quit;</span></p>
+<p><span style="color: #0000ff;">shell>vi include/config.php</span> #修改配置文件<br />
+<span style="color: #0000ff;">$database_type = "mysql";</span><br />
+<span style="color: #0000ff;">$database_default = "cacti";</span><br />
+<span style="color: #0000ff;">$database_hostname = "192.168.1.18";</span><br />
+<span style="color: #0000ff;">$database_username = "cactiuser";</span><br />
+<span style="color: #0000ff;">$database_password = "abc";</span><br />
+<span style="color: #0000ff;">$database_port = "3311";</span><br />
+<span style="color: #0000ff;">$database_ssl = false;</span><br />
+<span style="color: #0000ff;">...</span><br />
+<span style="color: #0000ff;">$url_path="/cacti/";</span></p>
+<p><span style="color: #0000ff;">shell>useradd cacti -g apache -d /var/www/html/cacti -s /bin/bash</span> #添加cacti用户<br />
+<span style="color: #0000ff;">shell>chmod 755 /var/www/html/cacti </span><br />
+<span style="color: #0000ff;">shell>cp -R * /var/www/html/cacti/</span><br />
+<span style="color: #0000ff;">shell>cd /var/www/html/cacti</span><br />
+<span style="color: #0000ff;">shell>wget http://www.cacti.net/downloads/patches/0.8.7g/data_source_deactivate.patch</span> #针对该版本，打上源码补丁。不同版本的话，找到http://www.cacti.net/downloads/patches/<版本>/ 下的patch，依照此法修复即可。<br />
+<span style="color: #0000ff;">shell>wget http://www.cacti.net/downloads/patches/0.8.7g/graph_list_view.patch</span><br />
+<span style="color: #0000ff;">shell>wget http://www.cacti.net/downloads/patches/0.8.7g/html_output.patch</span><br />
+<span style="color: #0000ff;">shell>wget http://www.cacti.net/downloads/patches/0.8.7g/ldap_group_authenication.patch</span><br />
+<span style="color: #0000ff;">shell>wget http://www.cacti.net/downloads/patches/0.8.7g/script_server_command_line_parse.patch</span><br />
+<span style="color: #0000ff;">shell>wget http://www.cacti.net/downloads/patches/0.8.7g/ping.patch</span><br />
+<span style="color: #0000ff;">shell>wget http://www.cacti.net/downloads/patches/0.8.7g/poller_interval.patch</span><br />
+<span style="color: #0000ff;">shell>patch -b -p1 -N < data_source_deactivate.patch</span><br />
+<span style="color: #0000ff;">shell>patch -b -p1 -N < graph_list_view.patch</span><br />
+<span style="color: #0000ff;">shell>patch -b -p1 -N < html_output.patch</span><br />
+<span style="color: #0000ff;">shell>patch -b -p1 -N < ldap_group_authenication.patch</span><br />
+<span style="color: #0000ff;">shell>patch -b -p1 -N < script_server_command_line_parse.patch</span><br />
+<span style="color: #0000ff;">shell>patch -b -p1 -N < ping.patch</span><br />
+<span style="color: #0000ff;">shell>patch -b -p1 -N < poller_interval.patch</span><br />
+<span style="color: #0000ff;">shell>chown -R cacti.apache /var/www/html/cacti/rra/ /var/www/html/cacti/log/ #权限相关设置</span><br />
+<span style="color: #0000ff;">shell>crontab -u cacti -e</span> #设置定时任务<br />
+<span style="color: #0000ff;">*/5 * * * * php /var/www/html/cacti/poller.php >/dev/null 2>&amp;1</span></p>
+<p>经过上面的步骤，cacti基础已经搭建完成。尝试访问：<br />
+http://192.168.2.26/cacti/</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti1.png"><img class="alignnone size-medium wp-image-45" alt="cacti1" src="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti1-282x300.png" width="282" height="300" /></a></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti2.png"><img alt="cacti2" src="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti2-300x159.png" width="300" height="159" /></a><br />
+<em>如果报错：</em><br />
+<em>FATAL: Cannot connect to MySQL server on 'xxx. Please make sure you have specified a valid MySQL database name in 'include/config.php'</em><br />
+<em>一个可能的原因是Linux启用了SELinux导致权限方面的问题。可以关闭之（执行setenforce 0)。</em></p>
+<div>初始登录的用户名/密码为: admin/admin。进入后会要求重置密码。进入后说明可以正常使用。</div></p>
+<div><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti3.png"><img class="alignnone size-medium wp-image-46" alt="cacti3" src="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti3-300x41.png" width="300" height="41" /></a></div><br />
+<strong>安装过程注意点</strong>：<br />
+1.本地取mysql数据库，貌似只能通过默认路径/var/../my.sock类似的默认路径下找sock文件进行连接，sock路径修改后就无法找到，建议采用远程mysql数据库进行管理。<br />
+2.mysql库中貌似如果校对选用utf8_bin这种大小写区分的类型，会导致Cacti使用上的问题。改用utf8_general_ci。而且sql_mode不能过于严格，如不能指定ANSI_QUOTES和ONLY_FULL_GROUP_BY。</p>
+<p><strong>其他</strong><br />
+引自：http://liyaoyi.blog.51cto.com/442933/846891<br />
+<strong>Cacti轮询时间</strong><br />
+Cacti默认的轮询时间为5分钟，可通过安装spine将时间变成一分钟<br />
+下载：http://cacti.net/spine_download.php<br />
+1.安装spine</p>
+<p>[shell]<br />
+shell>tar zxvf cacti-spine-0.8.7i.tar.gz<br />
+shell>cd cacti-spine-0.8.7i<br />
+shell>./configure --prefix=/usr/local/cacti-spine --with-snmp=/usr/local/net-snmp/<br />
+shell>make &amp;amp;&amp;amp; make install<br />
+shell>cd /usr/local/cacti-spine/etc/<br />
+shell>cp skpine.conf.dist spine.conf<br />
+shell>vim spine.conf<br />
+DB_Host localhost<br />
+DB_Database cacti<br />
+DB_User cacti<br />
+DB_Pass cacti123<br />
+DB_Port 3306<br />
+DB_PreG 0<br />
+[/shell]</p>
+<p>这里修改对应的mysql用户名和密码，以及连接参数<br />
+打开&ldquo;console&rdquo;----&ldquo;settings&rdquo;----&ldquo;Paths&rdquo; 中填写spine的路径,然后&ldquo;save&rdquo;</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti4.jpg"><img class="alignnone size-medium wp-image-47" alt="cacti4" src="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti4-300x33.jpg" width="300" height="33" /></a><br />
+2.选择轮询模式<br />
+打开&ldquo;console&rdquo;----&ldquo;settings&rdquo;----&ldquo;Poller&rdquo;---&ldquo;save&rdquo;</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti5.jpg"><img class="alignnone size-medium wp-image-48" alt="cacti5" src="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti5-300x202.jpg" width="300" height="202" /></a><br />
+添加&ldquo;每分钟&rdquo;流量视图<br />
+打开&ldquo;console&rdquo;---&ldquo;Data Templates&rdquo;&mdash;&mdash;&ldquo;Interface - Traffic&rdquo;</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti6.jpg"><img class="alignnone size-medium wp-image-49" alt="cacti6" src="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti6-300x141.jpg" width="300" height="141" /></a></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti7.jpg"><img class="alignnone size-medium wp-image-50" alt="cacti7" src="http://www.sqlparty.com/wp-content/uploads/2013/07/cacti7-300x134.jpg" width="300" height="134" /></a><br />
+其他模板做相应修改。<br />
+最后修改crontab中的<br />
+* * * * * env LANG=C /usr/bin/php /var/www/html/poller.php>/dev/null 2>&amp;1</p>
+<p>参考：<br />
+http://liyaoyi.blog.51cto.com/442933/846891</p>

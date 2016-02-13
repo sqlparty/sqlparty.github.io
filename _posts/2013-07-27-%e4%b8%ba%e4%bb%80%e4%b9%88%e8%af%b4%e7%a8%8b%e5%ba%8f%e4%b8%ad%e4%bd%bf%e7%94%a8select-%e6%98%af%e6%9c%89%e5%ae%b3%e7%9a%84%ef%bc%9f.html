@@ -1,0 +1,58 @@
+---
+layout: post
+status: publish
+published: true
+title: 为什么说程序中使用select *是有害的？
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "我们常被教导说，在程序代码中不要使用SELECT *这种不指定列的查询语句，但是使用了SELECT *到底有哪些坏处呢？这里就一一列出，供大家参考。\r\n\r\n"
+wordpress_id: 129
+wordpress_url: http://www.sqlparty.com/?p=129
+date: '2013-07-27 20:58:08 +0800'
+date_gmt: '2013-07-27 12:58:08 +0800'
+categories:
+- 数据库
+tags:
+- 数据库
+- 最佳实践
+---
+<p>我们常被教导说，在程序代码中不要使用SELECT *这种不指定列的查询语句，但是使用了SELECT *到底有哪些坏处呢？这里就一一列出，供大家参考。</p>
+<p><!--more--></p>
+<ol>
+<li><strong>增大了网络IO</strong>。我们知道SELECT *会将所有列的值返回，而大部分情况下我们的程序只需要查询部分列的内容，这时用SELECT *就将大量无需返回的数据进行了返回，这加大了数据库服务器和应用服务器之间的网络流量，如果结果集巨大，那么就造成更多的带宽浪费，一定程度上也导致了CPU、内存的浪费。</li>
+<li><strong>增大了磁盘IO</strong>。如果查询表中有BLOB、TEXT这样的大字段，由于其存储与其他字段可能不在同一页中，如果本来不需要查询这些列，而使用SELECT *就将它们也返回给客户端，这在浪费网络流量的同时，加大了磁盘IO的次数，因为需要读取更多的数据页。</li>
+<li><strong>放弃了完全索引扫描的性能优势</strong>。完全索引扫描是指查询的筛选条件中的列where和返回列SELECT在一个索引中，这样整个查询只需要扫描索引文件即可，而索引文件是有序的，且通常远小于数据文件，完全索引扫描会极大的提升查询性能。使用SELECT *的话，不仅会扫描索引文件，还会扫描数据文件，对性能造成不良影响。</li>
+<li><strong>易出现列定位(绑定)问题</strong>。假设有两张表进行关联JOIN，两张表都有id列，那么其SELECT *的结果中，id列的确定就容易出现问题，到底是取得哪个表的id呢？另外如果创建视图时对基表使用了SELECT *，那么当基表结构发生变化时，视图中列的对应关系可能就会造成迷惑。还有，在程序中使用SELECT *，或许你对表的列非常清楚，但是如果程序交接给其他人，将对他们对程序的理解造成困扰。</li>
+<li><strong>应用升级的兼容问题</strong>。应用的升级非常普遍，而升级过程中，表结构的变更也很经常，如果要删除一个没有用过的列，或者要添加新列，而你的应用使用了SELECT *又不幸用1,2,3这些位置来对应列，那么升级过程将是痛苦的，无法实现新旧应用同时连接同一个数据库，进而就不能保证应用的高可用性。</li><br />
+</ol><br />
+EXISTS判断的例子：</p>
+<p>[sql]<br />
+SELECT a.ID FROM TableA a<br />
+WHERE EXISTS (<br />
+    SELECT *<br />
+    FROM TableB b<br />
+    WHERE b.ID = a.B_ID);<br />
+[/sql]</p>
+<p>在EXISTS的判断中，除非判断的子查询返回空，否则肯定是TRUE，它并不关心返回多少列，所以上面的SQL语句往往可以优化成这样：</p>
+<p>[sql]<br />
+SELECT a.ID FROM TableA a<br />
+WHERE EXISTS (<br />
+    SELECT 1<br />
+    FROM TableB b<br />
+    WHERE b.ID = a.B_ID);<br />
+[/sql]</p>
+<p>虽然有些RDBMS会自动完成上述优化，但是对此了然于胸，手动完成优化，总是最佳的选择。</p>
+<p>但是*也并不是那么一无是处，在以下情况下可以尽情使用：</p>
+<ol>
+<li>临时性的查询。SELECT *只是看看大致数据情况，可以很方便的使用。</li>
+<li>*表示一行时。如SELECT COUNT(*) 能够反映准确的行数。如果用COUNT(col_name)需要注意col_name是否为空，如果非空，那么也是反映准确的行数，否则表示col_name非空的行的数目。</li><br />
+</ol><br />
+参考：</p>
+<ul>
+<li>http://stackoverflow.com/questions/3639861/why-is-SELECT-considered-harmful</li><br />
+</ul></p>

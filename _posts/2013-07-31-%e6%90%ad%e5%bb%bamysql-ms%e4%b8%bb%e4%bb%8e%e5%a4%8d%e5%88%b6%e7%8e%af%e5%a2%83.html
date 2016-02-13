@@ -1,0 +1,83 @@
+---
+layout: post
+status: publish
+published: true
+title: 搭建MySQL MS主从复制环境
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "MySQL复制(Replication)提供了一种机制，可以提高其可用性，分担读压力，协助备份，以及测试MySQL新版本等。本文主要讲解最基本的主从复制搭建方案，搭建在两台
+  MySQL服务器上。因为复制功能在持续改进中，所以确保两个实例安装有相同版本的数据库，或者备库版本高于主库，这样确保备库能够正常识别主库的bin log。\r\n\r\n"
+wordpress_id: 215
+wordpress_url: http://www.sqlparty.com/?p=215
+date: '2013-07-31 21:07:51 +0800'
+date_gmt: '2013-07-31 13:07:51 +0800'
+categories:
+- 数据库
+tags:
+- MySQL
+- Replication
+---
+<p>MySQL复制(Replication)提供了一种机制，可以提高其可用性，分担读压力，协助备份，以及测试MySQL新版本等。本文主要讲解最基本的主从复制搭建方案，搭建在两台 MySQL服务器上。因为复制功能在持续改进中，所以确保两个实例安装有相同版本的数据库，或者备库版本高于主库，这样确保备库能够正常识别主库的bin log。</p>
+<p><!--more--></p>
+<p>master代表主服务器，slave代表从服务器<br />
+<strong>1.【主与从】修改配置文件</strong><br />
+注意主从服务器的配置文件中 [mysqld]下如下内容的修改：<br />
+<span style="color: #0000ff;">server-id=1</span> #确保两台服务器id不同。</p>
+<p><strong>2.【主】创建用户并赋权</strong><br />
+<span style="color: #0000ff;">master>create user &lsquo;repl&rsquo;@&rsquo;slave_host&rsquo; identified by &lsquo;replpswd&rsquo;;</span><br />
+<span style="color: #0000ff;"> master>grant replication slave on *.* to &lsquo;repl&rsquo;@&rsquo;slave_host&rsquo;;</span></p>
+<p><strong>3.【主】获取特定时间点的快照</strong><br />
+方法1)<br />
+<span style="color: #0000ff;">master>flush tables with read lock;</span> # 使表无法变更<br />
+<span style="color: #0000ff;"> master>show master status;&nbsp;</span> # 了解binlog位置，作为后续同步的基准点<br />
+<span style="color: #0000ff;">shell>tar -cvf data.tar data</span><br />
+<span style="color: #0000ff;"> master>unlock tables;</span><br />
+这样获取了时间点的快照至 data.tar中，并且获取了binlog的基准点。<br />
+将data.tar拷贝至从服务器。</p>
+<p>方法2)<br />
+<span style="color: #0000ff;">mysqldump [options] --master-data=2 --single-transaction db_name > /tmp/db_name.sql</span><br />
+这样获取了时间点的快照至 /tmp/db_name.sql，其中已经包含了change master to命令。<br />
+将db_name.sql拷贝至从服务器。</p>
+<p><strong>4.【从】服务器启动</strong><br />
+如果使用 方法 1)获取的快照，启动前先将 data.tar解压的从服务器的数据目录下！</p>
+<p>使用 --skip-slave-start选项启动从数据库，这样不会立即启动从数据库服务上的复制进程。<br />
+<span style="color: #0000ff;"> root>mysqld_safe --skip-slave-start --user=mysql &amp;</span></p>
+<p><strong>5.【从】服务器设置</strong><br />
+如过使用 方法 2)，则<br />
+<span style="color: #0000ff;">slave>create database db_name;</span><br />
+<span style="color: #0000ff;"> slave>use db_name;</span><br />
+<span style="color: #0000ff;"> slave>source /tmp/db_name.sql</span><br />
+指定复制使用的用户，主服务器 IP、端口以及日志文件、位置等<br />
+<span style="color: #0000ff;">slave>change master to</span><br />
+<span style="color: #0000ff;"> ->master_host=&rsquo;master_host&rsquo;,</span><br />
+<span style="color: #0000ff;"> ->master_port=3310,</span><br />
+<span style="color: #0000ff;"> ->master_user=&rsquo;repl&rsquo;,</span><br />
+<span style="color: #0000ff;"> ->master_password=&rsquo;replpswd&rsquo;,</span><br />
+<span style="color: #0000ff;"> ->master_log_file=&rsquo;mysql-bin.000039&rsquo;,</span><br />
+<span style="color: #0000ff;"> ->master_log_pos=102;</span></p>
+<p><strong>6.【从】启动slave线程</strong><br />
+<span style="color: #0000ff;">slave>start slave</span></p>
+<p><strong>7.【从】检查是否正常运行</strong><br />
+<strong>slave>show processlist</strong></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/ms1.png"><img class="alignnone size-full wp-image-216" alt="ms1" src="http://www.sqlparty.com/wp-content/uploads/2013/07/ms1.png" width="558" height="68" /></a><br />
+显示如上，说明已经正常工作，开始接手并执行日志<br />
+也可以通过命令： show slave status来检查复制状态，查看Slave_IO_Running和 Slave_SQL_Runing两个进程状态是否是yes。如果其中有一个进程的状态是 no，则表示复制进程停止，错误原因从 Last_Errno字段中看到。</p>
+<h2>日常维护</h2><br />
+<strong> 1.同步维护</strong><br />
+但主从间由于种种原因，数据差距较大时， DBA可以手动处理进行同步。常见方法是：在负载较低的时候暂时阻塞主数据库的更新，强制主从数据库更新同步。<br />
+<span style="color: #0000ff;">master>flush tables with read lock;</span><br />
+<span style="color: #0000ff;"> master>show master status;</span></p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/07/ms2.png"><img class="alignnone size-full wp-image-217" alt="ms2" src="http://www.sqlparty.com/wp-content/uploads/2013/07/ms2.png" width="572" height="119" /></a><br />
+获取主服务器当前日志名和偏移量后，操作从服务器。<br />
+<span style="color: #0000ff;"> slave>select master_pos_wait(&lsquo;ch18_3db-bin.000005&rsquo;,&rsquo;106&rsquo;);</span><br />
+该语句会阻塞直到从服务器达到指定的日志文件和偏移量后，返回 0，如果返回-1 则表示超时退出。<br />
+<span style="color: #0000ff;">master>unlock tables;</span></p>
+<p><strong>2.从服务器出错处理</strong><br />
+从服务器出错后，会将日志文件写入错误日志中。<br />
+如果错误可纠正，就纠正后 start slave即可。如果希望跳过主服务器的语句命令，可以执行：<br />
+<span style="color: #0000ff;">slave>set global sql_slave_skip_counter=n;</span> #n代表从注服务器传过来的事件event。</p>

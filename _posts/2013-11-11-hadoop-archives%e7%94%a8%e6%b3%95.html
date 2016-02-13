@@ -1,0 +1,94 @@
+---
+layout: post
+status: publish
+published: true
+title: Hadoop Archives用法
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "HDFS设计用来存储大文件，其blocksize默认是64MB，其将所有块信息都存储在内存中，这样对存储的大文件能够快速的定位，以及提升文件io的效率。\r\n但是很多情况下HDFS中会存入大量的小文件，这对影响文件访问的性能，也会大量占用NameNode的内存资源。Hadoop
+  Archives是官方提供的小文件归档方案。\r\n<h2>原理：</h2>\r\nHadoop Archives运行MapReduce job来并行处理输入文件，将小文件的内容合并形成少量大文件，然后再利用index文件，指出小文件在大文件中所属的坐标，以此来减少小文件的量。Hadoop
+  Archives生成归档文件格式为HAR，HAR具体结构图如下：\r\n\r\n<a href=\"http://www.sqlparty.com/wp-content/uploads/2013/11/har_file_layout.png\"><img
+  class=\"alignnone size-full wp-image-775\" alt=\"har_file_layout\" src=\"http://www.sqlparty.com/wp-content/uploads/2013/11/har_file_layout.png\"
+  width=\"407\" height=\"255\" /></a>\r\n\r\n本图<a href=\"http://blog.cloudera.com/blog/2009/02/the-small-files-problem/\"
+  target=\"_blank\">来源</a>\r\n\r\n"
+wordpress_id: 774
+wordpress_url: http://www.sqlparty.com/?p=774
+date: '2013-11-11 14:54:25 +0800'
+date_gmt: '2013-11-11 06:54:25 +0800'
+categories:
+- 大数据
+tags:
+- Hadoop
+- hdfs
+---
+<p>HDFS设计用来存储大文件，其blocksize默认是64MB，其将所有块信息都存储在内存中，这样对存储的大文件能够快速的定位，以及提升文件io的效率。<br />
+但是很多情况下HDFS中会存入大量的小文件，这对影响文件访问的性能，也会大量占用NameNode的内存资源。Hadoop Archives是官方提供的小文件归档方案。</p>
+<h2>原理：</h2><br />
+Hadoop Archives运行MapReduce job来并行处理输入文件，将小文件的内容合并形成少量大文件，然后再利用index文件，指出小文件在大文件中所属的坐标，以此来减少小文件的量。Hadoop Archives生成归档文件格式为HAR，HAR具体结构图如下：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/11/har_file_layout.png"><img class="alignnone size-full wp-image-775" alt="har_file_layout" src="http://www.sqlparty.com/wp-content/uploads/2013/11/har_file_layout.png" width="407" height="255" /></a></p>
+<p>本图<a href="http://blog.cloudera.com/blog/2009/02/the-small-files-problem/" target="_blank">来源</a></p>
+<p><!--more--></p>
+<h2>用法：</h2><br />
+<span style="color: #0000ff;">shell> hadoop archive</span></p>
+<p><span style="color: #0000ff;">archive -archiveName NAME -p
+<parent path> <src>* <dest></span></p>
+<p>-archiveName指定HAR文件名，必须使用.har扩展。</p>
+<p>-p 指定父路径，这样可以指定0个或多个父路径的相对路径。如 -p /foo/bar a/b/c e/f/g 就是指定/foo/bar为父目录，a/b/c和e/f/g是相对于父目录的相对路径。如果不指定<src>*部分，那么就会取
+<parent path>下的所有文件，包括子目录中的文件。</p>
+<p>例如有HDFS中有如下内容：</p>
+<p><span style="color: #0000ff;">shell> hadoop fs -ls -h /tmp/carl/</span></p>
+<p><span style="color: #0000ff;">Found 5 items</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 1 Administrator hadoop 6 2013-11-08 15:19 /tmp/carl/c1.txt</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 1 Administrator hadoop 6 2013-11-08 15:19 /tmp/carl/c2.txt</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 1 Administrator hadoop 12 2013-11-08 15:19 /tmp/carl/c3.txt</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 1 Administrator hadoop 6 2013-11-08 15:19 /tmp/carl/c4.txt</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 1 Administrator hadoop 9 2013-11-08 15:19 /tmp/carl/c5.txt</span></p>
+<p>将/tmp/carl目录下的所有小文件存档到/tmp/files.har：</p>
+<p><span style="color: #0000ff;">shell> hadoop archive -archiveName files.har -p /tmp/carl /tmp</span></p>
+<p>Hadoop Archives是在HDFS上又做了一层封装，将小文件的内容利用mapreduce合并到一个或多个内容文件，而_index来指定每个文件在合成文件中的"坐标"。</p>
+<p>files.har在hdfs中作为一个目录，其内部有如下结构：</p>
+<p><span style="color: #0000ff;">shell> hadoop fs -ls /tmp/files.har</span></p>
+<p><span style="color: #0000ff;">Found 4 items</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 3 root hadoop 0 2013-11-11 10:57 /tmp/files.har/_SUCCESS</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 5 root hadoop 180 2013-11-11 10:57 /tmp/files.har/_index</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 5 root hadoop 23 2013-11-11 10:57 /tmp/files.har/_masterindex</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 3 root hadoop 39 2013-11-11 10:57 /tmp/files.har/part-0</span></p>
+<p>创建归档后，原来的数据文件不会删除，如果需要删除则手动处理。</p>
+<p>要访问通过归档文件来访问原始的数据，依然可以使用hadoop fs命令，但是URI需要发生变化，采用如下：</p>
+<p><span style="color: #0000ff;">har://<host>:
+<port>/<archive path>/<file in archive></span></p>
+<p>如果不指定<host>:
+<port>则使用本集群的HDFS路径： har:///<archive path>/<file in archive></p>
+<p>例如：</p>
+<p>查看归档中的文件、目录信息：</p>
+<p><span style="color: #0000ff;">shell> hadoop fs -ls har:///tmp/files.har/</span><br />
+<span style="color: #0000ff;">Found 5 items</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 3 root hadoop 6 2013-11-11 14:00 har:///tmp/files.har/c1.txt</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 3 root hadoop 6 2013-11-11 14:00 har:///tmp/files.har/c2.txt</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 3 root hadoop 12 2013-11-11 14:00 har:///tmp/files.har/c3.txt</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 3 root hadoop 6 2013-11-11 14:00 har:///tmp/files.har/c4.txt</span><br />
+<span style="color: #0000ff;">-rw-r--r-- 3 root hadoop 9 2013-11-11 14:00 har:///tmp/files.har/c5.txt</span></p>
+<p>查看归档文件中的c1.txt的内容：</p>
+<p><span style="color: #0000ff;">shell> hadoop fs -cat har:///tmp/files.har/c1.txt</span></p>
+<p>要删除整个归档，使用-rm -r :</p>
+<p><span style="color: #0000ff;">shell> hadoop fs -rm -r /tmp/files.har</span></p>
+<h2>小结：</h2><br />
+利用Hadoop Archives可以方便地对小文件进行归档。其有如下注意点：</p>
+<ol>
+<li>其原文件不会自动删除，有需要可以自行删除</li>
+<li>HAR文件的过程实际是运行一个mapreduce作业，需要hadoop集群运行此命令。实际测试发现，它不会自行Yarn框架，而是使用本地的mapred.LocalJobRunner</li>
+<li>Archives一旦创建不可改变，要增加或移除里面的文件，必须重新创建归档文件</li>
+<li>要归档的文件名不能有空格，可以将空格用其他符号替换(使用-Dhar.space.replacement.enable=true和-Dhar.space.replacement参数)</li>
+<li>Archive暂不支持压缩功能，所以意味着空间占用不会变少</li>
+<li>可以使用 har:///user/zoo/foo.har作为mapreduce的输入，mapreduce可以访问其中所有的文件。但是由于InputFormat不会意识到这是个归档文件，也就不会有意识的将多个文件划分到单独的split中，所以依然是安装多个小文件来处理，效率依然不高</li><br />
+</ol><br />
+参考：</p>
+<p><a href="http://hadoop.apache.org/docs/r1.2.1/hadoop_archives.html" target="_blank">http://hadoop.apache.org/docs/r1.2.1/hadoop_archives.html</a><br />
+《Hadoop the definitive Guide》<br />
+<a href="http://dongxicheng.org/mapreduce/hdfs-small-files-solution/" target="_blank">http://dongxicheng.org/mapreduce/hdfs-small-files-solution/</a><br />
+<a href="http://blog.cloudera.com/blog/2009/02/the-small-files-problem/" target="_blank">http://blog.cloudera.com/blog/2009/02/the-small-files-problem/</a></p>

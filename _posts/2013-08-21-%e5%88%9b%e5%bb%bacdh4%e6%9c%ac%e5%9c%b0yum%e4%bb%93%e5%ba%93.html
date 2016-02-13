@@ -1,0 +1,65 @@
+---
+layout: post
+status: publish
+published: true
+title: 创建cdh4本地Yum仓库
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "由于我们内网大部分服务器无法联网安装，选择安装我们自己的Yum repository，为后续搭建Hadoop集群做好准备。\r\n\r\n搭建中的Yum服务器要求创建过程中能够联网。\r\n\r\n"
+wordpress_id: 475
+wordpress_url: http://www.sqlparty.com/?p=475
+date: '2013-08-21 21:57:04 +0800'
+date_gmt: '2013-08-21 13:57:04 +0800'
+categories:
+- 大数据
+tags:
+- 大数据
+- Hadoop
+- cdh4
+- yum
+---
+<p>由于我们内网大部分服务器无法联网安装，选择安装我们自己的Yum repository，为后续搭建Hadoop集群做好准备。</p>
+<p>搭建中的Yum服务器要求创建过程中能够联网。</p>
+<p><!--more--></p>
+<h2>一、搭建</h2></p>
+<h3>1）配置yum源，用于下载文件</h3><br />
+<span style="color: #0000ff;">shell>vi /etc/yum.repos.d/cloudera-cdh4.repo</span><br />
+<span style="color: #0000ff;">[cloudera-cdh4]</span><br />
+<span style="color: #0000ff;">name=Cloudera's Distribution for Hadoop, Version 4</span><br />
+<span style="color: #0000ff;">baseurl=http://archive.cloudera.com/cdh4/redhat/5/x86_64/cdh/4/</span><br />
+<span style="color: #0000ff;">gpgkey = http://archive.cloudera.com/cdh4/redhat/5/x86_64/cdh/RPM-GPG-KEY-cloudera</span><br />
+<span style="color: #0000ff;">gpgcheck = 1</span></p>
+<p>一些配置项的说明，后面还是会用到:</p>
+<p>name 仓库的描述<br />
+baseurl 是你的 YUM 源地址 , 这里本地路径，可以配置的是 FTP, 还可以是 HTTP,FILE,smb 等<br />
+gpgcheck 是否检查 GPG 签名（用来验证要安装的包是不是官方的）</p>
+<h3>2）下载rpm包</h3><br />
+<span style="color: #0000ff;">shell>cd /db/soft</span><br />
+<span style="color: #0000ff;">shell>reposync -r cloudera-cdh4</span> #该步骤根据/etc/yum.repos.d/下 cloudera-cdh4.repo，下载el5下的软件包，到目录cludera-cdh4</p>
+<h3>3）配置Yum服务器</h3><br />
+<span style="color: #0000ff;">shell>mkdir -p /var/www/html/cdh4/el5&nbsp;</span>&nbsp; #/var/www/html是apache的根目录，这里创建后应测试是否可以通过web访问cdh4/el5。<br />
+#将rpm文件均拷贝至/var/www/html/cdh4/el5/目录下待用<br />
+<span style="color: #0000ff;">shell>mv cloudera-cdh4/RPMS/x86_64/*&nbsp; /var/www/html/cdh4/el5/ &nbsp;</span><br />
+<span style="color: #0000ff;">shell>mv cloudera-cdh4/RPMS/noarch/*&nbsp; /var/www/html/cdh4/el5/</span><br />
+<span style="color: #0000ff;">shell>cd /var/www/html/cdh4/el5</span><br />
+<span style="color: #0000ff;">shell>createrepo .</span>&nbsp;&nbsp; #注意.号，基于本目录创建一些元数据，使得yum了解这个 repository（实际会生成repodata文件夹）</p>
+<p>4）测试web是否可见：</p>
+<p>这个Yum服务器基于http，通过Web查看是否能够访问到，如下图</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/yum.png"><img class="alignnone size-full wp-image-478" alt="yum" src="http://www.sqlparty.com/wp-content/uploads/2013/08/yum.png" width="935" height="636" /></a></p>
+<h2>二、使用</h2><br />
+预备安装Hadoop集群的主机上，配置yum服务器的访问。</p>
+<p><span style="color: #0000ff;">shell>vi /etc/yum.repos.d/cloudera-cdh4.repo</span><br />
+<span style="color: #0000ff;">[cloudera-cdh4]</span><br />
+<span style="color: #0000ff;">name=Cloudera's Distribution for Hadoop, Version 4</span><br />
+<span style="color: #0000ff;">baseurl= http://192.168.10.126:8123/cdh4/el5/</span><br />
+<span style="color: #0000ff;">#gpgkey = http://archive.cloudera.com/cdh4/redhat/5/x86_64/cdh/RPM-GPG-KEY-cloudera</span><br />
+<span style="color: #0000ff;">gpgcheck =0</span></p>
+<p>保存后，检查该yum服务是否正常</p>
+<p><span style="color: #0000ff;">shell>yum clean all</span><br />
+<span style="color: #0000ff;">shell>yum search hadoop</span></p>
+<p>有正常信息返回即告可以正常使用！接下来，就可以使用yum install xxx进行安装啦，自动判断依赖等，方便啦。</p>

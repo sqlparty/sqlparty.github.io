@@ -1,0 +1,190 @@
+---
+layout: post
+status: publish
+published: true
+title: 基准测试tpcc测试模型
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "TPC(Transaction Processing Performance Council, 事务处理性能委员会)提供了一套基准测试的标准，任何软硬件厂商或其它测试者可以根据标准规范，构建自己的系统。针对典型的联机事务处理(OLTP，on-line
+  transaction processing)为主的数据库应用，TPC提供了TPC-C基准测试的标准规范。本文介绍该标准所基于的业务模型，让我们进一步了解tpcc的理论以及更深入了解tpcc基准测试工具的原理与结果。\r\n\r\n"
+wordpress_id: 343
+wordpress_url: http://www.sqlparty.com/?p=343
+date: '2013-08-06 08:47:24 +0800'
+date_gmt: '2013-08-06 00:47:24 +0800'
+categories:
+- 数据库
+tags:
+- 基准测试
+- tpcc
+---
+<p>TPC(Transaction Processing Performance Council, 事务处理性能委员会)提供了一套基准测试的标准，任何软硬件厂商或其它测试者可以根据标准规范，构建自己的系统。针对典型的联机事务处理(OLTP，on-line transaction processing)为主的数据库应用，TPC提供了TPC-C基准测试的标准规范。本文介绍该标准所基于的业务模型，让我们进一步了解tpcc的理论以及更深入了解tpcc基准测试工具的原理与结果。</p>
+<p><!--more--></p>
+<h2>1.OLTP应用环境</h2><br />
+有一个大型商品批发商，在地理分布的多个 <strong>区域(district)</strong>有业务，并且使用仓库管理。当业务扩展的时候，公司将添加新的 <strong>仓库(warehouse)</strong>。每个仓库负责为 10个区域供货；每个区域为 3000个<strong>客户(customer)</strong>提供服务。所有仓库维护公司销售的 100,000中<strong>商品(item)</strong>的<strong> 库存(stock)</strong>记录。平均每个客户的一个<strong> 订单(order)</strong>有 10个<strong>订单项(order line)</strong>；所有订单中约 1%的订单项在其直接所属的仓库中没有存货，需要由其他区域的仓库来供货。<br />
+客户向公司的系统发出新的订单或者查询其订单状态。<br />
+公司的系统也用于处理客户的付款，处理发货的订单，检查库存状态以便发现潜在的供货短缺问题。<br />
+下图显示了<strong>仓库 (warehouse)</strong>，<strong>区域(district)</strong>和 客户(customer)间的关系。</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/tpcc1.png"><img class="alignnone size-full wp-image-344" alt="tpcc1" src="http://www.sqlparty.com/wp-content/uploads/2013/08/tpcc1.png" width="429" height="247" /></a><br />
+系统需要处理的交易为以下五种：</p>
+<ol>
+<li>New-Order:客户输入一笔新的订货交易</li>
+<li>Payment:更新客户账户余额以反映其支付状况</li>
+<li>Delivery:发货 (模拟批处理交易)</li>
+<li>Order-Status:查询客户最近交易的状态</li>
+<li>Stock-Level:查询仓库库存状况，以便能够及时补货</li><br />
+</ol><br />
+对于前四种类型交易，要求响应时间在 5秒内；对于库存状况查询事务，要求响应时间在 20秒内。</p>
+<h2>2.表结构</h2></p>
+<h3>2.1表间关系</h3><br />
+TPC-C的事务处理以以下9张表为基础的数据库上实现处理过程，其数据量及其对应关系如下图所示：</p>
+<p><a href="http://www.sqlparty.com/wp-content/uploads/2013/08/tpcc2.png"><img class="alignnone size-full wp-image-345" alt="tpcc2" src="http://www.sqlparty.com/wp-content/uploads/2013/08/tpcc2.png" width="382" height="211" /></a><br />
+W表示仓库的数量，仓库数量的调整在测试中能够体现数据库所能够支持的数据规模的能力。<br />
+箭头上数字表示父子关系之间儿子的倍数。<br />
++表示个数可能会更多<br />
+k表示1000.</p>
+<h3>2.2表数据量</h3><br />
+根据上图，可以看到每张表的数据量情况</p>
+<div>
+<table class="table">
+<tbody>
+<tr>
+<td align="left" valign="top" width="41">
+<div align="justify"><span style="color: #010101; font-family: 宋体; font-size: small;">序号</span></div></td></p>
+<td align="left" valign="top" width="81">
+<div align="justify"><span style="color: #010101; font-family: 宋体; font-size: small;">表名</span></div></td></p>
+<td align="left" valign="top" width="90">
+<div align="justify"><span style="color: #010101; font-family: 宋体; font-size: small;">记录条数</span>&nbsp;<span style="color: #010101; font-family: Calibri; font-size: small;">(</span>&nbsp;<span style="color: #010101; font-family: 宋体; font-size: small;">条</span><span style="color: #010101; font-family: Calibri; font-size: small;">)</span></div></td></p>
+<td align="left" valign="top" width="136">
+<div align="justify"><span style="color: #010101; font-family: 宋体; font-size: small;">典型字段长度</span>&nbsp;<span style="color: #010101; font-family: Calibri; font-size: small;">(bytes)</span></div></td></p>
+<td align="left" valign="top" width="148">
+<div align="justify"><span style="color: #010101; font-family: 宋体; font-size: small;">典型表大小</span>&nbsp;<span style="color: #010101; font-family: Calibri; font-size: small;">(1000 bytes)</span></div></td><br />
+</tr></p>
+<tr>
+<td align="left" valign="top" width="41">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">1</span></div></td></p>
+<td align="left" valign="top" width="81">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">Warehouse</span></div></td></p>
+<td align="left" valign="top" width="90">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">1</span></div></td></p>
+<td align="left" valign="top" width="136">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">89</span></div></td></p>
+<td align="left" valign="top" width="148">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">0.089</span></div></td><br />
+</tr></p>
+<tr>
+<td align="left" valign="top" width="41">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">2</span></div></td></p>
+<td align="left" valign="top" width="81">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">District</span></div></td></p>
+<td align="left" valign="top" width="90">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">10</span></div></td></p>
+<td align="left" valign="top" width="136">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">95</span></div></td></p>
+<td align="left" valign="top" width="148">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">0.95</span></div></td><br />
+</tr></p>
+<tr>
+<td align="left" valign="top" width="41">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">3</span></div></td></p>
+<td align="left" valign="top" width="81">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">Customer</span></div></td></p>
+<td align="left" valign="top" width="90">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">30k</span></div></td></p>
+<td align="left" valign="top" width="136">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">655</span></div></td></p>
+<td align="left" valign="top" width="148">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">19650</span></div></td><br />
+</tr></p>
+<tr>
+<td align="left" valign="top" width="41">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">4</span></div></td></p>
+<td align="left" valign="top" width="81">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">History</span></div></td></p>
+<td align="left" valign="top" width="90">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">30k</span></div></td></p>
+<td align="left" valign="top" width="136">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">46</span></div></td></p>
+<td align="left" valign="top" width="148">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">1380</span></div></td><br />
+</tr></p>
+<tr>
+<td align="left" valign="top" width="41">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">5</span></div></td></p>
+<td align="left" valign="top" width="81">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">Order</span></div></td></p>
+<td align="left" valign="top" width="90">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">30k</span></div></td></p>
+<td align="left" valign="top" width="136">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">24</span></div></td></p>
+<td align="left" valign="top" width="148">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">720</span></div></td><br />
+</tr></p>
+<tr>
+<td align="left" valign="top" width="41">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">6</span></div></td></p>
+<td align="left" valign="top" width="81">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">New-Order</span></div></td></p>
+<td align="left" valign="top" width="90">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">9k</span></div></td></p>
+<td align="left" valign="top" width="136">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">8</span></div></td></p>
+<td align="left" valign="top" width="148">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">72</span></div></td><br />
+</tr></p>
+<tr>
+<td align="left" valign="top" width="41">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">7</span></div></td></p>
+<td align="left" valign="top" width="81">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">Order-Line</span></div></td></p>
+<td align="left" valign="top" width="90">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">300k</span></div></td></p>
+<td align="left" valign="top" width="136">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">54</span></div></td></p>
+<td align="left" valign="top" width="148">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">16200</span></div></td><br />
+</tr></p>
+<tr>
+<td align="left" valign="top" width="41">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">8</span></div></td></p>
+<td align="left" valign="top" width="81">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">Stock</span></div></td></p>
+<td align="left" valign="top" width="90">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">100k</span></div></td></p>
+<td align="left" valign="top" width="136">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">306</span></div></td></p>
+<td align="left" valign="top" width="148">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">30600</span></div></td><br />
+</tr></p>
+<tr>
+<td align="left" valign="top" width="41">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">9</span></div></td></p>
+<td align="left" valign="top" width="81">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">Item</span></div></td></p>
+<td align="left" valign="top" width="90">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">100k</span></div></td></p>
+<td align="left" valign="top" width="136">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">82</span></div></td></p>
+<td align="left" valign="top" width="148">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">8200</span></div></td><br />
+</tr></p>
+<tr>
+<td align="left" valign="top" width="41">
+<div align="justify"><span style="color: #010101; font-family: 宋体; font-size: small;">合计</span></div></td></p>
+<td colspan="3" align="left" valign="top" width="333"></td></p>
+<td align="left" valign="top" width="148">
+<div align="justify"><span style="color: #010101; font-family: Calibri; font-size: small;">76823.04</span></div></td><br />
+</tr><br />
+</tbody><br />
+</table><br />
+</div><br />
+每个 WareHouse对应大约80MB 数据，所以数据总量 (KB)&asymp;Warehouse 个数*76823.04KB<br />
+注： Item数目不随Warehouse 数据增加而增加！</p>
+<h3>2.3典型的表结构及关系</h3><br />
+<a href="http://www.sqlparty.com/wp-content/uploads/2013/08/tpcc3.png"><img class="alignnone size-full wp-image-346" alt="tpcc3" src="http://www.sqlparty.com/wp-content/uploads/2013/08/tpcc3.png" width="553" height="695" /></a></p>
+<h2>3.事务处理</h2><br />
+TPC-C的事务处理在一个以9张表为基础的数据库上实现处理过程，执行的事务包括：更新、插入、删除、终止，以及对主码和外码的访问。对于前四类交易事务，要求 90%的事务执行的响应时间应在 5秒以内；对于库存水平查询交易，则要求响应时间在 20秒以内。同时，测试过程中还要求被测试系统保证数据库事务的 ACID特性（TPC-C 规范中详细说明了验证被测试系统 ACID特性的测试步骤）。</p>

@@ -1,0 +1,79 @@
+---
+layout: post
+status: publish
+published: true
+title: Name node is in safe mode(安全模式)原理以及解决方案
+author:
+  display_name: super
+  login: super
+  email: sqlparty@gmail.com
+  url: ''
+author_login: super
+author_email: sqlparty@gmail.com
+excerpt: "实际工作中，遇到了HDFS集群进入安全模式Name node is in safe mode，导致对HDFS文件系统变成只读，无法进行写入，mkdir等更新操作。\r\n\r\n在我们遇到的问题中，查明原因是NameNode节点磁盘满(报警机制的遗漏，果断补上)。清理磁盘后，执行
+  hadoop dfsadmin -safemode leave ，恢复正常！\r\n\r\n需要进一步弄清楚NameNode safe mode机制的原理。\r\n<h2>原理探究</h2>\r\n首先理理HDFS集群的启动步骤：\r\n\r\n我们知道，NameNode启动时，首先会载入fsimage，fsimage保存了HDFS元数据(元数据包括文件名称、目录、路径、权限等信息)的某个时刻的快照，要取得完整的元数据信息，还需要重做事务日志edit（保存快照之后的元数据变更）。完成后NameNode中会包括HDFS中的文件、目录以及已知Block清单信息，但是不包括Block的具体分布信息。\r\n\r\nNameNode启动后，就等待DataNode接入。DataNode启动后会向NameNode汇报自身存储的Block信息，这样NameNode就逐步有了Block的分布全景。\r\n\r\nHDFS的特点之一，是会对数据块Block进行冗余存储，复制多份（默认是3份），这样既可以提高读取性能，尽量本地访问，也保证了数据内容的安全，可以容许一些数据块的丢失。HDFS如果发现有些数据块没有足够的复制，就会进行拷贝，补齐这些数据块的复制份数，这个特性就与安全模式Safe
+  Mode的引入有关。\r\n\r\n"
+wordpress_id: 777
+wordpress_url: http://www.sqlparty.com/?p=777
+date: '2013-11-23 13:04:14 +0800'
+date_gmt: '2013-11-23 05:04:14 +0800'
+categories:
+- 大数据
+tags:
+- Hadoop
+- hdfs
+---
+<p>实际工作中，遇到了HDFS集群进入安全模式Name node is in safe mode，导致对HDFS文件系统变成只读，无法进行写入，mkdir等更新操作。</p>
+<p>在我们遇到的问题中，查明原因是NameNode节点磁盘满(报警机制的遗漏，果断补上)。清理磁盘后，执行 hadoop dfsadmin -safemode leave ，恢复正常！</p>
+<p>需要进一步弄清楚NameNode safe mode机制的原理。</p>
+<h2>原理探究</h2><br />
+首先理理HDFS集群的启动步骤：</p>
+<p>我们知道，NameNode启动时，首先会载入fsimage，fsimage保存了HDFS元数据(元数据包括文件名称、目录、路径、权限等信息)的某个时刻的快照，要取得完整的元数据信息，还需要重做事务日志edit（保存快照之后的元数据变更）。完成后NameNode中会包括HDFS中的文件、目录以及已知Block清单信息，但是不包括Block的具体分布信息。</p>
+<p>NameNode启动后，就等待DataNode接入。DataNode启动后会向NameNode汇报自身存储的Block信息，这样NameNode就逐步有了Block的分布全景。</p>
+<p>HDFS的特点之一，是会对数据块Block进行冗余存储，复制多份（默认是3份），这样既可以提高读取性能，尽量本地访问，也保证了数据内容的安全，可以容许一些数据块的丢失。HDFS如果发现有些数据块没有足够的复制，就会进行拷贝，补齐这些数据块的复制份数，这个特性就与安全模式Safe Mode的引入有关。</p>
+<p><!--more--></p>
+<h2>为什么有安全模式？</h2><br />
+假设这样一个场景：</p>
+<ol>
+<li>一个集群拥有100个DataNode，每个数据块复制3份</li>
+<li>任何两个DataNode只有大约2%的数据块内容重叠</li><br />
+</ol><br />
+我们知道:</p>
+<p>所有的DataNode不会完全同时地启动，前两个DataNode启动后，如果集群不处于安全模式下，那么它们各自98%的块会立即进行复制，因为这些块没有达到指定的复制份数。</p>
+<p>当第三个DataNode启动后，情况变得更糟糕，更多的块需要进行复制。</p>
+<p>随着加入的DataNode越来越多，情况会持续恶化，大量被发现只有一份复制存在的块都会触发复制操作，导致大量的数据块复制，大量的网络开销，形成复制<strong>Replication的风暴</strong>！</p>
+<p>如果启用安全模式的话，NameNode不会试图修改文件结构、块分配情况，包括不会更新DataNode间block情况。安全模式下，它会一直等待接受DataNode关于Block信息的汇报。这样，安全模式下就避免了上面提到的复制风暴。所有（或者说几乎所有）的DataNode都允许注册和汇报其Block信息。</p>
+<p>NameNode会一直等待，直到有dfs.namenode.safemode.threshold-pct(默认0.999f，即99.9%)比例的Blocks的复制份数达到dfs.namenode.replication.min（默认1）。然后，NameNode会扫描真正需要进行复制的块，接着它等待dfs.namenode.safemode.extension毫秒(默认30000，即30秒)，随后自动退出安全模式，开始对需要复制的块(默认指replication < 3)进行复制！</p>
+<p>如果达不到所有Block的安全复制阈值，NameNode不会自动关闭安全模式，它会将情况记入日志，等待管理员干预，因为这种情况往往意味着有些DataNode没有启动或者没能够与NameNode完成交互，Hadoop期望人工参与来处理这个状态，避免复制风暴，也避免删除0复制份数的块信息导致块丢失。</p>
+<h2>SafeMode相关配置</h2></p>
+<ul>
+<li><strong>dfs.namenode.replication.min</strong> 默认为1。NameNode中设定所需要的数据块最低复制份数。只有大于等于这个值，才会认为块是有效的。</li>
+<li><strong>dfs.namenode.safemode.threshold-pct</strong> 默认值 0.999f。这个参数指定满足dfs.namenode.replication.min复制份数要求的Block数量的比率，超过这个比率后NameNode才能脱离安全模式。若小于0，则不需要等待DataNode的块报告就离开SafeMode，这会使得数据完整性无法保证；若大于1，则永远处于安全模式。</li>
+<li><strong>dfs.namenode.safemode.extension</strong> 默认30000，单位毫秒。安全模式的延期时间，即到达dfs.namenode.safemode.threshold-pct设置的阈值后，会再等待这么长时间，可以认为是等待一个稳定的集群环境。</li>
+<li><strong>dfs.namenode.safemode.min.datanodes</strong> 默认0。设置NameNode退出安全模式前确认活跃的DataNode数量。小于等于0表示不考虑活跃DataNode的影响，大于集群中DataNode总数则使得永远处于安全模式。</li><br />
+</ul></p>
+<h2>SafeMode相关操作</h2></p>
+<h3>1.查询当前是否安全模式</h3><br />
+<span style="color: #0000ff;">shell> hadoop dfsadmin -safemode get</span><br />
+<span style="color: #0000ff;"> Safe mode is ON</span><br />
+当然也可以通过Web UI查看</p>
+<h3>2.等待safemode关闭，以便后续操作</h3><br />
+<span style="color: #0000ff;">shell> hadoop dfsadmin -safemode wait</span></p>
+<h3>3.设置启用safemode</h3><br />
+<span style="color: #0000ff;">shell> hadoop dfsadmin -safemode enter</span><br />
+<span style="color: #0000ff;"> Safe mode is ON</span><br />
+这在进行一些集群维护操作时很有用，可以保持数据依然可读。<br />
+也可以在集群已是安全模式使执行，确保进入安全模式。</p>
+<h3>4.退出安全模式</h3><br />
+<span style="color: #0000ff;">shell> hadoop dfsadmin -safemode leave</span><br />
+<span style="color: #0000ff;"> Safe mode is OFF</span><br />
+还有一种退出安全模式的方式，就是调小dfs.namenode.safemode.threshold-pct。</p>
+<h2>补充</h2></p>
+<ol>
+<li>安全模式下，集群属于只读状态。但是严格来说，只是保证HDFS元数据信息的访问，而不保证文件的访问，因为文件的组成Block信息此时NameNode还不一定已经知道了。所以只有NameNode已了解了Block信息的文件才能独到。而安全模式下任何对HDFS有更新的操作都会失败。</li>
+<li>对于全新创建的HDFS集群，NameNode启动后不会进入安全模式，因为没有Block信息。</li>
+<li>回归我们的实例，HDFS集群在遇到一些异常情况，也会进入到安全模式，本案例是磁盘满，会导致edits无法写入。在处理后使用hadoop dfsadmin -safemode leave就能恢复正常。</li><br />
+</ol><br />
+参考：<br />
+<a href="http://lucene.472066.n3.nabble.com/Re-HDFS-start-up-with-safe-mode-td2794431.html" target="_blank">http://lucene.472066.n3.nabble.com/Re-HDFS-start-up-with-safe-mode-td2794431.html</a><br />
+《Hadoop: The Definitive Guide》</p>
